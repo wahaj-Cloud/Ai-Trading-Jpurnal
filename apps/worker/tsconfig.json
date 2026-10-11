@@ -1,0 +1,5 @@
+{
+  "extends": "@atc/tsconfig/node-library.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist", "declaration": false },
+  "include": ["src"]
+}

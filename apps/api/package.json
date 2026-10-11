@@ -1,0 +1,48 @@
+{
+  "name": "@atc/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "concurrently -k -n tsc,api \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --env-file-if-exists=.env --watch dist/main.js\"",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "test:integration": "node test/exchange-accounts.itest.mjs && node test/journal-analytics.itest.mjs && node test/coach.itest.mjs && node test/strategy.itest.mjs && node test/engagement.itest.mjs && node test/reports.itest.mjs && node test/billing-admin.itest.mjs && node test/throttle.itest.mjs"
+  },
+  "dependencies": {
+    "@atc/analytics": "workspace:*",
+    "@atc/coach": "workspace:*",
+    "@atc/crypto": "workspace:*",
+    "@atc/db": "workspace:*",
+    "@atc/exchange-adapters": "workspace:*",
+    "@atc/notify": "workspace:*",
+    "@atc/shared": "workspace:*",
+    "@atc/trade-engine": "workspace:*",
+    "@clerk/backend": "3.20.1",
+    "@nestjs/common": "12.1.0",
+    "@nestjs/core": "12.1.0",
+    "@nestjs/platform-express": "12.1.0",
+    "@nestjs/throttler": "6.7.1",
+    "@sentry/node": "11.0.0",
+    "bullmq": "6.3.9",
+    "exceljs": "4.4.0",
+    "helmet": "8.3.0",
+    "ioredis": "5.11.1",
+    "pdfkit": "0.20.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "svix": "^2.5.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@atc/tsconfig": "workspace:*",
+    "@types/express": "^5.0.6",
+    "@types/node": "22.20.4",
+    "@types/pdfkit": "0.17.6",
+    "concurrently": "^10.0.5",
+    "typescript": "5.9.3",
+    "vitest": "5.0.2"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@atc/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "concurrently -k -n tsc,worker \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --env-file-if-exists=.env --watch dist/main.js\"",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "test:integration": "node test/sync.itest.mjs"
+  },
+  "dependencies": {
+    "@atc/analytics": "workspace:*",
+    "@atc/coach": "workspace:*",
+    "@atc/crypto": "workspace:*",
+    "@atc/db": "workspace:*",
+    "@atc/exchange-adapters": "workspace:*",
+    "@atc/notify": "workspace:*",
+    "@atc/shared": "workspace:*",
+    "@atc/trade-engine": "workspace:*",
+    "@sentry/node": "11.0.0",
+    "bullmq": "6.3.9",
+    "ioredis": "5.11.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@atc/tsconfig": "workspace:*",
+    "@types/node": "22.20.4",
+    "concurrently": "^10.0.5",
+    "typescript": "5.9.3",
+    "vitest": "5.0.2"
+  }
+}

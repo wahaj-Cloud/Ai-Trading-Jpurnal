@@ -1,0 +1,786 @@
+// AI Trading Coach — Phase 2 schema (identity, billing foundation, audit).
+// Trading tables are added in the phase that introduces them (see docs/roadmap.md).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum PlanCode {
+  FREE
+  PRO
+  PREMIUM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELED
+}
+
+model User {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  authProviderId String    @unique @map("auth_provider_id")
+  email          String    @unique
+  name           String?
+  imageUrl       String?   @map("image_url")
+  timezone       String    @default("UTC")
+  baseCurrency   String    @default("USDT") @map("base_currency")
+  role           UserRole  @default(USER)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// Account deleted at the identity provider: personal data scrubbed, exchange keys destroyed.
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+  /// Blocked by an admin (reversible). Sign-in, sync, AI and notifications stop.
+  suspendedAt    DateTime? @map("suspended_at") @db.Timestamptz(3)
+  /// The primary email is verified at the identity provider (required for admin access).
+  emailVerified  Boolean   @default(false) @map("email_verified")
+  /// Identity provider's last-modified time of the profile we stored: older webhook events are ignored.
+  providerUpdatedAt DateTime? @map("provider_updated_at") @db.Timestamptz(3)
+
+  settings         UserSettings?
+  subscription     Subscription?
+  usageCounters    UsageCounter[]
+  auditLogs        AuditLog[]
+  exchangeAccounts ExchangeAccount[]
+  positions        Position[]
+  openPositions    OpenPosition[]
+  journalEntries   JournalEntry[]
+  tradeReviews     TradeReview[]
+  tradeContexts    TradeContext[]
+  coachNotes       CoachNote[]
+  conversations    CoachConversation[]
+  riskLimit        RiskLimit?
+  goals            Goal[]
+  notifications    Notification[]
+
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model UserSettings {
+  userId              String   @id @map("user_id") @db.Uuid
+  theme               String   @default("dark")
+  pnlColorScheme      String   @default("standard") @map("pnl_color_scheme") // standard | colorblind
+  notificationPrefs   Json     @default("{}") @map("notification_prefs")
+  defaultRiskPerTrade Decimal? @map("default_risk_per_trade") @db.Decimal(10, 4)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model Plan {
+  code          PlanCode @id
+  name          String
+  limits        Json // { exchangeAccounts, aiReviewsPerMonth, historyDays, coachMessagesPerDay }
+  paddlePriceId String?  @unique @map("paddle_price_id")
+  isPublic      Boolean  @default(true) @map("is_public")
+  sortOrder     Int      @default(0) @map("sort_order")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(uuid(7)) @db.Uuid
+  userId               String             @unique @map("user_id") @db.Uuid
+  planCode             PlanCode           @default(FREE) @map("plan_code")
+  status               SubscriptionStatus @default(ACTIVE)
+  paddleSubscriptionId String?            @unique @map("paddle_subscription_id")
+  paddleCustomerId     String?            @map("paddle_customer_id")
+  currentPeriodEnd     DateTime?          @map("current_period_end") @db.Timestamptz(3)
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  /// Paddle price the subscription is on (maps to plan and interval via configuration).
+  paddlePriceId        String?            @map("paddle_price_id")
+  /// occurred_at of the last applied Paddle event: older events arriving late are ignored.
+  paddleEventAt        DateTime?          @map("paddle_event_at") @db.Timestamptz(3)
+  /// Set by an admin: the plan was granted manually and billing events must not override it.
+  manualPlan           Boolean            @default(false) @map("manual_plan")
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planCode], references: [code])
+
+  @@index([status])
+  @@index([paddleCustomerId])
+  @@map("subscriptions")
+}
+
+model UsageCounter {
+  userId String @map("user_id") @db.Uuid
+  metric String // e.g. ai_trade_review, coach_message
+  period String // e.g. 2026-09 (monthly) or 2026-09-26 (daily)
+  count  Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, metric, period])
+  @@map("usage_counters")
+}
+
+enum Exchange {
+  BINANCE
+  MEXC
+  KUCOIN
+  BINGX
+  EXNESS // MetaTrader broker, synced through MetaApi
+}
+
+enum ExchangeAccountStatus {
+  ACTIVE // verified and usable for sync
+  INVALID // exchange now rejects the key (revoked, expired, permissions changed)
+  DISCONNECTED // user removed the key; history is kept
+  CONNECTING // MetaTrader account being logged in (provisioned at MetaApi); not usable yet
+}
+
+model ExchangeAccount {
+  id                  String                @id @default(uuid(7)) @db.Uuid
+  userId              String                @map("user_id") @db.Uuid
+  exchange            Exchange
+  label               String
+  status              ExchangeAccountStatus @default(ACTIVE)
+  /// The exchange's own account ID (e.g. Binance UID). Guards against a reconnect switching accounts.
+  externalAccountId   String?               @map("external_account_id")
+  /// Last 4 characters of the API key, for display only.
+  apiKeyHint          String                @map("api_key_hint")
+  /// null when the exchange does not report IP restrictions.
+  ipRestricted        Boolean?              @map("ip_restricted")
+  /// Permission flags reported by the exchange at the last verification.
+  permissions         Json                  @default("{}")
+  /// Non-secret connection details: MetaTrader server and platform, MetaApi account id and
+  /// provisioning state. Never holds passwords or keys.
+  metadata            Json                  @default("{}")
+  /// When the exchange will expire this key (MEXC keys without an IP whitelist).
+  keyExpiresAt        DateTime?             @map("key_expires_at") @db.Timestamptz(3)
+  lastVerifiedAt      DateTime?             @map("last_verified_at") @db.Timestamptz(3)
+  lastError           String?               @map("last_error")
+  /// End of the most recent successful sync window.
+  lastSyncedAt        DateTime?             @map("last_synced_at") @db.Timestamptz(3)
+  /// Earliest point of downloaded history (exchanges keep ~3 months).
+  historyStartsAt     DateTime?             @map("history_starts_at") @db.Timestamptz(3)
+  /// Set once the initial history download has finished.
+  backfillCompletedAt DateTime?             @map("backfill_completed_at") @db.Timestamptz(3)
+  /// Consecutive failed syncs; drives the retry backoff. Reset on success.
+  syncFailures        Int                   @default(0) @map("sync_failures")
+  /// When a failing account may be tried again (null = no backoff in effect).
+  syncRetryAt         DateTime?             @map("sync_retry_at") @db.Timestamptz(3)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential        ExchangeCredential?
+  fills             Fill[]
+  incomeEvents      IncomeEvent[]
+  exchangePositions ExchangePosition[]
+  positions         Position[]
+  syncCursors       SyncCursor[]
+  syncRuns          SyncRun[]
+  openPositions     OpenPosition[]
+  journalEntries    JournalEntry[]
+  tradeReviews      TradeReview[]
+  tradeContexts     TradeContext[]
+
+  @@unique([userId, exchange, externalAccountId])
+  @@index([userId, status])
+  @@index([status, lastSyncedAt])
+  @@map("exchange_accounts")
+}
+
+/// Secrets live in their own table so no ordinary query can select them by accident.
+/// Envelope-encrypted: fields use a per-record data key, wrapped by master key `keyId`.
+model ExchangeCredential {
+  accountId        String    @id @map("account_id") @db.Uuid
+  keyId            String    @map("key_id")
+  wrappedDataKey   Bytes     @map("wrapped_data_key")
+  apiKeyCipher     Bytes     @map("api_key_cipher")
+  apiSecretCipher  Bytes     @map("api_secret_cipher")
+  passphraseCipher Bytes?    @map("passphrase_cipher") // OKX/KuCoin-style exchanges
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  rotatedAt        DateTime? @map("rotated_at") @db.Timestamptz(3)
+
+  account ExchangeAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([keyId])
+  @@map("exchange_credentials")
+}
+
+// ─── Sync: raw exchange data (stored as received; everything below it is rebuildable) ───
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+enum PositionSide {
+  LONG
+  SHORT
+  BOTH
+}
+
+enum IncomeType {
+  FUNDING
+  COMMISSION
+  REALIZED_PNL
+  OTHER
+}
+
+/// One execution. Quantity in base units (contracts x contract size); fee in quote, positive = paid.
+model Fill {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  accountId      String       @map("account_id") @db.Uuid
+  exchangeFillId String       @map("exchange_fill_id")
+  orderId        String?      @map("order_id")
+  symbol         String
+  side           TradeSide
+  positionSide   PositionSide @map("position_side")
+  price          Decimal      @db.Decimal(36, 18)
+  qty            Decimal      @db.Decimal(36, 18)
+  fee            Decimal      @db.Decimal(36, 18)
+  feeAsset       String?      @map("fee_asset")
+  realizedPnl    Decimal?     @map("realized_pnl") @db.Decimal(36, 18)
+  isMaker        Boolean?     @map("is_maker")
+  executedAt     DateTime     @map("executed_at") @db.Timestamptz(3)
+  raw            Json
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account   ExchangeAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  positions PositionFill[]
+
+  @@unique([accountId, exchangeFillId])
+  @@index([accountId, symbol, executedAt])
+  @@map("fills")
+}
+
+/// Account ledger entries: funding, commissions, realised PnL. Amount signed: positive = received.
+model IncomeEvent {
+  id         String     @id @default(uuid(7)) @db.Uuid
+  accountId  String     @map("account_id") @db.Uuid
+  externalId String     @map("external_id")
+  type       IncomeType
+  amount     Decimal    @db.Decimal(36, 18)
+  asset      String
+  symbol     String?
+  occurredAt DateTime   @map("occurred_at") @db.Timestamptz(3)
+  raw        Json
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account ExchangeAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, externalId])
+  @@index([accountId, type, occurredAt])
+  @@map("income_events")
+}
+
+/// A position record as the exchange computed it (MEXC, KuCoin, BingX). Refreshed while it changes.
+model ExchangePosition {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  accountId  String    @map("account_id") @db.Uuid
+  externalId String    @map("external_id")
+  symbol     String
+  closed     Boolean
+  closedAt   DateTime? @map("closed_at") @db.Timestamptz(3)
+  raw        Json
+  fetchedAt  DateTime  @default(now()) @map("fetched_at") @db.Timestamptz(3)
+
+  account ExchangeAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, externalId])
+  @@map("exchange_positions")
+}
+
+// ─── Sync: derived journal data (rebuilt from raw data; never edited by hand) ───
+
+enum PositionSource {
+  FILLS // rebuilt by our engine from fills (Binance)
+  EXCHANGE // computed by the exchange (MEXC, KuCoin, BingX)
+  CSV // imported by the user
+}
+
+enum PositionDirection {
+  LONG
+  SHORT
+}
+
+enum PositionStatus {
+  OPEN
+  CLOSED
+}
+
+enum FillRole {
+  OPEN
+  CLOSE
+}
+
+/// A journal "trade": one round trip on one symbol and direction.
+model Position {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  userId            String            @map("user_id") @db.Uuid
+  /// null for CSV imports that are not tied to a connected account.
+  accountId         String?           @map("account_id") @db.Uuid
+  exchange          Exchange
+  source            PositionSource
+  /// Stable identity within the user's journal, so re-syncs update rows instead of duplicating.
+  sourceKey         String            @map("source_key")
+  symbol            String
+  baseAsset         String            @map("base_asset")
+  quoteAsset        String            @map("quote_asset")
+  /// Currency the PnL, fees and funding are paid in: the quote for linear (USDT/USDC) contracts,
+  /// the base coin for inverse (coin-margined, "USD"-quoted) contracts.
+  settleAsset       String            @map("settle_asset")
+  direction         PositionDirection
+  status            PositionStatus
+  openedAt          DateTime          @map("opened_at") @db.Timestamptz(3)
+  closedAt          DateTime?         @map("closed_at") @db.Timestamptz(3)
+  entryPrice        Decimal?          @map("entry_price") @db.Decimal(36, 18)
+  exitPrice         Decimal?          @map("exit_price") @db.Decimal(36, 18)
+  quantity          Decimal?          @db.Decimal(36, 18)
+  leverage          Decimal?          @db.Decimal(10, 2)
+  grossPnl          Decimal?          @map("gross_pnl") @db.Decimal(36, 18)
+  fees              Decimal?          @db.Decimal(36, 18)
+  funding           Decimal?          @db.Decimal(36, 18)
+  netPnl            Decimal?          @map("net_pnl") @db.Decimal(36, 18)
+  holdingSeconds    Int?              @map("holding_seconds")
+  /// The position opened before the history we could download.
+  incompleteHistory Boolean           @default(false) @map("incomplete_history")
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account ExchangeAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  fills   PositionFill[]
+
+  @@unique([userId, sourceKey])
+  @@index([userId, closedAt(sort: Desc)])
+  @@index([userId, status])
+  @@index([accountId, symbol])
+  /// Global "recently closed" scans by the schedulers.
+  @@index([closedAt])
+  @@map("positions")
+}
+
+enum MarginMode {
+  CROSS
+  ISOLATED
+}
+
+/// Live open position as reported by the exchange at the last sync (replaced on every sync).
+/// Separate from journal positions: it carries mark price and unrealised PnL, which change constantly.
+model OpenPosition {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  userId           String            @map("user_id") @db.Uuid
+  accountId        String            @map("account_id") @db.Uuid
+  exchange         Exchange
+  /// Exchange position ID, or symbol:side when the exchange has none.
+  externalId       String            @map("external_id")
+  symbol           String
+  baseAsset        String            @map("base_asset")
+  quoteAsset       String            @map("quote_asset")
+  settleAsset      String            @map("settle_asset")
+  direction        PositionDirection
+  /// Base units for linear contracts; quote (USD) units for inverse contracts. Null when the
+  /// exchange reports contracts and the contract size is unknown.
+  quantity         Decimal?          @db.Decimal(36, 18)
+  entryPrice       Decimal?          @map("entry_price") @db.Decimal(36, 18)
+  markPrice        Decimal?          @map("mark_price") @db.Decimal(36, 18)
+  unrealizedPnl    Decimal?          @map("unrealized_pnl") @db.Decimal(36, 18)
+  leverage         Decimal?          @db.Decimal(10, 2)
+  liquidationPrice Decimal?          @map("liquidation_price") @db.Decimal(36, 18)
+  marginMode       MarginMode?       @map("margin_mode")
+  openedAt         DateTime?         @map("opened_at") @db.Timestamptz(3)
+  syncedAt         DateTime          @map("synced_at") @db.Timestamptz(3)
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account ExchangeAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, externalId])
+  @@index([userId])
+  @@map("open_positions")
+}
+
+// ─── Journal: the trader's own notes (never touched by sync) ───
+
+/// The trader's review of one trade. Linked by the position's source key rather than a foreign key,
+/// because a rebuild may delete and later recreate a position; the notes must survive that.
+model JournalEntry {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  /// Removing an exchange account removes its notes; null for CSV-imported trades.
+  accountId      String?  @map("account_id") @db.Uuid
+  /// positions.source_key of the trade this entry reviews.
+  positionKey    String   @map("position_key")
+  setup          String?  @db.VarChar(80)
+  tags           String[] @default([])
+  /// Codes from the shared emotion list (e.g. FOMO, REVENGE).
+  emotions       String[] @default([])
+  /// Codes from the shared mistake list (e.g. MOVED_STOP, NO_PLAN).
+  mistakes       String[] @default([])
+  /// 1 (poor execution) to 5 (textbook).
+  rating         Int?     @db.SmallInt
+  notes          String?
+  /// Planned stop and target: make risk (R) measurable.
+  stopPrice      Decimal? @map("stop_price") @db.Decimal(36, 18)
+  targetPrice    Decimal? @map("target_price") @db.Decimal(36, 18)
+  /// Chart screenshot links (uploads arrive in a later phase).
+  screenshotUrls String[] @default([]) @map("screenshot_urls")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account ExchangeAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, positionKey])
+  @@index([tags], type: Gin)
+  @@index([accountId])
+  @@map("journal_entries")
+}
+
+/// Which part of which fill belongs to a position (a flip splits one fill between two positions).
+model PositionFill {
+  positionId String   @map("position_id") @db.Uuid
+  fillId     String   @map("fill_id") @db.Uuid
+  qty        Decimal  @db.Decimal(36, 18)
+  role       FillRole
+
+  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  fill     Fill     @relation(fields: [fillId], references: [id], onDelete: Cascade)
+
+  @@id([positionId, fillId])
+  @@index([fillId])
+  @@map("position_fills")
+}
+
+// ─── Sync: bookkeeping ───
+
+/// Resume points per data stream (e.g. "binance:fills:BTCUSDT"), so syncs continue where they stopped.
+model SyncCursor {
+  accountId String   @map("account_id") @db.Uuid
+  stream    String
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account ExchangeAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, stream])
+  @@map("sync_cursors")
+}
+
+enum SyncRunKind {
+  BACKFILL
+  INCREMENTAL
+  MANUAL
+}
+
+enum SyncRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model SyncRun {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  accountId         String        @map("account_id") @db.Uuid
+  kind              SyncRunKind
+  status            SyncRunStatus @default(RUNNING)
+  windowStart       DateTime?     @map("window_start") @db.Timestamptz(3)
+  windowEnd         DateTime?     @map("window_end") @db.Timestamptz(3)
+  fillsFetched      Int           @default(0) @map("fills_fetched")
+  incomeFetched     Int           @default(0) @map("income_fetched")
+  positionsUpserted Int           @default(0) @map("positions_upserted")
+  errorCode         String?       @map("error_code")
+  errorMessage      String?       @map("error_message")
+  startedAt         DateTime      @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt        DateTime?     @map("finished_at") @db.Timestamptz(3)
+
+  account ExchangeAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, startedAt(sort: Desc)])
+  @@index([status, startedAt])
+  @@map("sync_runs")
+}
+
+// Append-only. Never update or delete rows from application code.
+model AuditLog {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  ip        String?
+  userAgent String?  @map("user_agent")
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+// ─── AI coach (Phase 6) ───
+
+enum ReviewStatus {
+  PENDING
+  DONE
+  FAILED
+  LIMIT_REACHED
+}
+
+/// AI review of one trade. Keyed like journal entries (by the trade's stable source key) so it
+/// survives rebuilds. The grade and flags are computed by rules; the texts are written by the model.
+model TradeReview {
+  id               String       @id @default(uuid(7)) @db.Uuid
+  userId           String       @map("user_id") @db.Uuid
+  accountId        String?      @map("account_id") @db.Uuid
+  positionKey      String       @map("position_key")
+  status           ReviewStatus @default(PENDING)
+  grade            String       @db.VarChar(2)
+  score            Int          @db.SmallInt
+  gradeFactors     Json         @default("[]") @map("grade_factors")
+  flags            Json         @default("[]")
+  summary          String?
+  entryAnalysis    String?      @map("entry_analysis")
+  exitAnalysis     String?      @map("exit_analysis")
+  riskAnalysis     String?      @map("risk_analysis")
+  strategyAnalysis String?      @map("strategy_analysis")
+  mistakes         String[]     @default([])
+  positives        String[]     @default([])
+  nextTime         String?      @map("next_time")
+  /// Fingerprint of the trade and journal the review was written from (detects stale reviews).
+  inputHash        String       @map("input_hash")
+  model            String?
+  promptVersion    String?      @map("prompt_version")
+  inputTokens      Int          @default(0) @map("input_tokens")
+  outputTokens     Int          @default(0) @map("output_tokens")
+  error            String?
+  generatedAt      DateTime?    @map("generated_at") @db.Timestamptz(3)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account ExchangeAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, positionKey])
+  @@index([userId, generatedAt(sort: Desc)])
+  @@index([accountId])
+  @@map("trade_reviews")
+}
+
+enum CoachNoteKind {
+  DAILY
+  WEEKLY
+}
+
+/// End-of-day / end-of-week coaching note.
+model CoachNote {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  userId        String        @map("user_id") @db.Uuid
+  kind          CoachNoteKind
+  /// First day of the period, YYYY-MM-DD in the trader's timezone.
+  period        String        @db.VarChar(10)
+  /// { headline, wentWell[], costMoney[], focus }
+  content       Json
+  flags         Json          @default("[]")
+  /// { trades, netPnl, winRate }
+  stats         Json
+  model         String?
+  promptVersion String?       @map("prompt_version")
+  inputTokens   Int           @default(0) @map("input_tokens")
+  outputTokens  Int           @default(0) @map("output_tokens")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, period])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("coach_notes")
+}
+
+model CoachConversation {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String   @db.VarChar(120)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages CoachMessage[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("coach_conversations")
+}
+
+enum CoachRole {
+  USER
+  ASSISTANT
+}
+
+model CoachMessage {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  role           CoachRole
+  content        String
+  model          String?
+  inputTokens    Int       @default(0) @map("input_tokens")
+  outputTokens   Int       @default(0) @map("output_tokens")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation CoachConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("coach_messages")
+}
+
+// ─── Strategy analysis (Phase 7) ───
+
+enum ContextStatus {
+  DONE
+  /// Not enough market history, or the exchange no longer lists the symbol. Not retried automatically.
+  UNAVAILABLE
+}
+
+/// Market context of one trade (indicators, structure, zones, excursion), computed from candles.
+model TradeContext {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  accountId   String?       @map("account_id") @db.Uuid
+  positionKey String        @map("position_key")
+  status      ContextStatus
+  timeframe   String?       @db.VarChar(4)
+  /// TradeContextDto
+  context     Json?
+  version     Int           @default(1) @db.SmallInt
+  error       String?
+  computedAt  DateTime      @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account ExchangeAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, positionKey])
+  @@index([accountId])
+  @@map("trade_contexts")
+}
+
+// ─── Goals, risk limits, notifications (Phase 8) ───
+
+/// Daily guard-rails, in USD. Null = no limit.
+model RiskLimit {
+  userId            String   @id @map("user_id") @db.Uuid
+  maxDailyLoss      Decimal? @map("max_daily_loss") @db.Decimal(14, 2)
+  maxTradesPerDay   Int?     @map("max_trades_per_day")
+  maxDrawdown       Decimal? @map("max_drawdown") @db.Decimal(14, 2)
+  dailyProfitTarget Decimal? @map("daily_profit_target") @db.Decimal(14, 2)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("risk_limits")
+}
+
+enum GoalPeriod {
+  WEEK
+  MONTH
+}
+
+/// A recurring goal, evaluated for every week or month.
+model Goal {
+  id        String     @id @default(uuid(7)) @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  period    GoalPeriod
+  metric    String     @db.VarChar(20)
+  target    Decimal    @db.Decimal(14, 2)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("goals")
+}
+
+enum EmailStatus {
+  NONE
+  PENDING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id            String      @id @default(uuid(7)) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  kind          String      @db.VarChar(20)
+  title         String      @db.VarChar(160)
+  body          String
+  link          String?
+  /// Makes each event notify once (e.g. "risk:MAX_DAILY_LOSS:2026-09-27").
+  dedupeKey     String      @map("dedupe_key")
+  readAt        DateTime?   @map("read_at") @db.Timestamptz(3)
+  emailStatus   EmailStatus @default(NONE) @map("email_status")
+  emailAttempts Int         @default(0) @map("email_attempts") @db.SmallInt
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([emailStatus, createdAt])
+  @@map("notifications")
+}
+
+// ─── Billing and admin (Phase 10) ───
+
+/// Every billing webhook received, once (idempotency and audit).
+model BillingEvent {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  /// Paddle event ID (evt_...).
+  eventId    String   @unique @map("event_id")
+  type       String
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  userId     String?  @map("user_id") @db.Uuid
+  payload    Json
+  /// What we did: APPLIED, IGNORED_STALE, IGNORED_UNKNOWN_USER, IGNORED_TYPE
+  outcome    String   @db.VarChar(40)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("billing_events")
+}
+
+enum AnnouncementLevel {
+  INFO
+  WARNING
+}
+
+/// Message shown to all signed-in users between startsAt and endsAt.
+model Announcement {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  title     String            @db.VarChar(120)
+  body      String            @db.VarChar(1000)
+  level     AnnouncementLevel @default(INFO)
+  startsAt  DateTime          @default(now()) @map("starts_at") @db.Timestamptz(3)
+  endsAt    DateTime?         @map("ends_at") @db.Timestamptz(3)
+  createdBy String?           @map("created_by") @db.Uuid
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([startsAt, endsAt])
+  @@map("announcements")
+}

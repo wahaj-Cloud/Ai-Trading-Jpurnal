@@ -1,0 +1,31 @@
+{
+  "name": "@atc/coach",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@atc/analytics": "workspace:*",
+    "@atc/db": "workspace:*",
+    "@atc/shared": "workspace:*",
+    "@atc/ta": "workspace:*",
+    "@atc/trade-engine": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@atc/tsconfig": "workspace:*",
+    "@types/node": "22.20.4",
+    "typescript": "5.9.3",
+    "vitest": "5.0.2"
+  }
+}

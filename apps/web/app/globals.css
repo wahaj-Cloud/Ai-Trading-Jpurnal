@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — "Chart night".
+ * Slate-navy surfaces (reads like a trading terminal, not pure black), one amber accent reserved
+ * for coaching and primary actions, and profit/loss colours that never double as brand colours.
+ */
+@theme {
+  --color-canvas: #0f141c;
+  --color-panel: #151c27;
+  --color-raised: #1b2433;
+  --color-rule: #233044;
+  --color-ink: #e7ecf3;
+  --color-ink-muted: #8c99ac;
+  --color-ink-faint: #5d6a7e;
+  --color-coach: #f0b429;
+  --color-coach-ink: #1a1405;
+  --color-profit: var(--pnl-profit);
+  --color-loss: var(--pnl-loss);
+
+  --font-sans: "IBM Plex Sans Variable", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-control: 6px;
+  --radius-surface: 10px;
+}
+
+:root {
+  color-scheme: dark;
+  --pnl-profit: #26b07e;
+  --pnl-loss: #e5484d;
+}
+
+/* Colour-blind-safe P&L palette (blue/orange), chosen per user in Settings. */
+[data-pnl="colorblind"] {
+  --pnl-profit: #4c8df6;
+  --pnl-loss: #f08c2e;
+}
+
+@layer base {
+  html {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-coach);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-coach) 35%, transparent);
+  }
+}
+
+@utility figures {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings:
+    "tnum" 1,
+    "zero" 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

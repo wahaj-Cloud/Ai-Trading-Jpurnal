@@ -1,0 +1,36 @@
+{
+  "name": "@atc/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "node dist/src/seed.js",
+    "drift:check": "scripts/check-drift.sh"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "dotenv": "^17.2.0",
+    "pg": "^8.16.0",
+    "prisma": "7.10.0"
+  },
+  "devDependencies": {
+    "@atc/tsconfig": "workspace:*",
+    "@prisma/driver-adapter-utils": "7.10.0",
+    "@prisma/schema-engine-wasm": "7.10.0-4.0edf323efd1d98336f3f0a68684b56f689b900d3",
+    "@types/node": "22.20.4",
+    "@types/pg": "^8.15.0",
+    "typescript": "5.9.3"
+  }
+}

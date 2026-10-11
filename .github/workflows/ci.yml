@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm turbo run typecheck test build
+        env:
+          # Build-time placeholders only. Real keys live in Vercel/Railway, never in the repo.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
+          CLERK_SECRET_KEY: sk_test_ci_placeholder
+          API_URL: http://localhost:4000
+
+  database:
+    name: Migrations, schema drift, integration tests
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: atc
+          POSTGRES_PASSWORD: atc
+          POSTGRES_DB: atc
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U atc" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DIRECT_URL: postgresql://atc:atc@localhost:5432/atc
+      DATABASE_URL: postgresql://atc:atc@localhost:5432/atc
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --filter=@atc/api --filter=@atc/worker
+      - name: Apply migrations to an empty database
+        run: pnpm --filter @atc/db migrate:deploy
+      - name: Seed twice (must be idempotent)
+        run: pnpm --filter @atc/db seed && pnpm --filter @atc/db seed
+      - name: Fail if schema.prisma and migrations have drifted
+        working-directory: packages/db
+        run: pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: Exchange connection integration tests
+        run: pnpm --filter @atc/api test:integration
+      - name: Sync worker integration tests (Postgres + Redis + fake exchanges)
+        run: pnpm --filter @atc/worker test:integration
+      - name: Worker unit tests that need Redis
+        run: pnpm --filter @atc/worker test
