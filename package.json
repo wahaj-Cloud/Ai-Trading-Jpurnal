@@ -1,0 +1,24 @@
+{
+  "name": "ai-trading-coach",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check": "biome check .",
+    "format": "biome check --write .",
+    "db:generate": "pnpm --filter @atc/db generate",
+    "db:migrate": "pnpm --filter @atc/db migrate:dev",
+    "db:seed": "pnpm --filter @atc/db seed",
+    "release": "pnpm --filter @atc/db migrate:deploy && pnpm --filter @atc/db seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "turbo": "2.11.4"
+  }
+}
