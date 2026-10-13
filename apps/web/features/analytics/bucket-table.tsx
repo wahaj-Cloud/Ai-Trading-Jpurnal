@@ -66,8 +66,8 @@ export function BucketTable({
                         className={cn(
                           "absolute inset-y-0",
                           v >= 0
-                            ? "left-1/2 rounded-r-[4px] bg-profit"
-                            : "right-1/2 rounded-l-[4px] bg-loss",
+                            ? "pop-bar left-1/2 rounded-r-[4px] bg-profit"
+                            : "pop-bar right-1/2 rounded-l-[4px] bg-loss",
                         )}
                         style={{ width: `${share}%` }}
                       />

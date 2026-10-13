@@ -51,8 +51,10 @@ function DayCell({ date, day, data, max, today }: Cell & { max: number; today: s
       aria-label={label}
       role="img"
       className={cn(
-        "flex aspect-[6/5] min-h-9 flex-col justify-between rounded-[4px] border p-1",
-        data ? "border-transparent" : "border-rule/60",
+        "flex aspect-[6/5] min-h-9 flex-col justify-between rounded-lg border p-1",
+        data
+          ? "lift border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(0,0,0,0.25),0_8px_16px_-8px_rgba(0,0,0,0.75)]"
+          : "border-rule/60",
         date === today && "ring-1 ring-coach",
       )}
       style={
@@ -164,7 +166,7 @@ export function CalendarHeatmap({
                       key={`week-${wi}`}
                       role="img"
                       aria-label={`Week ${wi + 1}: ${formatPnl(String(weekPnl))}, ${weekTrades} trades`}
-                      className="flex min-h-9 flex-col items-end justify-center rounded-[4px] border border-rule/60 bg-raised/50 px-1.5"
+                      className="raised flex min-h-9 flex-col items-end justify-center rounded-lg px-1.5"
                     >
                       <span
                         className={cn(

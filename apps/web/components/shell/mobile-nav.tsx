@@ -12,7 +12,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-panel/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="surface fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-30 rounded-[28px] px-1 lg:hidden"
     >
       <ul className="grid grid-cols-5">
         {items.map(({ label, href, icon: Icon, available }) => {
@@ -23,14 +23,19 @@ export function MobileNav() {
               <span className="text-[11px]">{label}</span>
             </>
           );
-          const cls = "flex h-16 flex-col items-center justify-center gap-1";
+          const cls = "m-1 flex h-14 flex-col items-center justify-center gap-0.5 rounded-[22px]";
           return (
             <li key={href}>
               {available ? (
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={cn(cls, active ? "text-coach" : "text-ink-muted")}
+                  className={cn(
+                    cls,
+                    active
+                      ? "bg-white/[0.12] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+                      : "text-ink-muted",
+                  )}
                 >
                   {content}
                 </Link>

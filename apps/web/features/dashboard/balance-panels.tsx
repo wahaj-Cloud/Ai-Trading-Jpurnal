@@ -24,7 +24,7 @@ function WinRing({ wins, losses, rate }: { wins: number; losses: number; rate: n
   return (
     <svg
       viewBox="0 0 128 128"
-      className="h-32 w-32 shrink-0"
+      className="h-32 w-32 shrink-0 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_rgba(77,148,255,0.18))]"
       role="img"
       aria-label={`Win rate ${formatPercent(rate, 0)}: ${wins} wins, ${losses} losses`}
     >
@@ -93,7 +93,7 @@ function PairBar({
       </div>
       <div className="h-2 rounded-full bg-rule/50">
         <div
-          className={cn("h-2 rounded-full", tone === "profit" ? "bg-profit" : "bg-loss")}
+          className={cn("pop-bar h-2 rounded-full", tone === "profit" ? "bg-profit" : "bg-loss")}
           style={{ width: `${w}%` }}
         />
       </div>
@@ -193,8 +193,8 @@ export function CoinBars({ buckets, limit = 7 }: { buckets: BucketDto[]; limit?:
                 className={cn(
                   "absolute inset-y-0",
                   v >= 0
-                    ? "left-1/2 rounded-r-[4px] bg-profit"
-                    : "right-1/2 rounded-l-[4px] bg-loss",
+                    ? "pop-bar left-1/2 rounded-r-[5px] bg-profit"
+                    : "pop-bar right-1/2 rounded-l-[5px] bg-loss",
                 )}
                 style={{ width: `${Math.max(share, 0.6)}%` }}
               />

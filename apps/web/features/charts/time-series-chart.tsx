@@ -15,6 +15,7 @@ import {
 } from "lightweight-charts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMoney, formatPnl } from "@/features/trades/format";
+import { cn } from "@/lib/cn";
 
 export interface Point {
   /** YYYY-MM-DD (a calendar day in the trader's timezone). */
@@ -30,8 +31,26 @@ const LABELS: Record<Kind, string> = {
   drawdown: "Drawdown from peak",
 };
 
+/**
+ * Reads a theme colour and normalises it to the browser's computed `rgb()/rgba()` form, which the
+ * chart library always parses (it mis-reads 8-digit hex and modern colour syntaxes as black).
+ */
 function cssVar(el: HTMLElement, name: string, fallback: string): string {
-  return getComputedStyle(el).getPropertyValue(name).trim() || fallback;
+  const probe = document.createElement("span");
+  probe.style.display = "none";
+  probe.style.color = `var(${name}, ${fallback})`;
+  el.appendChild(probe);
+  const color = getComputedStyle(probe).color;
+  probe.remove();
+  return color || fallback;
+}
+
+/** Same colour with its opacity multiplied by `a` (expects the rgb()/rgba() form from cssVar). */
+function alpha(color: string, a: number): string {
+  const m = color.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/);
+  if (!m) return color;
+  const base = m[4] === undefined ? 1 : Number(m[4]);
+  return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${+(base * a).toFixed(3)})`;
 }
 
 const dayLabel = new Intl.DateTimeFormat("en", {
@@ -58,6 +77,8 @@ export function TimeSeriesChart({
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<Point | null>(null);
+  // Where the floating readout sits, in pixels inside the chart.
+  const [tip, setTip] = useState<{ x: number; y: number; width: number } | null>(null);
   const last = points.at(-1) ?? null;
 
   const data = useMemo(
@@ -84,7 +105,7 @@ export function TimeSeriesChart({
       },
       grid: {
         vertLines: { visible: false },
-        horzLines: { color: `${rule}99`, style: LineStyle.Solid },
+        horzLines: { color: alpha(rule, 0.6), style: LineStyle.Solid },
       },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.08 } },
       timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true },
@@ -101,12 +122,15 @@ export function TimeSeriesChart({
       series = chart.addSeries(BaselineSeries, {
         baseValue: { type: "price", price: 0 },
         topLineColor: profit,
-        topFillColor1: `${profit}40`,
-        topFillColor2: `${profit}05`,
+        topFillColor1: alpha(profit, 0.25),
+        topFillColor2: alpha(profit, 0.02),
         bottomLineColor: loss,
-        bottomFillColor1: `${loss}05`,
-        bottomFillColor2: `${loss}40`,
-        lineWidth: 2,
+        bottomFillColor1: alpha(loss, 0.02),
+        bottomFillColor2: alpha(loss, 0.25),
+        lineWidth: 3,
+        crosshairMarkerRadius: 6,
+        crosshairMarkerBorderWidth: 2,
+        crosshairMarkerBorderColor: "#ffffff",
         priceLineVisible: false,
         lastValueVisible: false,
       });
@@ -121,9 +145,12 @@ export function TimeSeriesChart({
     } else {
       series = chart.addSeries(AreaSeries, {
         lineColor: loss,
-        topColor: `${loss}05`,
-        bottomColor: `${loss}40`,
-        lineWidth: 2,
+        topColor: alpha(loss, 0.02),
+        bottomColor: alpha(loss, 0.25),
+        lineWidth: 3,
+        crosshairMarkerRadius: 6,
+        crosshairMarkerBorderWidth: 2,
+        crosshairMarkerBorderColor: "#ffffff",
         priceLineVisible: false,
         lastValueVisible: false,
         invertFilledArea: true,
@@ -150,11 +177,16 @@ export function TimeSeriesChart({
 
     const onMove = (param: MouseEventParams<Time>) => {
       const value = param.seriesData.get(series) as { value?: number } | undefined;
-      if (!param.time || value?.value === undefined) {
+      if (!param.time || value?.value === undefined || !param.point) {
         setHover(null);
+        setTip(null);
         return;
       }
       setHover({ date: String(param.time), value: value.value });
+      const y = series.priceToCoordinate(
+        kind === "drawdown" ? -Math.abs(value.value) : value.value,
+      );
+      setTip({ x: param.point.x, y: y ?? param.point.y, width: el.clientWidth });
     };
     chart.subscribeCrosshairMove(onMove);
     return () => {
@@ -179,13 +211,36 @@ export function TimeSeriesChart({
           <span className="text-sm text-ink">{valueText}</span>
         </span>
       </figcaption>
-      <div
-        ref={container}
-        style={{ height }}
-        className="w-full"
-        role="img"
-        aria-label={`${LABELS[kind]} chart, ${points.length} days. A table follows.`}
-      />
+      <div className="relative">
+        <div
+          ref={container}
+          style={{ height }}
+          className="w-full [filter:drop-shadow(0_10px_12px_rgba(0,0,0,0.55))]"
+          role="img"
+          aria-label={`${LABELS[kind]} chart, ${points.length} days. A table follows.`}
+        />
+        {hover && tip && (
+          <div
+            aria-hidden="true"
+            className="pop pointer-events-none absolute z-10 rounded-[var(--radius-control)] px-3 py-2"
+            style={{
+              // Keep the bubble inside the chart: flip to the left of the cursor near the right edge.
+              left: Math.min(Math.max(tip.x + 14, 4), tip.width - 150),
+              top: Math.max(tip.y - 64, 4),
+            }}
+          >
+            <p className="text-[11px] text-ink-muted">{formatDay(hover.date)}</p>
+            <p
+              className={cn(
+                "figures pop-text text-base font-semibold",
+                kind === "drawdown" ? "text-loss" : hover.value >= 0 ? "text-profit" : "text-loss",
+              )}
+            >
+              {valueText}
+            </p>
+          </div>
+        )}
+      </div>
       <table className="sr-only">
         <caption>{LABELS[kind]}</caption>
         <thead>

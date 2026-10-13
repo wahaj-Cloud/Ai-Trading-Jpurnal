@@ -11,7 +11,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const items = isAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-rule bg-panel/70 backdrop-blur-md lg:flex">
+    <aside className="surface sticky top-3 my-3 ml-3 hidden h-[calc(100dvh-1.5rem)] w-60 shrink-0 flex-col rounded-[var(--radius-surface)] lg:flex">
       <div className="flex h-16 items-center px-5">
         <Link href="/dashboard" aria-label="AI Trading Coach home">
           <Wordmark />
@@ -41,15 +41,15 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
                   href={href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex h-9 items-center gap-3 rounded-[var(--radius-control)] px-3 text-sm transition-colors",
+                    "relative flex h-10 items-center gap-3 rounded-[var(--radius-control)] px-3 text-sm transition-colors",
                     active
-                      ? "bg-raised text-ink"
-                      : "text-ink-muted hover:bg-raised/60 hover:text-ink",
+                      ? "bg-white/[0.12] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_14px_-6px_rgba(0,0,0,0.5)]"
+                      : "text-ink-muted hover:bg-white/[0.06] hover:text-ink",
                   )}
                 >
                   {active && (
                     <span
-                      className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-coach"
+                      className="absolute top-1/2 right-3 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-coach shadow-[0_0_8px_var(--color-coach)]"
                       aria-hidden="true"
                     />
                   )}

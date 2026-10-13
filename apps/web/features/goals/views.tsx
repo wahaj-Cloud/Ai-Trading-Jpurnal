@@ -36,7 +36,7 @@ export function GoalRow({ goal, action }: { goal: GoalDto; action?: React.ReactN
       >
         <div
           className={cn(
-            "h-full rounded-full",
+            "pop-bar h-full rounded-full",
             goal.state === "FAILED" || (lower && pct >= 1)
               ? "bg-loss"
               : goal.state === "BEHIND"

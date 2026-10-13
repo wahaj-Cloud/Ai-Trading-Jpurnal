@@ -77,7 +77,7 @@ export function SessionMap({
             <li
               key={id}
               className={cn(
-                "relative overflow-hidden rounded-[var(--radius-control)] border border-rule bg-raised/60 p-4",
+                "raised lift relative overflow-hidden rounded-[var(--radius-control)] p-4",
                 id === best && "border-profit/60",
                 id === worst && "border-loss/60",
               )}
@@ -107,7 +107,7 @@ export function SessionMap({
               </div>
               <p
                 className={cn(
-                  "figures mt-3 text-xl font-semibold",
+                  "figures pop-text mt-3 text-2xl font-semibold",
                   trades ? TONE[tone] : "text-ink-faint",
                 )}
               >
@@ -122,11 +122,11 @@ export function SessionMap({
                   {decided > 0 ? (
                     <>
                       <span
-                        className="rounded-l-full bg-profit"
+                        className="pop-bar rounded-l-full bg-profit"
                         style={{ width: `${(wins / decided) * 100}%` }}
                       />
                       <span
-                        className="rounded-r-full bg-loss"
+                        className="pop-bar rounded-r-full bg-loss"
                         style={{ width: `${(losses / decided) * 100}%` }}
                       />
                     </>

@@ -44,36 +44,52 @@ export function KpiBand({ report }: { report: AnalyticsDto | null }) {
   const empty = !s || s.trades === 0;
 
   return (
-    <section aria-labelledby="kpi-heading" className="rounded-[var(--radius-surface)] surface">
+    <section aria-labelledby="kpi-heading" className="grid gap-3">
       <h2 id="kpi-heading" className="sr-only">
         Performance summary
       </h2>
-      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-rule">
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {metrics.map((m) => (
           <div
             key={m.label}
-            className="border-b border-rule px-5 py-4 last:col-span-2 sm:last:col-span-1 lg:border-b-0"
+            className="surface lift relative overflow-hidden rounded-[var(--radius-surface)] px-5 py-4 last:col-span-2 sm:last:col-span-1"
           >
-            <dt className="text-sm text-ink-muted">{m.label}</dt>
+            {/* A soft pool of light in the corner, tinted by the figure's own colour. */}
+            <span
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full opacity-25 blur-2xl",
+                empty
+                  ? "bg-coach"
+                  : m.tone === "text-profit"
+                    ? "bg-profit"
+                    : m.tone === "text-loss"
+                      ? "bg-loss"
+                      : "bg-coach",
+              )}
+            />
+            <dt className="relative text-sm text-ink-muted">{m.label}</dt>
             <dd
               className={cn(
-                "figures mt-1 text-2xl font-semibold",
+                "figures pop-text relative mt-1 text-[1.7rem] leading-tight font-semibold",
                 empty ? "text-ink-faint" : m.tone || "text-ink",
               )}
             >
               {m.value}
             </dd>
-            {m.hint && !empty && <dd className="mt-0.5 text-xs text-ink-faint">{m.hint}</dd>}
+            {m.hint && !empty && (
+              <dd className="relative mt-0.5 text-xs text-ink-faint">{m.hint}</dd>
+            )}
           </div>
         ))}
       </dl>
       {empty && (
-        <p className="border-rule px-5 py-3 text-sm text-ink-muted lg:border-t">
+        <p className="text-sm text-ink-muted">
           Figures fill in automatically after your first closed trade syncs.
         </p>
       )}
       {report && report.excluded.trades > 0 && (
-        <p className="border-t border-rule px-5 py-2 text-xs text-ink-faint">
+        <p className="text-xs text-ink-faint">
           {report.excluded.trades} coin-margined trades (paid in {report.excluded.assets.join(", ")}
           ) are listed on Trades but not added to these USD totals.
         </p>

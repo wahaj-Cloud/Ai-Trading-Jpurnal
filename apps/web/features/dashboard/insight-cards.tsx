@@ -53,7 +53,7 @@ function StreakBlock({
       <p className="text-xs text-ink-muted">{title}</p>
       <p
         className={cn(
-          "figures text-3xl font-semibold",
+          "figures pop-text text-3xl font-semibold",
           current.kind === "WIN"
             ? "text-profit"
             : current.kind === "LOSS"
@@ -133,7 +133,7 @@ export function SymbolsDonut({ buckets, top = 5 }: { buckets: BucketDto[]; top?:
     <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
       <svg
         viewBox="0 0 120 120"
-        className="h-36 w-36 shrink-0"
+        className="h-36 w-36 shrink-0 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_rgba(77,148,255,0.18))]"
         role="img"
         aria-label={`${rows.length} symbols traded across ${total} trades`}
       >
@@ -226,7 +226,7 @@ export function DailyWinCard({ days }: { days: DayDto[] }) {
       <div className="flex flex-col items-center">
         <svg
           viewBox="0 0 120 70"
-          className="w-40"
+          className="w-40 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_rgba(77,148,255,0.18))]"
           role="img"
           aria-label={`Winning days ${formatPercent(s.winRate, 0)}`}
         >
@@ -265,13 +265,19 @@ export function DailyWinCard({ days }: { days: DayDto[] }) {
       <div className="grid content-center gap-2">
         <div className="flex items-baseline justify-between">
           <span className="text-xs text-ink-muted">Avg green day / avg red day</span>
-          <span className="figures text-lg font-semibold">
+          <span className="figures pop-text text-lg font-semibold">
             {ratio === null ? "—" : ratio.toFixed(2)}
           </span>
         </div>
         <div className="flex h-2.5 gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
-          <span className="rounded-l-full bg-profit" style={{ width: `${winShare * 100}%` }} />
-          <span className="rounded-r-full bg-loss" style={{ width: `${(1 - winShare) * 100}%` }} />
+          <span
+            className="pop-bar rounded-l-full bg-profit"
+            style={{ width: `${winShare * 100}%` }}
+          />
+          <span
+            className="pop-bar rounded-r-full bg-loss"
+            style={{ width: `${(1 - winShare) * 100}%` }}
+          />
         </div>
         <div className="flex justify-between text-xs">
           <span className="figures text-profit">{formatPnl(String(s.avgWinDay))}</span>
@@ -300,19 +306,33 @@ export function HourlyWinsLosses({ buckets }: { buckets: BucketDto[] }) {
         {buckets.map((b) => (
           <div
             key={b.key}
-            className="group relative"
+            className="group relative outline-none"
             role="img"
             aria-label={`${b.key.padStart(2, "0")}:00 — ${b.wins} wins, ${b.losses} losses, ${formatPnl(b.pnl)}`}
-            title={`${b.key.padStart(2, "0")}:00 · ${b.wins}W / ${b.losses}L · ${formatPnl(b.pnl)}`}
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: focus reveals the exact figures for keyboard users
+            tabIndex={0}
           >
             <span
-              className="absolute inset-x-[15%] bottom-1/2 rounded-t-[3px] bg-coach group-hover:opacity-80"
+              className="absolute inset-x-[15%] bottom-1/2 pop-bar rounded-t-[4px] bg-coach group-hover:brightness-125"
               style={{ height: `${(b.wins / max) * 50}%` }}
             />
             <span
-              className="absolute inset-x-[15%] top-1/2 rounded-b-[3px] bg-[#d95926] group-hover:opacity-80"
+              className="absolute inset-x-[15%] top-1/2 pop-bar rounded-b-[4px] bg-[#d95926] group-hover:brightness-125"
               style={{ height: `${(b.losses / max) * 50}%` }}
             />
+            <div
+              aria-hidden="true"
+              className="pop pointer-events-none absolute bottom-[calc(50%+0.5rem)] left-1/2 z-10 hidden w-max -translate-x-1/2 rounded-[var(--radius-control)] px-3 py-2 text-xs group-hover:block group-focus-visible:block"
+            >
+              <p className="font-medium">{b.key.padStart(2, "0")}:00</p>
+              <p className="figures">
+                <span className="text-coach">{b.wins} won</span> ·{" "}
+                <span className="text-[#f07a45]">{b.losses} lost</span>
+              </p>
+              <p className={cn("figures pop-text font-semibold", TONE[pnlTone(b.pnl)])}>
+                {formatPnl(b.pnl)}
+              </p>
+            </div>
           </div>
         ))}
       </div>
@@ -367,7 +387,7 @@ export function YearlyGrid({ months }: { months: MonthDto[] }) {
                 <div
                   key={label}
                   className={cn(
-                    "rounded-[6px] border px-1.5 py-1.5 text-center",
+                    "lift rounded-[10px] border px-1.5 py-1.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_8px_16px_-8px_rgba(0,0,0,0.7)]",
                     !m
                       ? "border-rule/60 bg-raised/30"
                       : v >= 0
@@ -393,7 +413,7 @@ export function YearlyGrid({ months }: { months: MonthDto[] }) {
                 </div>
               );
             })}
-            <div className="rounded-[6px] border border-coach/50 bg-coach/10 px-1.5 py-1.5 text-center">
+            <div className="raised rounded-[10px] px-1.5 py-1.5 text-center">
               <p className="text-[10px] text-ink-faint">Year</p>
               <p
                 className={cn(

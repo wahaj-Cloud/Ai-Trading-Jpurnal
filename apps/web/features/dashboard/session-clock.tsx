@@ -54,11 +54,32 @@ export function SessionClock({ timeZone }: { timeZone: string }) {
     <div className="grid gap-6 lg:grid-cols-[1fr_15rem]">
       <div className="grid gap-5">
         <div>
-          <p className="figures glow-text text-4xl font-semibold tracking-tight sm:text-5xl">
-            {pad(now.getUTCHours())}:{pad(now.getUTCMinutes())}:{pad(now.getUTCSeconds())}{" "}
-            <span className="text-2xl text-ink-muted sm:text-3xl">UTC</span>
+          <p className="figures flex items-center gap-1.5 text-4xl font-semibold tracking-tight sm:gap-2 sm:text-5xl">
+            <span className="sr-only">
+              {pad(now.getUTCHours())}:{pad(now.getUTCMinutes())} UTC
+            </span>
+            {[now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()].map((n, i) => (
+              <span key={["h", "m", "s"][i]} className="flex items-center gap-1.5 sm:gap-2">
+                {i > 0 && (
+                  <span className="pop-text pb-1 text-ink-faint" aria-hidden="true">
+                    :
+                  </span>
+                )}
+                <span
+                  aria-hidden="true"
+                  className="raised glow-text relative rounded-[14px] px-2.5 py-1.5 sm:px-3 sm:py-2"
+                >
+                  {/* Flip-clock seam across the middle of each tile. */}
+                  <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-black/35 shadow-[0_1px_0_rgba(255,255,255,0.08)]" />
+                  {pad(n)}
+                </span>
+              </span>
+            ))}
+            <span className="pop-text ml-1 text-xl text-ink-muted sm:text-2xl" aria-hidden="true">
+              UTC
+            </span>
           </p>
-          <p className="figures mt-1 text-sm text-ink-muted">
+          <p className="figures mt-3 text-sm text-ink-muted">
             Your time {pad(Math.floor(local.minutes / 60))}:{pad(local.minutes % 60)} · {tz}
           </p>
         </div>
@@ -71,21 +92,21 @@ export function SessionClock({ timeZone }: { timeZone: string }) {
             return (
               <div key={m.id} className="grid grid-cols-[5.5rem_1fr] items-center gap-3">
                 <span className="text-xs text-ink-muted">{m.label}</span>
-                <div className="relative h-5 rounded-[4px] bg-raised/50">
+                <div className="relative h-5 rounded-full bg-black/25 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.06)]">
                   {segments(start, start + (m.close - m.open)).map(([a, b]) => (
                     <span
                       key={a}
                       className={cn(
-                        "absolute inset-y-0 rounded-[4px]",
+                        "pop-bar absolute inset-y-0 rounded-full",
                         status?.open
-                          ? "bg-coach/70 shadow-[0_0_14px_-2px_rgb(61_139_255/0.8)]"
-                          : "bg-coach/25",
+                          ? "bg-coach shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_0_18px_-2px_rgba(77,148,255,0.9)]"
+                          : "bg-coach/35",
                       )}
                       style={{ left: `${(a / 1440) * 100}%`, width: `${((b - a) / 1440) * 100}%` }}
                     />
                   ))}
                   <span
-                    className="absolute inset-y-[-3px] w-px bg-ink"
+                    className="absolute inset-y-[-4px] w-0.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"
                     style={{ left: `${nowPct}%` }}
                     aria-hidden="true"
                   />
@@ -107,7 +128,7 @@ export function SessionClock({ timeZone }: { timeZone: string }) {
         </div>
       </div>
 
-      <div className="grid content-start gap-2 rounded-[var(--radius-control)] border border-rule bg-raised/40 p-3">
+      <div className="raised grid content-start gap-2 rounded-[var(--radius-control)] p-3">
         <p className="text-[11px] font-medium uppercase tracking-wider text-ink-faint">Markets</p>
         <ul className="grid gap-1.5">
           {statuses.map((s) => (
@@ -126,7 +147,7 @@ export function SessionClock({ timeZone }: { timeZone: string }) {
                 </span>
               </span>
               {s.open ? (
-                <span className="rounded border border-profit/40 bg-profit/10 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-profit">
+                <span className="rounded-full border border-profit/50 bg-profit/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-profit shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_12px_-2px_var(--pnl-profit)]">
                   LIVE · {formatCountdown(s.minutesToChange)}
                 </span>
               ) : (

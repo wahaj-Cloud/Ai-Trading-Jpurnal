@@ -9,7 +9,7 @@ export function LogoMark({ className }: { className?: string }) {
       <rect x="6" y="8" width="4" height="8" rx="1" fill="#e7ecf3" />
       <path
         d="M12.5 15.5l3-3 2 2 3-5"
-        stroke="#3d8bff"
+        stroke="#4d94ff"
         strokeWidth="1.75"
         fill="none"
         strokeLinecap="round"

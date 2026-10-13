@@ -24,7 +24,7 @@ export function Metric({
       <dt className="text-xs text-ink-muted">{label}</dt>
       <dd
         className={cn(
-          "figures mt-1 truncate font-semibold",
+          "figures pop-text mt-1 truncate font-semibold",
           size === "lg" ? "text-2xl" : "text-lg",
           signed !== undefined ? TONE[pnlTone(signed ?? null)] : "text-ink",
         )}

@@ -53,7 +53,7 @@ export function PnlColumns({
               <div
                 className={cn(
                   "absolute inset-x-0 mx-auto w-full max-w-7 transition-opacity group-hover:opacity-80",
-                  up ? "rounded-t-[4px] bg-profit" : "rounded-b-[4px] bg-loss",
+                  up ? "pop-bar rounded-t-[5px] bg-profit" : "pop-bar rounded-b-[5px] bg-loss",
                   b.trades === 0 && "hidden",
                 )}
                 style={
@@ -70,10 +70,17 @@ export function PnlColumns({
               />
               <div
                 role="tooltip"
-                className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden w-max max-w-48 -translate-x-1/2 rounded-[var(--radius-control)] border border-rule bg-raised px-2.5 py-1.5 text-xs shadow-lg group-hover:block group-focus-visible:block"
+                className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden w-max max-w-48 -translate-x-1/2 pop rounded-[var(--radius-control)] px-3 py-2 text-xs group-hover:block group-focus-visible:block"
               >
                 <p className="font-medium">{label(b.key)}</p>
-                <p className="figures text-ink">{formatPnl(b.pnl)}</p>
+                <p
+                  className={cn(
+                    "figures pop-text text-sm font-semibold",
+                    Number(b.pnl) >= 0 ? "text-profit" : "text-loss",
+                  )}
+                >
+                  {formatPnl(b.pnl)}
+                </p>
                 <p className="text-ink-muted">
                   {b.trades} trades · {formatPercent(b.winRate, 0)} won
                 </p>

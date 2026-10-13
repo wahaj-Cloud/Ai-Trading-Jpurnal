@@ -19,17 +19,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       appearance={{
         theme: dark,
         variables: {
-          colorPrimary: "#3d8bff",
-          colorPrimaryForeground: "#1a1405",
-          colorBackground: "#151c27",
-          colorForeground: "#e7ecf3",
-          colorMutedForeground: "#8c99ac",
-          colorInput: "#0f141c",
-          colorInputForeground: "#e7ecf3",
-          colorBorder: "#233044",
+          colorPrimary: "#4d94ff",
+          colorPrimaryForeground: "#ffffff",
+          colorBackground: "#10153a",
+          colorForeground: "#f2f5ff",
+          colorMutedForeground: "#aab6d6",
+          colorInput: "#0a0e2a",
+          colorInputForeground: "#f2f5ff",
+          colorBorder: "#2c3466",
           colorDanger: "#e5484d",
           fontFamily: '"IBM Plex Sans Variable", system-ui, sans-serif',
-          borderRadius: "6px",
+          borderRadius: "12px",
         },
       }}
     >
