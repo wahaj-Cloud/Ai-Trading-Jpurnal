@@ -27,6 +27,54 @@ function firstWeekday(month: string): number {
   return (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
 }
 
+type Cell = { date: string; day: number; data: DayDto | undefined };
+
+/** Rows of seven, padded with nulls before the 1st and after the last day. */
+function weeksOf(lead: number, days: Cell[]): Array<Array<Cell | null>> {
+  const cells: Array<Cell | null> = [...Array.from({ length: lead }, () => null), ...days];
+  while (cells.length % 7) cells.push(null);
+  const weeks: Array<Array<Cell | null>> = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
+function DayCell({ date, day, data, max, today }: Cell & { max: number; today: string }) {
+  const pnl = Number(data?.pnl ?? 0);
+  const strength = max === 0 || !data ? 0 : Math.sqrt(Math.abs(pnl) / max);
+  const tint = pnl > 0 ? "var(--pnl-profit)" : "var(--pnl-loss)";
+  const label = data
+    ? `${date}: ${formatPnl(data.pnl)}, ${data.trades} trade${data.trades === 1 ? "" : "s"}`
+    : `${date}: no trades`;
+  return (
+    <div
+      title={label}
+      aria-label={label}
+      role="img"
+      className={cn(
+        "flex aspect-[6/5] min-h-9 flex-col justify-between rounded-[4px] border p-1",
+        data ? "border-transparent" : "border-rule/60",
+        date === today && "ring-1 ring-coach",
+      )}
+      style={
+        data && pnl !== 0
+          ? {
+              background: `color-mix(in srgb, ${tint} ${Math.round(12 + strength * 58)}%, var(--color-panel))`,
+            }
+          : data
+            ? { background: "var(--color-raised)" }
+            : undefined
+      }
+    >
+      <span className={cn("leading-none", data ? "text-ink" : "text-ink-faint")}>{day}</span>
+      {data && (
+        <span className="figures hidden truncate text-right leading-none text-ink sm:block">
+          {cellAmount(data.pnl)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
  * P&L calendar: one cell per day, tinted by result (deeper = larger), with the amount printed in
  * the cell so the sign is never carried by colour alone. Intensity is relative to the largest day
@@ -36,12 +84,15 @@ export function CalendarHeatmap({
   months,
   days,
   today,
+  weekTotals = false,
 }: {
   /** YYYY-MM, in display order. */
   months: string[];
   days: DayDto[];
   /** YYYY-MM-DD in the trader's timezone. */
   today: string;
+  /** Adds a column with each week's net result. */
+  weekTotals?: boolean;
 }) {
   const byDate = new Map(days.map((d) => [d.date, d]));
   const max = Math.max(...days.map((d) => Math.abs(Number(d.pnl))), 0);
@@ -74,7 +125,12 @@ export function CalendarHeatmap({
                 {formatPnl(String(total))}
               </span>
             </header>
-            <div className="grid grid-cols-7 gap-[2px] text-[11px]">
+            <div
+              className={cn(
+                "grid gap-[2px] text-[11px]",
+                weekTotals ? "grid-cols-[repeat(7,minmax(0,1fr))_minmax(0,1.15fr)]" : "grid-cols-7",
+              )}
+            >
               {WEEKDAYS.map((w, i) => (
                 <span
                   // biome-ignore lint/suspicious/noArrayIndexKey: fixed weekday header
@@ -85,48 +141,51 @@ export function CalendarHeatmap({
                   {w}
                 </span>
               ))}
-              {Array.from({ length: lead }, (_, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: empty leading cells
-                <span key={`lead-${i}`} aria-hidden="true" />
-              ))}
-              {monthDays.map(({ date, day, data }) => {
-                const pnl = Number(data?.pnl ?? 0);
-                const strength = max === 0 || !data ? 0 : Math.sqrt(Math.abs(pnl) / max);
-                const tint = pnl > 0 ? "var(--pnl-profit)" : "var(--pnl-loss)";
-                const label = data
-                  ? `${date}: ${formatPnl(data.pnl)}, ${data.trades} trade${data.trades === 1 ? "" : "s"}`
-                  : `${date}: no trades`;
-                return (
-                  <div
-                    key={date}
-                    title={label}
-                    aria-label={label}
-                    role="img"
-                    className={cn(
-                      "flex aspect-[6/5] min-h-9 flex-col justify-between rounded-[4px] border p-1",
-                      data ? "border-transparent" : "border-rule/60",
-                      date === today && "ring-1 ring-coach",
-                    )}
-                    style={
-                      data && pnl !== 0
-                        ? {
-                            background: `color-mix(in srgb, ${tint} ${Math.round(12 + strength * 58)}%, var(--color-panel))`,
-                          }
-                        : data
-                          ? { background: "var(--color-raised)" }
-                          : undefined
-                    }
-                  >
-                    <span className={cn("leading-none", data ? "text-ink" : "text-ink-faint")}>
-                      {day}
-                    </span>
-                    {data && (
-                      <span className="figures hidden truncate text-right leading-none text-ink sm:block">
-                        {cellAmount(data.pnl)}
+              {weekTotals && (
+                <span className="pb-1 text-center text-ink-faint" aria-hidden="true">
+                  Week
+                </span>
+              )}
+              {weeksOf(lead, monthDays).map((week, wi) => {
+                const weekPnl = week.reduce((sum, d) => sum + Number(d?.data?.pnl ?? 0), 0);
+                const weekTrades = week.reduce((sum, d) => sum + (d?.data?.trades ?? 0), 0);
+                return [
+                  ...week.map((cell, ci) =>
+                    cell ? (
+                      <DayCell key={cell.date} {...cell} max={max} today={today} />
+                    ) : (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: empty padding cells
+                      <span key={`pad-${wi}-${ci}`} aria-hidden="true" />
+                    ),
+                  ),
+                  weekTotals ? (
+                    <div
+                      // biome-ignore lint/suspicious/noArrayIndexKey: weeks are fixed rows of the month
+                      key={`week-${wi}`}
+                      role="img"
+                      aria-label={`Week ${wi + 1}: ${formatPnl(String(weekPnl))}, ${weekTrades} trades`}
+                      className="flex min-h-9 flex-col items-end justify-center rounded-[4px] border border-rule/60 bg-raised/50 px-1.5"
+                    >
+                      <span
+                        className={cn(
+                          "figures truncate font-semibold leading-tight",
+                          weekPnl > 0
+                            ? "text-profit"
+                            : weekPnl < 0
+                              ? "text-loss"
+                              : "text-ink-faint",
+                        )}
+                      >
+                        {weekTrades ? cellAmount(String(weekPnl)) : "—"}
                       </span>
-                    )}
-                  </div>
-                );
+                      {weekTrades > 0 && (
+                        <span className="hidden leading-tight text-ink-faint sm:block">
+                          {weekTrades} tr
+                        </span>
+                      )}
+                    </div>
+                  ) : null,
+                ];
               })}
             </div>
           </section>

@@ -16,6 +16,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { BucketTable } from "@/features/analytics/bucket-table";
 import { getAnalytics, getStrategyInsights } from "@/features/analytics/load";
 import { Panel } from "@/features/analytics/metric";
+import { SessionVerdictCard } from "@/features/analytics/session-verdict-card";
 import { SummaryGrid } from "@/features/analytics/summary-grid";
 import { CalendarHeatmap } from "@/features/charts/calendar-heatmap";
 import { PnlColumns } from "@/features/charts/pnl-columns";
@@ -178,6 +179,10 @@ export default async function AnalyticsPage({
             <CalendarHeatmap months={months} days={report.daily} today={report.range.to ?? ""} />
           </Panel>
 
+          <Panel title="Your best trading session">
+            <SessionVerdictCard buckets={report.bySession} timeZone={report.range.timezone} />
+          </Panel>
+
           <Panel title="When you trade best">
             <div className="grid gap-8 lg:grid-cols-[2fr_1fr_1fr]">
               <PnlColumns title="By hour you opened" buckets={report.byHour} label={hourLabel} />
@@ -189,8 +194,8 @@ export default async function AnalyticsPage({
               />
             </div>
             <p className="mt-4 text-xs text-ink-faint">
-              Sessions by opening time: Asia 00–07, London 07–13, New York 13–21, off-hours 21–24
-              UTC.
+              Sessions by the time you opened the trade: Asia 00–07, London 07–13, New York 13–21,
+              off-hours 21–24 UTC (shown in your own time above).
             </p>
           </Panel>
 
