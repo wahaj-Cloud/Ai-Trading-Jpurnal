@@ -3,7 +3,14 @@ import { NotebookPen, Star } from "lucide-react";
 import Link from "next/link";
 import { ExchangeMark } from "@/features/exchanges/exchange-mark";
 import { cn } from "@/lib/cn";
-import { formatAmount, formatDuration, formatNumber, formatPnl, pnlTone } from "./format";
+import {
+  formatAmount,
+  formatDuration,
+  formatNumber,
+  formatPnl,
+  isCoinAsset,
+  pnlTone,
+} from "./format";
 
 const TONE = { profit: "text-profit", loss: "text-loss", flat: "text-ink-muted" } as const;
 
@@ -171,7 +178,9 @@ export function TradesTable({
                   )}
                 >
                   {formatPnl(p.netPnl, p.settleAsset)}{" "}
-                  <span className="text-xs text-ink-faint">{p.settleAsset}</span>
+                  {isCoinAsset(p.settleAsset) && (
+                    <span className="text-xs text-ink-faint">{p.settleAsset}</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -201,7 +210,9 @@ export function TradesTable({
               </div>
               <p className={cn("figures text-right font-medium", TONE[pnlTone(p.netPnl)])}>
                 {formatPnl(p.netPnl, p.settleAsset)}
-                <span className="block text-xs text-ink-faint">{p.settleAsset}</span>
+                {isCoinAsset(p.settleAsset) && (
+                  <span className="block text-xs text-ink-faint">{p.settleAsset}</span>
+                )}
               </p>
             </div>
             <dl className="figures mt-3 grid grid-cols-3 gap-2 text-xs">

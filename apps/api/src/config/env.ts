@@ -58,6 +58,14 @@ const envSchema = z.object({
   ANTHROPIC_BASE_URL: z.url().optional(),
   /** Daily USD exchange rates (no key needed). Must return { result, base_code, rates, time_last_update_unix }. */
   FX_RATES_URL: z.url().default("https://open.er-api.com/v6/latest/USD"),
+  /** Economic calendar weekly export (ForexFactory JSON). Read at most hourly. */
+  ECON_CALENDAR_URL: z.url().default("https://nfs.faireconomy.media/ff_calendar_thisweek.json"),
+  /** Next week's export, when the source publishes it. Set empty to skip. */
+  ECON_CALENDAR_NEXT_URL: z
+    .string()
+    .default("https://nfs.faireconomy.media/ff_calendar_nextweek.json")
+    .transform((v) => v.trim() || undefined)
+    .pipe(z.url().optional()),
   AI_FAST_MODEL: z.string().default("claude-haiku-4-5-20251001"),
   AI_SMART_MODEL: z.string().default("claude-sonnet-5"),
   /** Billing (paddle.com). Without these, online checkout is off; plans can still be granted by admins. */

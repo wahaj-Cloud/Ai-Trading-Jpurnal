@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dashboardLayoutSchema } from "./dashboard.js";
 
 const SUPPORTED_TIMEZONES: ReadonlySet<string> = new Set(Intl.supportedValuesOf("timeZone"));
 
@@ -50,6 +51,7 @@ export const updateProfileSchema = z
     timezone: timezoneSchema.optional(),
     baseCurrency: z.enum(BASE_CURRENCIES).optional(),
     displayCurrency: displayCurrencySchema.optional(),
+    dashboardLayout: dashboardLayoutSchema.optional(),
     pnlColorScheme: z.enum(PNL_COLOR_SCHEMES).optional(),
   })
   .strict()

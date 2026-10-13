@@ -6,7 +6,11 @@ import type {
   StrategyInsightDto,
 } from "@atc/shared";
 import { cache } from "react";
-import { convertAnalytics, convertOpenPositions } from "@/features/currency/convert";
+import {
+  convertAnalytics,
+  convertInsights,
+  convertOpenPositions,
+} from "@/features/currency/convert";
 import { apiFetch } from "@/lib/api";
 import { getDisplay } from "@/lib/display";
 
@@ -21,9 +25,13 @@ export const getAnalytics = cache(async (range: AnalyticsRange = "all", exchange
   return convertAnalytics(dto, display);
 });
 
-export const getStrategyInsights = cache((days: number) =>
-  apiFetch<StrategyInsightDto[]>(`/v1/coach/strategy?days=${days}`),
-);
+export const getStrategyInsights = cache(async (days: number) => {
+  const [list, display] = await Promise.all([
+    apiFetch<StrategyInsightDto[]>(`/v1/coach/strategy?days=${days}`),
+    getDisplay(),
+  ]);
+  return convertInsights(list, display);
+});
 
 export const getOpenPositions = cache(async () => {
   const [dto, display] = await Promise.all([

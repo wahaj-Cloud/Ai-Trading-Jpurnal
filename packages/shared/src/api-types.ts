@@ -1,4 +1,5 @@
 // Contract between API and web. Changing a shape here is a breaking change for both apps.
+import type { DashboardLayout } from "./dashboard.js";
 import type { PlanLimits } from "./plans.js";
 
 export type PlanCode = "FREE" | "PRO" | "PREMIUM" | "ENTERPRISE";
@@ -13,7 +14,11 @@ export interface MeResponse {
   /** ISO code every amount is shown in (converted from USD at the latest daily rate). */
   displayCurrency: string;
   role: "USER" | "ADMIN";
-  settings: { pnlColorScheme: "standard" | "colorblind" };
+  settings: {
+    pnlColorScheme: "standard" | "colorblind";
+    /** Complete, normalised: every widget appears exactly once. */
+    dashboardLayout: DashboardLayout;
+  };
   plan: { code: PlanCode; name: string; limits: PlanLimits; status: string };
   onboarding: {
     exchangeConnected: boolean;

@@ -71,7 +71,9 @@ export function KpiBand({ report }: { report: AnalyticsDto | null }) {
             <dt className="relative text-sm text-ink-muted">{m.label}</dt>
             <dd
               className={cn(
-                "figures pop-text relative mt-1 text-[1.7rem] leading-tight font-semibold",
+                "figures pop-text relative mt-1 leading-tight font-semibold whitespace-nowrap",
+                // Long amounts (big balances, or currencies like Rs) step down so they fit the tile.
+                m.value.length > 12 ? "text-xl" : m.value.length > 9 ? "text-2xl" : "text-[1.7rem]",
                 empty ? "text-ink-faint" : m.tone || "text-ink",
               )}
             >

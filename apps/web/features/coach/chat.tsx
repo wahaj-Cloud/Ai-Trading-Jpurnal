@@ -2,7 +2,7 @@
 
 import {
   COACH_MESSAGE_MAX,
-  COACH_SUGGESTIONS,
+  COACH_QUESTION_GROUPS,
   type CoachMessageDto,
   type ConversationDto,
 } from "@atc/shared";
@@ -28,6 +28,7 @@ export function CoachChat({
   const [messages, setMessages] = useState<CoachMessageDto[]>(conversation?.messages ?? []);
   const [conversationId, setConversationId] = useState(conversation?.id);
   const [draft, setDraft] = useState("");
+  const [topic, setTopic] = useState<string>(COACH_QUESTION_GROUPS[0].id);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
@@ -88,20 +89,46 @@ export function CoachChat({
     <div className="flex min-h-[60vh] flex-col rounded-[var(--radius-surface)] surface">
       <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6" aria-live="polite">
         {messages.length === 0 ? (
-          <div className="mx-auto max-w-lg py-8 text-center">
+          <div className="mx-auto max-w-2xl py-6 text-center">
             <Sparkles className="mx-auto h-6 w-6 text-coach" aria-hidden="true" />
             <h2 className="mt-3 font-semibold">Ask your coach</h2>
             <p className="mt-2 text-sm text-ink-muted">
-              Answers come from your own synced trades, journal and coaching notes.
+              Answers come from your own synced trades, journal and coaching notes. Pick a question
+              or type your own.
             </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
-              {COACH_SUGGESTIONS.map((q) => (
+            <div
+              className="mt-5 flex flex-wrap justify-center gap-1.5"
+              role="tablist"
+              aria-label="Question topics"
+            >
+              {COACH_QUESTION_GROUPS.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={topic === g.id}
+                  onClick={() => setTopic(g.id)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs transition-colors",
+                    topic === g.id
+                      ? "bg-coach/15 text-ink shadow-[inset_0_0_0_1px_var(--color-coach)]"
+                      : "text-ink-muted hover:bg-hi/[0.06] hover:text-ink",
+                  )}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <div role="tabpanel" className="mt-4 grid gap-2 sm:grid-cols-2">
+              {(
+                COACH_QUESTION_GROUPS.find((g) => g.id === topic) ?? COACH_QUESTION_GROUPS[0]
+              ).questions.map((q) => (
                 <button
                   key={q}
                   type="button"
                   disabled={Boolean(disabledReason) || pending}
                   onClick={() => send(q)}
-                  className="rounded-full border border-rule px-3 py-1.5 text-sm text-ink-muted hover:border-coach hover:text-ink disabled:opacity-50"
+                  className="raised rounded-[var(--radius-control)] px-3.5 py-2.5 text-left text-sm text-ink transition-transform hover:-translate-y-0.5 disabled:opacity-50"
                 >
                   {q}
                 </button>

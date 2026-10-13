@@ -71,10 +71,13 @@ export function TimeSeriesChart({
   kind,
   points,
   height = 260,
+  currency,
 }: {
   kind: Kind;
   points: Point[];
   height?: number;
+  /** Currency of the values (the report's display currency), for the symbol in readouts. */
+  currency?: string;
 }) {
   const container = useRef<HTMLDivElement>(null);
   // Redraw with the new colours when the theme changes.
@@ -202,8 +205,8 @@ export function TimeSeriesChart({
   const shown = hover ?? last;
   const valueText = shown
     ? kind === "drawdown"
-      ? `−${formatMoney(String(Math.abs(shown.value)))}`
-      : formatPnl(String(shown.value))
+      ? `−${formatMoney(String(Math.abs(shown.value)), currency)}`
+      : formatPnl(String(shown.value), currency)
     : "—";
 
   return (

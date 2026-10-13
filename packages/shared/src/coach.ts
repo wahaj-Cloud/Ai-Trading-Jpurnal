@@ -160,6 +160,60 @@ export const COACH_SUGGESTIONS = [
   "Compare this week with last week.",
 ] as const;
 
+/** Starter questions for the coach chat, grouped by what the trader wants to understand. */
+export const COACH_QUESTION_GROUPS = [
+  {
+    id: "today",
+    label: "Today & this week",
+    questions: [
+      "Why did I lose today?",
+      "What went well today?",
+      "Compare this week with last week.",
+      "Summarise my last 7 days in 3 points.",
+    ],
+  },
+  {
+    id: "mistakes",
+    label: "Mistakes & psychology",
+    questions: [
+      "Which mistakes am I repeating?",
+      "Am I revenge trading after losses?",
+      "When do I overtrade, and why?",
+      "Do I hold losing trades too long?",
+    ],
+  },
+  {
+    id: "risk",
+    label: "Risk & money",
+    questions: [
+      "Why do I lose money even with a good win rate?",
+      "Is my position size too big for my account?",
+      "What should my maximum daily loss be?",
+      "How much are fees costing me?",
+    ],
+  },
+  {
+    id: "timing",
+    label: "Sessions & coins",
+    questions: [
+      "Which trading session is best for me?",
+      "Which coins should I stop trading?",
+      "Which hours of the day lose me money?",
+      "Do my longs or my shorts do better?",
+    ],
+  },
+  {
+    id: "plan",
+    label: "Plan & improve",
+    questions: [
+      "What should I focus on tomorrow?",
+      "Give me 3 rules to follow this week.",
+      "Build me a pre-trade checklist from my mistakes.",
+      "What is the one change that would help me most?",
+    ],
+  },
+] as const;
+
 /** Queue contract for AI work (the worker processes it). */
 export const AI_QUEUE = "ai-coach";
 export type AiJobData =

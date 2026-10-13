@@ -1,6 +1,7 @@
 import type { ConversationDto } from "@atc/shared";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { getAnalytics } from "@/features/analytics/load";
 import { Panel } from "@/features/analytics/metric";
 import { CoachChat } from "@/features/coach/chat";
 import { CoachDayButton } from "@/features/coach/coach-day-button";
@@ -13,6 +14,8 @@ import {
   getNotes,
 } from "@/features/coach/load";
 import { NoteCard } from "@/features/coach/note-card";
+import { buildRecommendations } from "@/features/coach/recommendations";
+import { RecommendationsList } from "@/features/coach/recommendations-card";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { getMe } from "@/lib/me";
@@ -28,13 +31,15 @@ export default async function CoachPage({
 }) {
   const { c, q } = await searchParams;
   const question = q?.trim().slice(0, 2000) || undefined;
-  const [status, conversations, notes, habits, me] = await Promise.all([
+  const [status, conversations, notes, habits, me, report] = await Promise.all([
     getCoachStatus(),
     getConversations(),
     getNotes(3),
     getBehaviour(30),
     getMe(),
+    getAnalytics("all").catch(() => null),
   ]);
+  const recommendations = buildRecommendations(report, habits, 4);
   let conversation: ConversationDto | null = null;
   if (c && UUID.test(c)) {
     conversation = await getConversation(c).catch((err: unknown) => {
@@ -103,6 +108,9 @@ export default async function CoachPage({
         />
 
         <div className="grid content-start gap-6 lg:col-span-2 xl:col-span-1">
+          <Panel title="Recommended improvements">
+            <RecommendationsList items={recommendations} />
+          </Panel>
           <Panel title="Latest coaching">
             {notes.length ? (
               <div className="grid gap-6">

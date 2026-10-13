@@ -1,11 +1,12 @@
 import type { Market } from "@/features/dashboard/market-hours";
 
 /** Small simplified national flags for the market clock (emoji flags don't render on Windows). */
-const cls = "h-3.5 w-5 shrink-0 overflow-hidden rounded-[3px] shadow-[0_0_0_1px_rgba(0,0,0,0.15)]";
+export const flagCls =
+  "h-3.5 w-5 shrink-0 overflow-hidden rounded-[3px] shadow-[0_0_0_1px_rgba(0,0,0,0.15)]";
 
-function US() {
+export function US() {
   return (
-    <svg viewBox="0 0 20 14" className={cls} aria-hidden="true">
+    <svg viewBox="0 0 20 14" className={flagCls} aria-hidden="true">
       <rect width="20" height="14" fill="#fff" />
       {[0, 4, 8, 12].map((y) => (
         <rect key={y} y={y} width="20" height="2" fill="#b22234" />
@@ -30,26 +31,26 @@ function Union({ w = 20, h = 14 }: { w?: number; h?: number }) {
   );
 }
 
-function GB() {
+export function GB() {
   return (
-    <svg viewBox="0 0 20 14" className={cls} aria-hidden="true">
+    <svg viewBox="0 0 20 14" className={flagCls} aria-hidden="true">
       <Union />
     </svg>
   );
 }
 
-function JP() {
+export function JP() {
   return (
-    <svg viewBox="0 0 20 14" className={cls} aria-hidden="true">
+    <svg viewBox="0 0 20 14" className={flagCls} aria-hidden="true">
       <rect width="20" height="14" fill="#fff" />
       <circle cx="10" cy="7" r="4.2" fill="#bc002d" />
     </svg>
   );
 }
 
-function AU() {
+export function AU() {
   return (
-    <svg viewBox="0 0 20 14" className={cls} aria-hidden="true">
+    <svg viewBox="0 0 20 14" className={flagCls} aria-hidden="true">
       <rect width="20" height="14" fill="#012169" />
       <g transform="scale(0.5)">
         <Union />

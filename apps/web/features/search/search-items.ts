@@ -34,6 +34,11 @@ const PAGES: PageEntry[] = [
     keywords: "stats performance session weekday coin drawdown equity",
   },
   { label: "Reports", href: "/reports", keywords: "pdf excel csv export daily weekly monthly" },
+  {
+    label: "Economic calendar (news)",
+    href: "/news",
+    keywords: "news forex factory calendar cpi nfp fomc events high impact",
+  },
   { label: "Goals and risk limits", href: "/goals", keywords: "target max loss daily limit" },
   {
     label: "Calculators",

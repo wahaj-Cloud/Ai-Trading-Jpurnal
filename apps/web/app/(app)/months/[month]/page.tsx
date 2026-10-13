@@ -94,6 +94,7 @@ export default async function MonthPage({ params }: { params: Params }) {
             <div className="grid gap-6">
               <Panel title="Profit and loss each day">
                 <TimeSeriesChart
+                  currency={report?.currency}
                   kind="daily"
                   height={200}
                   points={days.map((d) => ({ date: d.date, value: Number(d.pnl) }))}
@@ -101,6 +102,7 @@ export default async function MonthPage({ params }: { params: Params }) {
               </Panel>
               <Panel title="Running total this month">
                 <TimeSeriesChart
+                  currency={report?.currency}
                   kind="equity"
                   height={200}
                   points={rows.map((d) => ({ date: d.date, value: d.running }))}

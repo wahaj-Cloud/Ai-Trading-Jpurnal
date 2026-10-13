@@ -2,11 +2,13 @@ import {
   type AnalyticsDto,
   type BehaviourSummaryDto,
   type BucketDto,
+  type CoachNoteDto,
   type OpenPositionsDto,
   type PositionDto,
   type PositionsPage,
   type ReportDto,
   type ReviewedTradeDto,
+  type StrategyInsightDto,
   type TradeDetailDto,
   USD_SETTLEMENT_ASSETS,
 } from "@atc/shared";
@@ -161,4 +163,18 @@ export function convertReport(dto: ReportDto, d: Display): ReportDto {
     bestTrades: dto.bestTrades.map((p) => convertPosition(p, d)),
     worstTrades: dto.worstTrades.map((p) => convertPosition(p, d)),
   };
+}
+
+export function convertNotes(notes: CoachNoteDto[], d: Display): CoachNoteDto[] {
+  if (isIdentity(d)) return notes;
+  return notes.map((n) => ({ ...n, stats: { ...n.stats, netPnl: money(n.stats.netPnl, d.rate) } }));
+}
+
+export function convertInsights(list: StrategyInsightDto[], d: Display): StrategyInsightDto[] {
+  if (isIdentity(d)) return list;
+  return list.map((i) => ({
+    ...i,
+    withCheck: { ...i.withCheck, netPnl: money(i.withCheck.netPnl, d.rate) },
+    againstCheck: { ...i.againstCheck, netPnl: money(i.againstCheck.netPnl, d.rate) },
+  }));
 }

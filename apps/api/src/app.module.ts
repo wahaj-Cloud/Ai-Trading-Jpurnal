@@ -13,6 +13,7 @@ import { RedisThrottlerStorage } from "./common/redis-throttler.storage.js";
 import { UserThrottlerGuard } from "./common/user-throttler.guard.js";
 import { ConfigModule } from "./config/config.module.js";
 import { ENV, type Env } from "./config/env.js";
+import { EconomicModule } from "./economic/economic.module.js";
 import { EngagementModule } from "./engagement/engagement.module.js";
 import { ExchangeAccountsModule } from "./exchange-accounts/exchange-accounts.module.js";
 import { FxModule } from "./fx/fx.module.js";
@@ -52,6 +53,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module.js";
     BillingModule,
     AdminModule,
     FxModule,
+    EconomicModule,
   ],
   controllers: [HealthController],
   providers: [

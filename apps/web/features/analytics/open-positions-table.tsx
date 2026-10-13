@@ -1,5 +1,11 @@
 import { EXCHANGE_CATALOG, type OpenPositionsDto } from "@atc/shared";
-import { formatNumber, formatPercent, formatPnl, pnlTone } from "@/features/trades/format";
+import {
+  formatNumber,
+  formatPercent,
+  formatPnl,
+  isCoinAsset,
+  pnlTone,
+} from "@/features/trades/format";
 import { cn } from "@/lib/cn";
 
 const TONE = { profit: "text-profit", loss: "text-loss", flat: "text-ink-muted" } as const;
@@ -51,7 +57,9 @@ export function OpenPositionsTable({
               </div>
               <p className={cn("figures text-right font-medium", TONE[pnlTone(p.unrealizedPnl)])}>
                 {formatPnl(p.unrealizedPnl, p.settleAsset)}{" "}
-                <span className="text-xs text-ink-faint">{p.settleAsset}</span>
+                {isCoinAsset(p.settleAsset) && (
+                  <span className="text-xs text-ink-faint">{p.settleAsset}</span>
+                )}
               </p>
               <p className="figures truncate text-xs text-ink-muted">
                 {formatNumber(p.quantity)} {p.sizeAsset} @ {formatNumber(p.entryPrice)}

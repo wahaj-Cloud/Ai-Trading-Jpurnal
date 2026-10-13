@@ -166,6 +166,7 @@ export default async function AnalyticsPage({
 
           <Panel title="Equity curve">
             <TimeSeriesChart
+              currency={report.currency}
               kind="equity"
               height={300}
               points={report.daily.map((d) => ({ date: d.date, value: Number(d.cumulative) }))}
@@ -175,12 +176,14 @@ export default async function AnalyticsPage({
           <div className="grid gap-6 lg:grid-cols-2">
             <Panel title="Daily P&L">
               <TimeSeriesChart
+                currency={report.currency}
                 kind="daily"
                 points={report.daily.map((d) => ({ date: d.date, value: Number(d.pnl) }))}
               />
             </Panel>
             <Panel title="Drawdown">
               <TimeSeriesChart
+                currency={report.currency}
                 kind="drawdown"
                 points={report.daily.map((d) => ({ date: d.date, value: Number(d.drawdown) }))}
               />

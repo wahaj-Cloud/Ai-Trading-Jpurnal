@@ -1,5 +1,10 @@
 import { Prisma } from "@atc/db";
-import { type MeResponse, planLimitsSchema, type UpdateProfileInput } from "@atc/shared";
+import {
+  type MeResponse,
+  normalizeLayout,
+  planLimitsSchema,
+  type UpdateProfileInput,
+} from "@atc/shared";
 import type { ClerkClient } from "@clerk/backend";
 import { ConflictException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { AuditService } from "../audit/audit.service.js";
@@ -239,6 +244,7 @@ export class UsersService {
       role: user.role,
       settings: {
         pnlColorScheme: user.settings?.pnlColorScheme === "colorblind" ? "colorblind" : "standard",
+        dashboardLayout: normalizeLayout(user.settings?.dashboardLayout ?? null),
       },
       plan: {
         code: plan.code,
@@ -259,16 +265,22 @@ export class UsersService {
     input: UpdateProfileInput,
     meta: RequestMeta,
   ): Promise<MeResponse> {
-    const { pnlColorScheme, ...userFields } = input;
+    const { pnlColorScheme, dashboardLayout, ...userFields } = input;
+    // Stored normalised, so only known widgets (each once) are ever kept.
+    const layout = dashboardLayout ? normalizeLayout(dashboardLayout) : undefined;
+    const settings = {
+      ...(pnlColorScheme && { pnlColorScheme }),
+      ...(layout && { dashboardLayout: layout as unknown as Prisma.InputJsonValue }),
+    };
     await this.prisma.client.$transaction(async (tx) => {
       if (Object.keys(userFields).length > 0) {
         await tx.user.update({ where: { id: userId }, data: userFields });
       }
-      if (pnlColorScheme) {
+      if (Object.keys(settings).length > 0) {
         await tx.userSettings.upsert({
           where: { userId },
-          create: { userId, pnlColorScheme },
-          update: { pnlColorScheme },
+          create: { userId, ...settings },
+          update: settings,
         });
       }
     });

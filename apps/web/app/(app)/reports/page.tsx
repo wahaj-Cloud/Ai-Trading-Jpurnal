@@ -130,6 +130,7 @@ export default async function ReportsPage({
             <div className="grid gap-6 lg:grid-cols-2">
               <Panel title="Equity">
                 <TimeSeriesChart
+                  currency={report.analytics.currency}
                   kind="equity"
                   points={report.analytics.daily.map((d) => ({
                     date: d.date,
@@ -139,6 +140,7 @@ export default async function ReportsPage({
               </Panel>
               <Panel title="Daily P&L">
                 <TimeSeriesChart
+                  currency={report.analytics.currency}
                   kind="daily"
                   points={report.analytics.daily.map((d) => ({
                     date: d.date,

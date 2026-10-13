@@ -80,6 +80,8 @@ model UserSettings {
   pnlColorScheme      String   @default("standard") @map("pnl_color_scheme") // standard | colorblind
   notificationPrefs   Json     @default("{}") @map("notification_prefs")
   defaultRiskPerTrade Decimal? @map("default_risk_per_trade") @db.Decimal(10, 4)
+  /// Dashboard widget order and visibility: [{ id, hidden }]. Null means the default layout.
+  dashboardLayout     Json?    @map("dashboard_layout")
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -798,4 +800,25 @@ model FxRate {
   source    String
 
   @@map("fx_rates")
+}
+
+/// Economic calendar events (CPI, rate decisions, speeches). Refreshed hourly from the source for
+/// the current week and kept afterwards, so past weeks build up as history.
+model EconomicEvent {
+  /// Stable id from source + currency + title + scheduled time.
+  id        String   @id @db.VarChar(64)
+  title     String
+  currency  String   @db.VarChar(8)
+  /// HIGH | MEDIUM | LOW | NONE
+  impact    String   @db.VarChar(8)
+  startsAt  DateTime @map("starts_at") @db.Timestamptz(3)
+  tentative Boolean  @default(false)
+  actual    String?
+  forecast  String?
+  previous  String?
+  source    String   @db.VarChar(32)
+  fetchedAt DateTime @map("fetched_at") @db.Timestamptz(3)
+
+  @@index([startsAt])
+  @@map("economic_events")
 }

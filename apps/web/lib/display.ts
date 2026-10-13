@@ -2,6 +2,7 @@ import "server-only";
 import type { FxRatesDto } from "@atc/shared";
 import { cache } from "react";
 import { type Display, USD_DISPLAY } from "@/features/currency/convert";
+import { setRequestCurrency } from "@/features/trades/format";
 import { apiFetch } from "./api";
 import { getMe } from "./me";
 
@@ -10,6 +11,13 @@ import { getMe } from "./me";
  * rate is missing (provider down on first use), amounts fall back to USD and say so.
  */
 export const getDisplay = cache(async (): Promise<Display> => {
+  const display = await resolveDisplay();
+  // Every amount formatted in this request now carries this currency's symbol.
+  setRequestCurrency(display.code);
+  return display;
+});
+
+async function resolveDisplay(): Promise<Display> {
   const me = await getMe();
   const code = me.displayCurrency ?? "USD";
   if (code === "USD") return USD_DISPLAY;
@@ -17,4 +25,4 @@ export const getDisplay = cache(async (): Promise<Display> => {
   const rate = fx?.rates[code];
   if (!fx || !rate) return { ...USD_DISPLAY, unavailable: code };
   return { code, rate, asOf: fx.asOf };
-});
+}

@@ -2,39 +2,85 @@
  * Display formatting only. Values arrive as exact decimal strings; converting to Number here is
  * safe because nothing is calculated from the result.
  */
-const money = new Intl.NumberFormat("en", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-  signDisplay: "exceptZero",
-});
-const plain = new Intl.NumberFormat("en", { maximumFractionDigits: 8 });
+import { cache } from "react";
 
+const plain = new Intl.NumberFormat("en", { maximumFractionDigits: 8 });
 const coin = new Intl.NumberFormat("en", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 8,
   signDisplay: "exceptZero",
 });
 const USD = new Set(["USDT", "USDC", "FDUSD", "BUSD", "USD"]);
-/** Government currencies (the display currency): cents like USD, unlike coin amounts. */
+/** Government currencies (the display currency): shown with their symbol, like USD. */
 const FIAT: ReadonlySet<string> = new Set(
   Intl.supportedValuesOf("currency").filter((c) => !c.startsWith("X")),
 );
 
-/**
- * Signed money. USD amounts show cents; amounts in a coin (e.g. 0.0034 BTC on coin-margined
- * contracts) keep up to 8 decimals so they never read as "+0.00".
- */
-export function formatPnl(value: string | null, asset?: string): string {
-  if (value === null) return "—";
-  const f = asset && !USD.has(asset) && !FIAT.has(asset) ? coin : money;
-  return f.format(Number(value)).replace("-", "−");
+/** True for amounts settled in a coin (e.g. BTC on inverse contracts): no currency symbol. */
+export function isCoinAsset(asset?: string | null): boolean {
+  return Boolean(asset && !USD.has(asset) && !FIAT.has(asset));
 }
 
-/** Unsigned amount (fees): cents for USD and other currencies, full precision for coins. */
-export function formatAmount(value: string | null, asset?: string): string {
+/**
+ * The currency this server request shows amounts in. Set once per request by getDisplay() (which
+ * every data loader awaits before anything is rendered); defaults to USD. Client components pass
+ * the currency explicitly instead.
+ */
+const requestCurrency = cache((): { code: string } => ({ code: "USD" }));
+export function setRequestCurrency(code: string): void {
+  requestCurrency().code = code;
+}
+function currentCode(asset?: string | null): string {
+  if (asset && USD.has(asset)) return "USD";
+  if (asset && FIAT.has(asset)) return asset;
+  try {
+    return requestCurrency().code;
+  } catch {
+    return "USD";
+  }
+}
+
+const formats = new Map<string, Intl.NumberFormat>();
+function currencyFormat(code: string, kind: "signed" | "plain" | "compact"): Intl.NumberFormat {
+  const key = `${code}:${kind}`;
+  let f = formats.get(key);
+  if (!f) {
+    f = new Intl.NumberFormat("en", {
+      style: "currency",
+      currency: code,
+      currencyDisplay: "narrowSymbol",
+      ...(kind !== "plain" && { signDisplay: "exceptZero" as const }),
+      // Always two decimals: browsers and servers ship different currency data (e.g. whether
+      // rupees show paisa), and the page must read the same in both.
+      ...(kind !== "compact" && { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      ...(kind === "compact" && {
+        notation: "compact" as const,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1,
+      }),
+    });
+    formats.set(key, f);
+  }
+  return f;
+}
+const minus = (s: string) => s.replace("-", "−");
+
+/**
+ * Signed money with its currency symbol: +$533.13, −Rs 1,235, +¥35.00. `asset` names the currency
+ * of the value when known (a trade's settlement asset); otherwise the display currency is used.
+ * Coin amounts (e.g. 0.0034 BTC) keep up to 8 decimals and no symbol.
+ */
+export function formatPnl(value: string | null, asset?: string | null): string {
   if (value === null) return "—";
-  if (asset && !USD.has(asset) && !FIAT.has(asset)) return plain.format(Number(value));
-  return formatMoney(value);
+  if (isCoinAsset(asset)) return minus(coin.format(Number(value)));
+  return minus(currencyFormat(currentCode(asset), "signed").format(Number(value)));
+}
+
+/** Unsigned amount (fees): currency symbol for money, full precision for coins. */
+export function formatAmount(value: string | null, asset?: string | null): string {
+  if (value === null) return "—";
+  if (isCoinAsset(asset)) return plain.format(Number(value));
+  return formatMoney(value, asset);
 }
 
 export function pnlTone(value: string | null): "profit" | "loss" | "flat" {
@@ -58,26 +104,18 @@ export function formatDuration(seconds: number | null): string {
   return `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
-const compactMoney = new Intl.NumberFormat("en", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-  signDisplay: "exceptZero",
-});
-
-/** Short signed amount for chart labels: +1.2K, −350. */
-export function formatPnlCompact(value: string | number | null): string {
+/** Short signed amount for chart labels: +$1.2K, −Rs 350. */
+export function formatPnlCompact(value: string | number | null, asset?: string | null): string {
   if (value === null) return "—";
   const n = Number(value);
-  return Math.abs(n) < 1000 ? formatPnl(String(n)) : compactMoney.format(n).replace("-", "−");
+  if (Math.abs(n) < 1000) return formatPnl(String(n), asset);
+  return minus(currencyFormat(currentCode(asset), "compact").format(n));
 }
 
-/** Unsigned money: fees, averages, drawdown. */
-export function formatMoney(value: string | null): string {
+/** Unsigned money with its currency symbol: fees, averages, drawdown. */
+export function formatMoney(value: string | null, asset?: string | null): string {
   if (value === null) return "—";
-  return new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(value));
+  return minus(currencyFormat(currentCode(asset), "plain").format(Number(value)));
 }
 
 /** 0.5372 -> "53.7%" */

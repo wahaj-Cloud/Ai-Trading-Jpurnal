@@ -1,6 +1,6 @@
 "use server";
 
-import { type MeResponse, updateProfileSchema } from "@atc/shared";
+import { type DashboardLayout, type MeResponse, updateProfileSchema } from "@atc/shared";
 import { revalidatePath } from "next/cache";
 import { ApiError, apiFetch } from "@/lib/api";
 
@@ -56,5 +56,18 @@ export async function setDisplayCurrencyAction(code: string): Promise<{ ok: bool
     return { ok: false };
   }
   revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Saves the dashboard's widget order and visibility. */
+export async function saveDashboardLayoutAction(layout: DashboardLayout): Promise<{ ok: boolean }> {
+  const parsed = updateProfileSchema.safeParse({ dashboardLayout: layout });
+  if (!parsed.success) return { ok: false };
+  try {
+    await apiFetch<MeResponse>("/v1/me", { method: "PATCH", body: JSON.stringify(parsed.data) });
+  } catch {
+    return { ok: false };
+  }
+  revalidatePath("/dashboard");
   return { ok: true };
 }

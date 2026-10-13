@@ -1,11 +1,15 @@
-import type {
-  AnalyticsDto,
+import {
+  type AnalyticsDto,
+  DASHBOARD_WIDGETS,
+  type DashboardWidgetId,
+  type DashboardWidgetSize,
   GoalDto,
   OpenPositionsDto,
   PositionsPage,
   RiskStatusDto,
 } from "@atc/shared";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { getAnalytics, getOpenPositions } from "@/features/analytics/load";
 import { Panel } from "@/features/analytics/metric";
 import { OpenPositionsTable } from "@/features/analytics/open-positions-table";
@@ -13,9 +17,12 @@ import { CalendarHeatmap } from "@/features/charts/calendar-heatmap";
 import { PnlColumns } from "@/features/charts/pnl-columns";
 import { TimeSeriesChart } from "@/features/charts/time-series-chart";
 import { getBehaviour, getNotes } from "@/features/coach/load";
+import { buildRecommendations, MIN_TRADES_FOR_ADVICE } from "@/features/coach/recommendations";
+import { RecommendationsList } from "@/features/coach/recommendations-card";
 import { CoinBars, DirectionSplit, WinLossPanel } from "@/features/dashboard/balance-panels";
 import { BestSession } from "@/features/dashboard/best-session";
 import { CoachPanel } from "@/features/dashboard/coach-panel";
+import { CustomizeDashboard } from "@/features/dashboard/customize";
 import {
   DailyWinCard,
   HourlyWinsLosses,
@@ -30,9 +37,12 @@ import { SetupRunway } from "@/features/dashboard/setup-runway";
 import { GoalRow, RiskBanner } from "@/features/goals/views";
 import { MONTH_RE, shiftMonth } from "@/features/months/month-stats";
 import { MonthSummary } from "@/features/months/month-summary";
+import { getCalendar } from "@/features/news/load";
+import { UpcomingNews } from "@/features/news/upcoming-news";
 import { getPositions } from "@/features/trades/load";
 import { TradesTable } from "@/features/trades/trades-table";
 import { apiFetch } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { getDisplay } from "@/lib/display";
 import { getMe } from "@/lib/me";
 
@@ -40,6 +50,16 @@ export const metadata = { title: "Dashboard" };
 
 /** A panel failing to load should not take the whole dashboard down. */
 const orNull = <T,>(p: Promise<T>) => p.catch(() => null);
+
+const SIZE: Record<DashboardWidgetSize, string> = {
+  full: "col-span-12",
+  wide: "col-span-12 xl:col-span-8",
+  narrow: "col-span-12 xl:col-span-4",
+  third: "col-span-12 lg:col-span-4",
+};
+const WIDGET_SIZE = new Map<DashboardWidgetId, DashboardWidgetSize>(
+  DASHBOARD_WIDGETS.map((w) => [w.id, w.size]),
+);
 
 const PanelLink = ({ href, children }: { href: string; children: string }) => (
   <Link
@@ -102,7 +122,8 @@ export default async function DashboardPage({
   const { month: monthParam } = await searchParams;
   const [me, display] = await Promise.all([getMe(), getDisplay()]);
   const firstName = me.name?.split(" ")[0];
-  const [report, open, recent, notes, habits, risk, goals] = await Promise.all([
+  const newsFrom = new Date();
+  const [report, open, recent, notes, habits, risk, goals, news] = await Promise.all([
     orNull<AnalyticsDto>(getAnalytics("all")),
     orNull<OpenPositionsDto>(getOpenPositions()),
     orNull<PositionsPage>(getPositions("status=CLOSED&sort=closed&limit=5")),
@@ -110,6 +131,14 @@ export default async function DashboardPage({
     orNull(getBehaviour(30)),
     orNull(apiFetch<RiskStatusDto>("/v1/risk-status")),
     orNull(apiFetch<GoalDto[]>("/v1/goals")),
+    orNull(
+      getCalendar({
+        // Include the last hour so a release that just came out is still listed.
+        from: new Date(newsFrom.getTime() - 3_600_000),
+        to: new Date(newsFrom.getTime() + 48 * 3_600_000),
+        impact: ["HIGH", "MEDIUM"],
+      }),
+    ),
   ]);
   const onboarded = Object.values(me.onboarding).every(Boolean);
   const hasTrades = (report?.summary.trades ?? 0) > 0;
@@ -126,79 +155,63 @@ export default async function DashboardPage({
   const prevMonth = month > firstMonth ? shiftMonth(month, -1) : null;
   const nextMonth = month < currentMonth ? shiftMonth(month, 1) : null;
 
-  return (
-    <div className="mx-auto grid max-w-7xl gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {firstName ? `Welcome, ${firstName}` : "Welcome"}
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Times and daily totals use {me.timezone}.
-          {display.code !== "USD" && (
-            <>
-              {" "}
-              Amounts in {display.code} at today's rate (1 USD ={" "}
-              {display.rate.toLocaleString("en", { maximumFractionDigits: 2 })} {display.code}).
-            </>
-          )}
-          {display.unavailable && (
-            <> No rate for {display.unavailable} yet, so amounts show in USD.</>
-          )}
-          {me.timezone === "UTC" && (
-            <>
-              {" "}
-              <Link href="/settings" className="text-coach underline-offset-4 hover:underline">
-                Set your own timezone
-              </Link>{" "}
-              so sessions and days match your clock.
-            </>
-          )}
-        </p>
-      </header>
-      {!onboarded && <SetupRunway onboarding={me.onboarding} />}
-      <RiskBanner status={risk} />
-      <div className="grid items-stretch gap-6 xl:grid-cols-[1fr_26rem]">
-        <Panel title="Market sessions">
-          <SessionClock timeZone={me.timezone} />
-        </Panel>
-        <Panel
-          title="Your best session"
-          action={hasTrades ? <PanelLink href="/analytics">Details</PanelLink> : undefined}
-        >
-          <BestSession bySession={report?.bySession ?? []} timeZone={me.timezone} />
-        </Panel>
-      </div>
-      <KpiBand report={report} />
+  const recommendations = buildRecommendations(report, habits, 4);
+  const showRecommendations = (report?.summary.trades ?? 0) >= MIN_TRADES_FOR_ADVICE;
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_24rem]">
-        <Panel
-          title="Equity curve"
-          action={hasTrades ? <PanelLink href="/analytics">Full analytics</PanelLink> : undefined}
-        >
-          {hasTrades && report ? (
-            <TimeSeriesChart
-              kind="equity"
-              height={300}
-              points={report.daily.map((d) => ({ date: d.date, value: Number(d.cumulative) }))}
-            />
-          ) : (
-            <p className="text-sm text-ink-muted">
-              Your cumulative profit appears here, day by day, once trades close.
-            </p>
-          )}
-        </Panel>
-        <Panel title="Wins and losses">
-          {hasTrades && report ? (
-            <WinLossPanel s={report.summary} />
-          ) : (
-            <p className="text-sm text-ink-muted">
-              Your win rate and average win/loss appear here.
-            </p>
-          )}
-        </Panel>
-      </div>
-
-      {hasTrades && report && (
+  /** Each dashboard widget; null when it has nothing to show yet (e.g. before the first trade). */
+  const widgets: Partial<Record<DashboardWidgetId, ReactNode>> = {
+    "market-sessions": (
+      <Panel title="Market sessions">
+        <SessionClock timeZone={me.timezone} />
+      </Panel>
+    ),
+    "best-session": (
+      <Panel
+        title="Your best session"
+        action={hasTrades ? <PanelLink href="/analytics">Details</PanelLink> : undefined}
+      >
+        <BestSession bySession={report?.bySession ?? []} timeZone={me.timezone} />
+      </Panel>
+    ),
+    kpis: <KpiBand report={report} />,
+    recommendations: showRecommendations ? (
+      <Panel
+        title="Recommended improvements"
+        action={<PanelLink href="/coach">Ask your coach</PanelLink>}
+      >
+        <RecommendationsList items={recommendations} columns />
+      </Panel>
+    ) : null,
+    equity: (
+      <Panel
+        title="Equity curve"
+        action={hasTrades ? <PanelLink href="/analytics">Full analytics</PanelLink> : undefined}
+      >
+        {hasTrades && report ? (
+          <TimeSeriesChart
+            currency={report.currency}
+            kind="equity"
+            height={300}
+            points={report.daily.map((d) => ({ date: d.date, value: Number(d.cumulative) }))}
+          />
+        ) : (
+          <p className="text-sm text-ink-muted">
+            Your cumulative profit appears here, day by day, once trades close.
+          </p>
+        )}
+      </Panel>
+    ),
+    "wins-losses": (
+      <Panel title="Wins and losses">
+        {hasTrades && report ? (
+          <WinLossPanel s={report.summary} />
+        ) : (
+          <p className="text-sm text-ink-muted">Your win rate and average win/loss appear here.</p>
+        )}
+      </Panel>
+    ),
+    sessions:
+      hasTrades && report ? (
         <Panel
           title="Trading sessions"
           action={<PanelLink href="/analytics">By weekday and coin</PanelLink>}
@@ -209,83 +222,104 @@ export default async function DashboardPage({
             timeZone={report.range.timezone}
           />
         </Panel>
-      )}
-
-      <div className="grid items-start gap-6 xl:grid-cols-[1fr_24rem]">
-        <Panel
-          title={month === currentMonth ? "This month" : "Calendar"}
-          action={
-            <div className="flex items-center gap-3">
-              {hasTrades && <PanelLink href={`/months/${month}`}>Full month</PanelLink>}
-              <MonthNav month={month} prev={prevMonth} next={nextMonth} />
-            </div>
-          }
-        >
-          <div className="grid gap-5">
-            <CalendarHeatmap
-              months={[month]}
-              days={report?.daily ?? []}
-              today={today}
-              weekTotals
-              large
-              monthHref={hasTrades ? (m) => `/months/${m}` : undefined}
-            />
-            {hasTrades && <MonthSummary days={report?.daily ?? []} month={month} />}
+      ) : null,
+    calendar: (
+      <Panel
+        title={month === currentMonth ? "This month" : "Calendar"}
+        action={
+          <div className="flex items-center gap-3">
+            {hasTrades && <PanelLink href={`/months/${month}`}>Full month</PanelLink>}
+            <MonthNav month={month} prev={prevMonth} next={nextMonth} />
           </div>
-        </Panel>
-        <CoachPanel note={notes?.[0] ?? null} habits={habits} />
-      </div>
-
-      {hasTrades && report && (
-        <>
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Panel title="Streaks">
-              <StreakCard report={report} />
-            </Panel>
-            <Panel title="Winning days">
-              <DailyWinCard days={report.daily} />
-            </Panel>
-            <Panel title="Symbols traded">
-              <SymbolsDonut buckets={report.bySymbol} />
-            </Panel>
-          </div>
-          <Panel title="Net daily P&L">
-            <TimeSeriesChart
-              kind="daily"
-              height={220}
-              points={report.daily.map((d) => ({ date: d.date, value: Number(d.pnl) }))}
-            />
-          </Panel>
-          <Panel title="Trade distribution by hour">
-            <HourlyWinsLosses buckets={report.byHour} />
-          </Panel>
-        </>
-      )}
-
-      {hasTrades && report && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Panel title="Coins" action={<PanelLink href="/analytics">All coins</PanelLink>}>
-            <CoinBars buckets={report.bySymbol} />
-          </Panel>
-          <Panel title="Long vs short">
-            <DirectionSplit buckets={report.byDirection} />
-          </Panel>
-          <Panel title="By weekday">
-            <PnlColumns
-              title="Net P&L by the day you opened"
-              buckets={report.byWeekday}
-              height={150}
-            />
-          </Panel>
+        }
+      >
+        <div className="grid gap-5">
+          <CalendarHeatmap
+            months={[month]}
+            days={report?.daily ?? []}
+            today={today}
+            weekTotals
+            large
+            monthHref={hasTrades ? (m) => `/months/${m}` : undefined}
+          />
+          {hasTrades && <MonthSummary days={report?.daily ?? []} month={month} />}
         </div>
-      )}
-
-      {hasTrades && report && report.monthly.length > 0 && (
+      </Panel>
+    ),
+    coach: <CoachPanel note={notes?.[0] ?? null} habits={habits} />,
+    streaks:
+      hasTrades && report ? (
+        <Panel title="Streaks">
+          <StreakCard report={report} />
+        </Panel>
+      ) : null,
+    "winning-days":
+      hasTrades && report ? (
+        <Panel title="Winning days">
+          <DailyWinCard days={report.daily} />
+        </Panel>
+      ) : null,
+    symbols:
+      hasTrades && report ? (
+        <Panel title="Symbols traded">
+          <SymbolsDonut buckets={report.bySymbol} />
+        </Panel>
+      ) : null,
+    "daily-pnl":
+      hasTrades && report ? (
+        <Panel title="Net daily P&L">
+          <TimeSeriesChart
+            currency={report.currency}
+            kind="daily"
+            height={220}
+            points={report.daily.map((d) => ({ date: d.date, value: Number(d.pnl) }))}
+          />
+        </Panel>
+      ) : null,
+    "economic-calendar": (
+      <Panel title="Upcoming news" action={<PanelLink href="/news">Economic calendar</PanelLink>}>
+        {news ? (
+          <UpcomingNews events={news.events} timeZone={me.timezone} />
+        ) : (
+          <p className="text-sm text-ink-muted">The economic calendar could not be loaded.</p>
+        )}
+      </Panel>
+    ),
+    hourly:
+      hasTrades && report ? (
+        <Panel title="Trade distribution by hour">
+          <HourlyWinsLosses buckets={report.byHour} />
+        </Panel>
+      ) : null,
+    coins:
+      hasTrades && report ? (
+        <Panel title="Coins" action={<PanelLink href="/analytics">All coins</PanelLink>}>
+          <CoinBars buckets={report.bySymbol} />
+        </Panel>
+      ) : null,
+    "long-short":
+      hasTrades && report ? (
+        <Panel title="Long vs short">
+          <DirectionSplit buckets={report.byDirection} />
+        </Panel>
+      ) : null,
+    weekday:
+      hasTrades && report ? (
+        <Panel title="By weekday">
+          <PnlColumns
+            title="Net P&L by the day you opened"
+            buckets={report.byWeekday}
+            height={150}
+          />
+        </Panel>
+      ) : null,
+    yearly:
+      hasTrades && report && report.monthly.length > 0 ? (
         <Panel title="Yearly performance">
           <YearlyGrid months={report.monthly} />
         </Panel>
-      )}
-
+      ) : null,
+    "open-positions": (
       <Panel title="Open positions" action={<PanelLink href="/trades?view=open">All</PanelLink>}>
         {open ? (
           <OpenPositionsTable data={open} compact />
@@ -293,8 +327,9 @@ export default async function DashboardPage({
           <p className="text-sm text-ink-muted">Live positions could not be loaded.</p>
         )}
       </Panel>
-
-      {goals && goals.length > 0 && (
+    ),
+    goals:
+      goals && goals.length > 0 ? (
         <Panel title="Goals" action={<PanelLink href="/goals">Manage</PanelLink>}>
           <ul className="grid gap-3 md:grid-cols-2">
             {goals.map((g) => (
@@ -302,13 +337,62 @@ export default async function DashboardPage({
             ))}
           </ul>
         </Panel>
-      )}
-
-      {recent && recent.items.length > 0 && (
+      ) : null,
+    "latest-trades":
+      recent && recent.items.length > 0 ? (
         <Panel title="Latest trades" action={<PanelLink href="/trades">All trades</PanelLink>}>
           <TradesTable items={recent.items} timezone={me.timezone} bare />
         </Panel>
-      )}
+      ) : null,
+  };
+
+  return (
+    <div className="mx-auto grid max-w-7xl gap-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {firstName ? `Welcome, ${firstName}` : "Welcome"}
+          </h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            Times and daily totals use {me.timezone}.
+            {display.code !== "USD" && (
+              <>
+                {" "}
+                Amounts in {display.code} at today's rate (1 USD ={" "}
+                {display.rate.toLocaleString("en", { maximumFractionDigits: 2 })} {display.code}).
+              </>
+            )}
+            {display.unavailable && (
+              <> No rate for {display.unavailable} yet, so amounts show in USD.</>
+            )}
+            {me.timezone === "UTC" && (
+              <>
+                {" "}
+                <Link href="/settings" className="text-coach underline-offset-4 hover:underline">
+                  Set your own timezone
+                </Link>{" "}
+                so sessions and days match your clock.
+              </>
+            )}
+          </p>
+        </div>
+        <CustomizeDashboard layout={me.settings.dashboardLayout} />
+      </header>
+      {!onboarded && <SetupRunway onboarding={me.onboarding} />}
+      <RiskBanner status={risk} />
+
+      <div className="grid grid-flow-row-dense grid-cols-12 gap-6">
+        {me.settings.dashboardLayout
+          .filter((slot) => !slot.hidden && widgets[slot.id])
+          .map((slot) => (
+            <div
+              key={slot.id}
+              className={cn(SIZE[WIDGET_SIZE.get(slot.id) ?? "full"], "[&>*]:h-full")}
+            >
+              {widgets[slot.id]}
+            </div>
+          ))}
+      </div>
     </div>
   );
 }

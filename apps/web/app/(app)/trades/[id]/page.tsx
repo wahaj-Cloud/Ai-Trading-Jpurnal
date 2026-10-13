@@ -14,6 +14,7 @@ import {
   formatPnl,
   formatR,
   formatRatio,
+  isCoinAsset,
 } from "@/features/trades/format";
 import { getTradeDetail } from "@/features/trades/load";
 import { ApiError } from "@/lib/api";
@@ -93,7 +94,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
         <dl className="grid grid-cols-2 gap-5 sm:grid-cols-4 lg:grid-cols-8">
           <div className="col-span-2">
             <Metric
-              label={`Net P&L (${t.settleAsset})`}
+              label={isCoinAsset(t.settleAsset) ? `Net P&L (${t.settleAsset})` : "Net P&L"}
               value={formatPnl(t.netPnl, t.settleAsset)}
               signed={t.netPnl}
               size="lg"
