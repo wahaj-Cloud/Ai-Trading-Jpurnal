@@ -47,10 +47,7 @@ export default async function AdminLogs({
         </div>
         <ul className="grid gap-1 text-sm">
           {page.items.map((r) => (
-            <li
-              key={r.id}
-              className="rounded-[var(--radius-control)] border border-rule bg-panel px-3 py-2"
-            >
+            <li key={r.id} className="rounded-[var(--radius-control)] surface px-3 py-2">
               <span className="figures text-xs text-ink-faint">{ts(r.startedAt)}</span>{" "}
               <span
                 className={
@@ -95,10 +92,7 @@ export default async function AdminLogs({
       </div>
       <ul className="grid gap-1 text-sm">
         {page.items.map((a) => (
-          <li
-            key={a.id}
-            className="rounded-[var(--radius-control)] border border-rule bg-panel px-3 py-2"
-          >
+          <li key={a.id} className="rounded-[var(--radius-control)] surface px-3 py-2">
             <span className="figures text-xs text-ink-faint">{ts(a.createdAt)}</span>{" "}
             <span className="font-medium">{a.action}</span> · {a.entity}
             {a.entityId ? ` ${a.entityId.slice(0, 8)}` : ""} · {a.actorEmail ?? "system"}

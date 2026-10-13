@@ -57,7 +57,7 @@ export default async function ExchangesPage({
       )}
 
       {accounts.length === 0 ? (
-        <section className="rounded-[var(--radius-surface)] border border-rule bg-panel p-8 text-center">
+        <section className="rounded-[var(--radius-surface)] surface p-8 text-center">
           <PlugZap className="mx-auto h-6 w-6 text-coach" aria-hidden="true" />
           <h2 className="mt-3 font-semibold">Connect your exchanges</h2>
           <p className="mx-auto mt-2 max-w-[50ch] text-sm text-ink-muted">

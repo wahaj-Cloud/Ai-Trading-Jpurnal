@@ -51,10 +51,7 @@ export function Panel({
   return (
     <section
       aria-labelledby={id}
-      className={cn(
-        "min-w-0 rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6",
-        className,
-      )}
+      className={cn("min-w-0 rounded-[var(--radius-surface)] surface p-5 sm:p-6", className)}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 id={id} className="font-semibold">

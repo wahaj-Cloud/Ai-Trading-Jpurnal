@@ -43,7 +43,7 @@ export default async function NotificationsPageView({
         <MarkAllRead disabled={page.unread === 0} />
       </header>
       {page.items.length === 0 ? (
-        <p className="rounded-[var(--radius-surface)] border border-rule bg-panel p-8 text-center text-sm text-ink-muted">
+        <p className="rounded-[var(--radius-surface)] surface p-8 text-center text-sm text-ink-muted">
           Nothing yet. Risk warnings, reminders, reports and coaching notes appear here.
         </p>
       ) : (

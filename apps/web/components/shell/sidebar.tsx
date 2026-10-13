@@ -11,7 +11,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const items = isAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-rule bg-panel lg:flex">
+    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-rule bg-panel/70 backdrop-blur-md lg:flex">
       <div className="flex h-16 items-center px-5">
         <Link href="/dashboard" aria-label="AI Trading Coach home">
           <Wordmark />

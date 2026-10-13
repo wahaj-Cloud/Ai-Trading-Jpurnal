@@ -123,7 +123,7 @@ export function SummaryGrid({ s }: { s: SummaryDto }) {
         <section
           key={g.title}
           aria-label={g.title}
-          className="rounded-[var(--radius-surface)] border border-rule bg-panel p-4"
+          className="rounded-[var(--radius-surface)] surface p-4"
         >
           <h2 className="mb-3 text-xs font-medium tracking-wide text-ink-faint uppercase">
             {g.title}

@@ -34,7 +34,7 @@ export default function ImportPage() {
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         <section
           aria-labelledby="columns-heading"
-          className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+          className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 id="columns-heading" className="font-semibold">
@@ -70,7 +70,7 @@ export default function ImportPage() {
         </section>
         <section
           aria-labelledby="upload-heading"
-          className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+          className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
         >
           <h2 id="upload-heading" className="mb-5 font-semibold">
             Upload your file

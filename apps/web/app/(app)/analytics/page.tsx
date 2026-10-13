@@ -133,7 +133,7 @@ export default async function AnalyticsPage({
       )}
 
       {s.trades === 0 ? (
-        <section className="rounded-[var(--radius-surface)] border border-rule bg-panel p-8 text-center">
+        <section className="rounded-[var(--radius-surface)] surface p-8 text-center">
           <BarChart3 className="mx-auto h-6 w-6 text-coach" aria-hidden="true" />
           <h2 className="mt-3 font-semibold">No closed trades in this period</h2>
           <p className="mx-auto mt-2 max-w-[52ch] text-sm text-ink-muted">

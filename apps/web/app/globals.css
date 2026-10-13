@@ -1,20 +1,21 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — "Chart night".
- * Slate-navy surfaces (reads like a trading terminal, not pure black), one amber accent reserved
- * for coaching and primary actions, and profit/loss colours that never double as brand colours.
+ * Design tokens — "Deep ocean".
+ * Midnight-navy surfaces with a soft blue glow behind them, one electric-blue accent for primary
+ * actions and the active state, and profit/loss colours that never double as brand colours.
  */
 @theme {
-  --color-canvas: #0f141c;
-  --color-panel: #151c27;
-  --color-raised: #1b2433;
-  --color-rule: #233044;
-  --color-ink: #e7ecf3;
-  --color-ink-muted: #8c99ac;
-  --color-ink-faint: #5d6a7e;
-  --color-coach: #f0b429;
-  --color-coach-ink: #1a1405;
+  --color-canvas: #060c18;
+  --color-panel: #0c1527;
+  --color-raised: #132039;
+  --color-rule: #1c2c4a;
+  --color-ink: #e8eefb;
+  --color-ink-muted: #8fa1c2;
+  --color-ink-faint: #5d6f92;
+  --color-coach: #3d8bff;
+  --color-coach-ink: #ffffff;
+  --color-glow: #3d8bff;
   --color-profit: var(--pnl-profit);
   --color-loss: var(--pnl-loss);
 
@@ -39,7 +40,12 @@
 
 @layer base {
   html {
-    background: var(--color-canvas);
+    background:
+      radial-gradient(1200px 600px at 12% -10%, rgb(61 139 255 / 0.16), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgb(124 92 255 / 0.1), transparent 60%),
+      radial-gradient(1000px 700px at 50% 110%, rgb(0 180 220 / 0.07), transparent 60%),
+      var(--color-canvas);
+    background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -68,4 +74,20 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Panels: a faint top light and a hairline glow, so cards read as glass over the backdrop. */
+@utility surface {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.035), transparent 40%),
+    color-mix(in srgb, var(--color-panel) 88%, transparent);
+  border: 1px solid var(--color-rule);
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.04) inset,
+    0 12px 32px -18px rgb(0 0 0 / 0.7);
+  backdrop-filter: blur(8px);
+}
+
+@utility glow-text {
+  text-shadow: 0 0 24px rgb(61 139 255 / 0.35);
 }

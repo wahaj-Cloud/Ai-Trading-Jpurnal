@@ -52,7 +52,7 @@ export function ContextPanel({
   return (
     <section
       aria-labelledby="context-heading"
-      className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+      className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 id="context-heading" className="flex items-center gap-2 font-semibold">

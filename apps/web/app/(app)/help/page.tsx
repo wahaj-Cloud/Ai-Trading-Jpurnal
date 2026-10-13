@@ -8,7 +8,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
     <section
       id={id}
       aria-labelledby={`${id}-h`}
-      className="scroll-mt-20 rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+      className="scroll-mt-20 rounded-[var(--radius-surface)] surface p-5 sm:p-6"
     >
       <h2 id={`${id}-h`} className="font-semibold">
         {title}

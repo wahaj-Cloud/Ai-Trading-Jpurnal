@@ -73,7 +73,7 @@ export function CoachChat({
   };
 
   return (
-    <div className="flex min-h-[60vh] flex-col rounded-[var(--radius-surface)] border border-rule bg-panel">
+    <div className="flex min-h-[60vh] flex-col rounded-[var(--radius-surface)] surface">
       <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6" aria-live="polite">
         {messages.length === 0 ? (
           <div className="mx-auto max-w-lg py-8 text-center">

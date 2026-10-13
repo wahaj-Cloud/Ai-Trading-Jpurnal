@@ -5,7 +5,7 @@ import { LogoMark } from "@/components/brand/logo";
 
 export function Topbar({ me, bell }: { me: MeResponse; bell?: React.ReactNode }) {
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-rule bg-canvas/90 px-4 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-rule bg-canvas/60 px-4 backdrop-blur-md sm:px-6">
       <Link href="/dashboard" className="lg:hidden" aria-label="AI Trading Coach home">
         <LogoMark className="h-7 w-7" />
       </Link>

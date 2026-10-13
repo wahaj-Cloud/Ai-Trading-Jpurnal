@@ -71,7 +71,7 @@ export function TradesTable({
       <div
         className={cn(
           "hidden overflow-x-auto md:block",
-          !bare && "rounded-[var(--radius-surface)] border border-rule bg-panel",
+          !bare && "rounded-[var(--radius-surface)] surface",
         )}
       >
         <table className="w-full text-sm">
@@ -177,10 +177,7 @@ export function TradesTable({
 
       <ul className="grid gap-3 md:hidden">
         {items.map((p) => (
-          <li
-            key={p.id}
-            className="relative rounded-[var(--radius-surface)] border border-rule bg-panel p-4"
-          >
+          <li key={p.id} className="relative rounded-[var(--radius-surface)] surface p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">

@@ -27,7 +27,7 @@ export function ConnectionList({
   const now = Date.now();
 
   return (
-    <ul className="divide-y divide-rule rounded-[var(--radius-surface)] border border-rule bg-panel">
+    <ul className="divide-y divide-rule rounded-[var(--radius-surface)] surface">
       {accounts.map((a) => {
         const info = EXCHANGE_CATALOG[a.exchange];
         const status = STATUS[a.status];

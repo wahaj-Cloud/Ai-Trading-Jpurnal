@@ -28,10 +28,10 @@ export default async function ReconnectPage({ params }: { params: Promise<{ id: 
           : `The new key must belong to the same ${info.name} account, so your history stays accurate.`}
       </p>
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-        <section className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6">
+        <section className="rounded-[var(--radius-surface)] surface p-5 sm:p-6">
           <KeyGuide exchange={account.exchange} egressIps={egressIps} />
         </section>
-        <section className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6">
+        <section className="rounded-[var(--radius-surface)] surface p-5 sm:p-6">
           <KeyForm
             exchange={account.exchange}
             action={replaceKeyAction.bind(null, account.id, account.exchange)}

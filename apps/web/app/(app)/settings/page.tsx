@@ -22,13 +22,13 @@ export default async function SettingsPage() {
           Plan and billing
         </Link>
       </p>
-      <div className="mt-8 rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-8">
+      <div className="mt-8 rounded-[var(--radius-surface)] surface p-5 sm:p-8">
         <ProfileForm me={me} timezones={listTimezones()} />
       </div>
       <section
         id="notifications"
         aria-labelledby="notifications-heading"
-        className="mt-6 scroll-mt-20 rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-8"
+        className="mt-6 scroll-mt-20 rounded-[var(--radius-surface)] surface p-5 sm:p-8"
       >
         <h2 id="notifications-heading" className="mb-5 font-semibold">
           Notifications

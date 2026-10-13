@@ -90,7 +90,7 @@ export default async function ConnectExchangePage({
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1.1fr]">
         <section
           aria-labelledby="guide-heading"
-          className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+          className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
         >
           <h2 id="guide-heading" className="mb-5 font-semibold">
             {info.kind === "METATRADER"
@@ -101,7 +101,7 @@ export default async function ConnectExchangePage({
         </section>
         <section
           aria-labelledby="form-heading"
-          className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+          className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
         >
           <h2 id="form-heading" className="mb-5 font-semibold">
             {info.kind === "METATRADER" ? "Enter your MetaTrader login" : "Paste your key"}

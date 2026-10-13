@@ -15,7 +15,7 @@ export function CoachPanel({
   return (
     <section
       aria-labelledby="coach-heading"
-      className="flex flex-col gap-5 rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+      className="flex flex-col gap-5 rounded-[var(--radius-surface)] surface p-5 sm:p-6"
     >
       <div className="flex items-center justify-between gap-2">
         <h2 id="coach-heading" className="flex items-center gap-2 font-semibold">

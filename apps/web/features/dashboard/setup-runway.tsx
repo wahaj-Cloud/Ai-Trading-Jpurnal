@@ -33,7 +33,7 @@ export function SetupRunway({ onboarding }: { onboarding: MeResponse["onboarding
   return (
     <section
       aria-labelledby="setup-heading"
-      className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+      className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
     >
       <h2 id="setup-heading" className="font-semibold">
         Get started

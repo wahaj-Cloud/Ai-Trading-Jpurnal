@@ -86,10 +86,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
         </p>
       )}
 
-      <section
-        aria-label="Result"
-        className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
-      >
+      <section aria-label="Result" className="rounded-[var(--radius-surface)] surface p-5 sm:p-6">
         <dl className="grid grid-cols-2 gap-5 sm:grid-cols-4 lg:grid-cols-8">
           <div className="col-span-2">
             <Metric
@@ -126,7 +123,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <section
           aria-labelledby="journal-heading"
-          className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+          className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
         >
           <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="journal-heading" className="font-semibold">
@@ -150,7 +147,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
           {review ? (
             <ReviewPanel positionId={t.id} review={review} />
           ) : (
-            <section className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 text-sm text-ink-muted sm:p-6">
+            <section className="rounded-[var(--radius-surface)] surface p-5 text-sm text-ink-muted sm:p-6">
               The coach reviews trades once they are closed.
             </section>
           )}
@@ -166,7 +163,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
           {journal && journal.screenshotUrls.length > 0 && (
             <section
               aria-labelledby="shots-heading"
-              className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+              className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
             >
               <h2 id="shots-heading" className="font-semibold">
                 Charts
@@ -192,7 +189,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
           {fills.length > 0 && (
             <section
               aria-labelledby="fills-heading"
-              className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+              className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
             >
               <h2 id="fills-heading" className="font-semibold">
                 Executions

@@ -26,7 +26,7 @@ export default async function AdminUsers({
         </label>
         <Input id="q" name="q" defaultValue={q ?? ""} placeholder="Search by email or name" />
       </form>
-      <div className="overflow-x-auto rounded-[var(--radius-surface)] border border-rule bg-panel">
+      <div className="overflow-x-auto rounded-[var(--radius-surface)] surface">
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-ink-muted">
             <tr className="border-b border-rule">

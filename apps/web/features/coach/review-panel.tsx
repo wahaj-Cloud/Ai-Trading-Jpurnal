@@ -25,7 +25,7 @@ export function ReviewPanel({
   return (
     <section
       aria-labelledby="review-heading"
-      className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5 sm:p-6"
+      className="rounded-[var(--radius-surface)] surface p-5 sm:p-6"
     >
       <div className="flex items-start justify-between gap-4">
         <div>

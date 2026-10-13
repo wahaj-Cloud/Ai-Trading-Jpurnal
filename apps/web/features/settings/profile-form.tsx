@@ -122,7 +122,7 @@ function PnlOption(props: {
         name="pnlColorScheme"
         value={props.value}
         defaultChecked={props.current === props.value}
-        className="accent-[#f0b429]"
+        className="accent-[#3d8bff]"
       />
       <span className="flex-1">{props.label}</span>
       <span className="figures text-xs" style={{ color: props.profit }}>

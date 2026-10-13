@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookOpenText,
+  Calculator,
   CandlestickChart,
   CircleHelp,
   FileText,
@@ -38,6 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Analytics", href: "/analytics", icon: BarChart3, available: true, mobile: true },
   { label: "Reports", href: "/reports", icon: FileText, available: true },
   { label: "Goals", href: "/goals", icon: Target, available: true },
+  { label: "Calculators", href: "/calculators", icon: Calculator, available: true },
   { label: "Exchanges", href: "/exchanges", icon: PlugZap, available: true },
   { label: "Settings", href: "/settings", icon: Settings, available: true, mobile: true },
   { label: "Help", href: "/help", icon: CircleHelp, available: true },

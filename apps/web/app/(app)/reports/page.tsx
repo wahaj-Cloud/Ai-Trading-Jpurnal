@@ -66,7 +66,7 @@ export default async function ReportsPage({
         </nav>
       </header>
 
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-surface)] border border-rule bg-panel px-4 py-3">
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-surface)] surface px-4 py-3">
         <div className="flex items-center gap-2">
           <Link
             href={href(period, report.previous)}
@@ -113,7 +113,7 @@ export default async function ReportsPage({
       </section>
 
       {s.trades === 0 ? (
-        <p className="rounded-[var(--radius-surface)] border border-rule bg-panel p-8 text-center text-sm text-ink-muted">
+        <p className="rounded-[var(--radius-surface)] surface p-8 text-center text-sm text-ink-muted">
           No closed trades in this period.
         </p>
       ) : (

@@ -44,10 +44,7 @@ export function KpiBand({ report }: { report: AnalyticsDto | null }) {
   const empty = !s || s.trades === 0;
 
   return (
-    <section
-      aria-labelledby="kpi-heading"
-      className="rounded-[var(--radius-surface)] border border-rule bg-panel"
-    >
+    <section aria-labelledby="kpi-heading" className="rounded-[var(--radius-surface)] surface">
       <h2 id="kpi-heading" className="sr-only">
         Performance summary
       </h2>

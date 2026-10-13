@@ -6,7 +6,7 @@ export const metadata = { title: "Admin" };
 
 function Stat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
-    <div className="rounded-[var(--radius-surface)] border border-rule bg-panel p-4">
+    <div className="rounded-[var(--radius-surface)] surface p-4">
       <p className="text-xs text-ink-muted">{label}</p>
       <p className="figures mt-1 text-2xl font-semibold">
         {typeof value === "number" ? value.toLocaleString("en") : value}

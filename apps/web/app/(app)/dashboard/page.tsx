@@ -15,12 +15,22 @@ import { TimeSeriesChart } from "@/features/charts/time-series-chart";
 import { getBehaviour, getNotes } from "@/features/coach/load";
 import { CoinBars, DirectionSplit, WinLossPanel } from "@/features/dashboard/balance-panels";
 import { CoachPanel } from "@/features/dashboard/coach-panel";
+import {
+  DailyWinCard,
+  HourlyWinsLosses,
+  StreakCard,
+  SymbolsDonut,
+  YearlyGrid,
+} from "@/features/dashboard/insight-cards";
 import { KpiBand } from "@/features/dashboard/kpi-band";
+import { SessionClock } from "@/features/dashboard/session-clock";
 import { SessionMap } from "@/features/dashboard/session-map";
 import { SetupRunway } from "@/features/dashboard/setup-runway";
 import { GoalRow, RiskBanner } from "@/features/goals/views";
+import { formatPnl } from "@/features/trades/format";
 import { TradesTable } from "@/features/trades/trades-table";
 import { apiFetch } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { getMe } from "@/lib/me";
 
 export const metadata = { title: "Dashboard" };
@@ -42,6 +52,31 @@ function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split("-").map(Number) as [number, number];
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function MonthSummary({ days, month }: { days: AnalyticsDto["daily"]; month: string }) {
+  const inMonth = days.filter((d) => d.date.startsWith(month));
+  const trades = inMonth.reduce((n, d) => n + d.trades, 0);
+  if (trades === 0) return null;
+  const wins = inMonth.reduce((n, d) => n + d.wins, 0);
+  const net = inMonth.reduce((n, d) => n + Number(d.pnl), 0);
+  const green = inMonth.filter((d) => Number(d.pnl) > 0).length;
+  const items: Array<[string, string, string?]> = [
+    ["Trades", String(trades)],
+    ["Win rate", `${Math.round((wins / trades) * 100)}%`],
+    ["Green days", `${green} of ${inMonth.length}`],
+    ["Net", formatPnl(net.toFixed(2)), net >= 0 ? "text-profit" : "text-loss"],
+  ];
+  return (
+    <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-rule pt-4 sm:grid-cols-4">
+      {items.map(([label, value, tone]) => (
+        <div key={label}>
+          <dt className="text-xs text-ink-faint">{label}</dt>
+          <dd className={cn("figures text-sm font-semibold", tone)}>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 function MonthNav({
@@ -140,6 +175,9 @@ export default async function DashboardPage({
       </header>
       {!onboarded && <SetupRunway onboarding={me.onboarding} />}
       <RiskBanner status={risk} />
+      <Panel title="Market sessions">
+        <SessionClock timeZone={me.timezone} />
+      </Panel>
       <KpiBand report={report} />
 
       <div className="grid gap-6 xl:grid-cols-[1fr_24rem]">
@@ -189,9 +227,36 @@ export default async function DashboardPage({
           action={<MonthNav month={month} prev={prevMonth} next={nextMonth} />}
         >
           <CalendarHeatmap months={[month]} days={report?.daily ?? []} today={today} weekTotals />
+          <MonthSummary days={report?.daily ?? []} month={month} />
         </Panel>
         <CoachPanel note={notes?.[0] ?? null} habits={habits} />
       </div>
+
+      {hasTrades && report && (
+        <>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Panel title="Streaks">
+              <StreakCard report={report} />
+            </Panel>
+            <Panel title="Winning days">
+              <DailyWinCard days={report.daily} />
+            </Panel>
+            <Panel title="Symbols traded">
+              <SymbolsDonut buckets={report.bySymbol} />
+            </Panel>
+          </div>
+          <Panel title="Net daily P&L">
+            <TimeSeriesChart
+              kind="daily"
+              height={220}
+              points={report.daily.map((d) => ({ date: d.date, value: Number(d.pnl) }))}
+            />
+          </Panel>
+          <Panel title="Trade distribution by hour">
+            <HourlyWinsLosses buckets={report.byHour} />
+          </Panel>
+        </>
+      )}
 
       {hasTrades && report && (
         <div className="grid gap-6 lg:grid-cols-3">
@@ -209,6 +274,12 @@ export default async function DashboardPage({
             />
           </Panel>
         </div>
+      )}
+
+      {hasTrades && report && report.monthly.length > 0 && (
+        <Panel title="Yearly performance">
+          <YearlyGrid months={report.monthly} />
+        </Panel>
       )}
 
       <Panel title="Open positions" action={<PanelLink href="/trades?view=open">All</PanelLink>}>

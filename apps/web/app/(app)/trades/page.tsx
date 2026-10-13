@@ -86,11 +86,11 @@ export default async function TradesPage({
       )}
 
       {open ? (
-        <section className="rounded-[var(--radius-surface)] border border-rule bg-panel p-5">
+        <section className="rounded-[var(--radius-surface)] surface p-5">
           <OpenPositionsTable data={open} />
         </section>
       ) : page.items.length === 0 ? (
-        <section className="rounded-[var(--radius-surface)] border border-rule bg-panel p-8 text-center">
+        <section className="rounded-[var(--radius-surface)] surface p-8 text-center">
           <CandlestickChart className="mx-auto h-6 w-6 text-coach" aria-hidden="true" />
           <h2 className="mt-3 font-semibold">
             {params.cursor ? "No older trades" : "No trades yet"}
