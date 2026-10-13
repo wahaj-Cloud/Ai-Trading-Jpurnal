@@ -1,16 +1,28 @@
-import { listTimezones, type NotificationPrefs } from "@atc/shared";
+import { listCurrencies, listTimezones, type NotificationPrefs } from "@atc/shared";
 import Link from "next/link";
 import { NotificationPrefsForm } from "@/features/settings/notification-prefs";
 import { ProfileForm } from "@/features/settings/profile-form";
 import { apiFetch } from "@/lib/api";
+import { getDisplay } from "@/lib/display";
 import { getMe } from "@/lib/me";
 
 export const metadata = { title: "Settings" };
 
+function namedCurrencies(): Array<{ code: string; name: string }> {
+  let names: Intl.DisplayNames | null = null;
+  try {
+    names = new Intl.DisplayNames(["en"], { type: "currency" });
+  } catch {
+    names = null;
+  }
+  return listCurrencies().map((code) => ({ code, name: names?.of(code) ?? code }));
+}
+
 export default async function SettingsPage() {
-  const [me, prefs] = await Promise.all([
+  const [me, prefs, display] = await Promise.all([
     getMe(),
     apiFetch<NotificationPrefs>("/v1/notification-preferences"),
+    getDisplay(),
   ]);
 
   return (
@@ -23,7 +35,12 @@ export default async function SettingsPage() {
         </Link>
       </p>
       <div className="mt-8 rounded-[var(--radius-surface)] surface p-5 sm:p-8">
-        <ProfileForm me={me} timezones={listTimezones()} />
+        <ProfileForm
+          me={me}
+          timezones={listTimezones()}
+          currencies={namedCurrencies()}
+          display={display}
+        />
       </div>
       <section
         id="notifications"

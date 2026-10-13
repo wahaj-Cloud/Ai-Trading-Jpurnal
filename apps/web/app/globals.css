@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — "Liquid glass".
- * Frosted, see-through panels floating over a slow aurora of blue, violet, teal and pink light.
- * Surface tokens are translucent white so every layer picks up the colour behind it; text stays
- * near-white for contrast. Colours use rgba() because the chart library parses these at runtime.
+ * Design tokens — "Liquid glass", in two modes (data-mode="dark" | "light" on <html>) and five
+ * accent presets (data-preset). Everything visual reads these variables, so switching mode or
+ * preset recolours the whole app instantly. Colours use rgba()/hex because the chart library
+ * parses them at runtime.
  */
 @theme {
   --color-canvas: rgba(4, 7, 24, 0.55);
@@ -17,6 +17,10 @@
   --color-coach: #4d94ff;
   --color-coach-ink: #ffffff;
   --color-glow: #4d94ff;
+  /* Overlay colour for hover/active fills and hairlines: light on dark glass, dark on light. */
+  --color-hi: #ffffff;
+  /* Sunken wells (inputs, bar tracks). */
+  --color-well: rgba(0, 0, 0, 0.28);
   --color-profit: var(--pnl-profit);
   --color-loss: var(--pnl-loss);
 
@@ -31,6 +35,26 @@
   color-scheme: dark;
   --pnl-profit: #26b07e;
   --pnl-loss: #e5484d;
+
+  /* Backdrop: base colour and three light pools (r, g, b) tinted by the preset. */
+  --bg-base: #050819;
+  --blob-1: 56, 112, 255;
+  --blob-2: 168, 85, 247;
+  --blob-3: 20, 184, 166;
+  --blob-4: 236, 72, 153;
+  --blob-alpha: 1;
+
+  /* Glass recipe. */
+  --glass-tint: rgba(10, 14, 40, 0.5);
+  --glass-sheen: rgba(255, 255, 255, 0.09);
+  --glass-rim: rgba(255, 255, 255, 0.38);
+  --glass-rim-soft: rgba(255, 255, 255, 0.07);
+  --glass-shadow: rgba(0, 0, 0, 0.7);
+  --raised-fill: rgba(14, 19, 52, 0.45);
+  --raised-border: rgba(255, 255, 255, 0.13);
+  --pop-fill: rgb(12, 17, 48);
+  --pop-border: rgba(255, 255, 255, 0.18);
+  --emboss: rgba(0, 0, 0, 0.6);
 }
 
 /* Colour-blind-safe P&L palette (blue/orange), chosen per user in Settings. */
@@ -39,14 +63,107 @@
   --pnl-loss: #f08c2e;
 }
 
+/* Light mode: frosted white glass over soft pastel light. */
+html[data-mode="light"] {
+  color-scheme: light;
+  --color-canvas: rgba(255, 255, 255, 0.8);
+  --color-panel: rgba(255, 255, 255, 0.55);
+  --color-raised: rgba(15, 23, 60, 0.05);
+  --color-rule: rgba(15, 23, 60, 0.12);
+  --color-ink: #0b1030;
+  --color-ink-muted: #4a5578;
+  --color-ink-faint: #737d9c;
+  --color-hi: #0b1030;
+  --color-well: rgba(15, 23, 60, 0.07);
+  --pnl-profit: #0f9a63;
+  --pnl-loss: #d6363c;
+
+  --bg-base: #edf1fb;
+  --blob-alpha: 0.45;
+
+  --glass-tint: rgba(255, 255, 255, 0.55);
+  --glass-sheen: rgba(255, 255, 255, 0.6);
+  --glass-rim: rgba(255, 255, 255, 0.95);
+  --glass-rim-soft: rgba(15, 23, 60, 0.06);
+  --glass-shadow: rgba(30, 40, 90, 0.22);
+  --raised-fill: rgba(255, 255, 255, 0.7);
+  --raised-border: rgba(15, 23, 60, 0.09);
+  --pop-fill: rgb(255, 255, 255);
+  --pop-border: rgba(15, 23, 60, 0.12);
+  --emboss: rgba(30, 40, 90, 0.18);
+}
+html[data-mode="light"][data-pnl="colorblind"],
+html[data-mode="light"] [data-pnl="colorblind"] {
+  --pnl-profit: #2f6fde;
+  --pnl-loss: #d9761a;
+}
+
+/* Accent presets. WickMentor (blue) is the default above. */
+html[data-preset="quant"] {
+  --color-coach: #1fbfd2;
+  --color-glow: #1fbfd2;
+  --blob-1: 20, 160, 200;
+  --blob-2: 40, 120, 255;
+  --blob-3: 20, 200, 160;
+  --blob-4: 60, 90, 200;
+}
+html[data-preset="graphite"] {
+  --color-coach: #818cf8;
+  --color-glow: #818cf8;
+  --blob-1: 90, 100, 130;
+  --blob-2: 110, 110, 150;
+  --blob-3: 70, 80, 100;
+  --blob-4: 100, 90, 140;
+}
+html[data-preset="terminal"] {
+  --color-coach: #f5a524;
+  --color-coach-ink: #1a1203;
+  --color-glow: #f5a524;
+  --blob-1: 245, 165, 36;
+  --blob-2: 220, 90, 30;
+  --blob-3: 120, 90, 20;
+  --blob-4: 200, 60, 40;
+}
+html[data-preset="terminal"][data-mode="dark"] {
+  --bg-base: #0b0904;
+  --glass-tint: rgba(22, 18, 8, 0.6);
+  --raised-fill: rgba(30, 24, 10, 0.5);
+  --pop-fill: rgb(24, 20, 10);
+}
+html[data-preset="lavender"] {
+  --color-coach: #b4a2f5;
+  --color-coach-ink: #1b1530;
+  --color-glow: #b4a2f5;
+  --blob-1: 180, 160, 245;
+  --blob-2: 245, 160, 200;
+  --blob-3: 140, 210, 230;
+  --blob-4: 200, 150, 240;
+}
+
 @layer base {
   html {
     background:
-      radial-gradient(42% 52% at 8% 6%, rgba(56, 112, 255, 0.55), transparent 72%),
-      radial-gradient(36% 46% at 94% 12%, rgba(168, 85, 247, 0.42), transparent 72%),
-      radial-gradient(44% 50% at 78% 92%, rgba(20, 184, 166, 0.3), transparent 72%),
-      radial-gradient(34% 40% at 12% 94%, rgba(236, 72, 153, 0.26), transparent 72%),
-      radial-gradient(60% 60% at 50% 50%, rgba(37, 52, 140, 0.35), transparent 80%), #050819;
+      radial-gradient(
+        42% 52% at 8% 6%,
+        rgba(var(--blob-1), calc(0.55 * var(--blob-alpha))),
+        transparent 72%
+      ),
+      radial-gradient(
+        36% 46% at 94% 12%,
+        rgba(var(--blob-2), calc(0.42 * var(--blob-alpha))),
+        transparent 72%
+      ),
+      radial-gradient(
+        44% 50% at 78% 92%,
+        rgba(var(--blob-3), calc(0.3 * var(--blob-alpha))),
+        transparent 72%
+      ),
+      radial-gradient(
+        34% 40% at 12% 94%,
+        rgba(var(--blob-4), calc(0.26 * var(--blob-alpha))),
+        transparent 72%
+      ),
+      var(--bg-base);
     background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
@@ -88,30 +205,30 @@
   background:
     linear-gradient(
       150deg,
-      rgba(255, 255, 255, 0.09),
-      rgba(255, 255, 255, 0.02) 40%,
-      rgba(255, 255, 255, 0.035)
+      var(--glass-sheen),
+      transparent 40%,
+      color-mix(in srgb, var(--glass-sheen) 40%, transparent)
     )
     padding-box,
-    linear-gradient(rgba(10, 14, 40, 0.5), rgba(10, 14, 40, 0.5)) padding-box,
+    linear-gradient(var(--glass-tint), var(--glass-tint)) padding-box,
     linear-gradient(
       140deg,
-      rgba(255, 255, 255, 0.38),
-      rgba(255, 255, 255, 0.07) 28%,
-      rgba(255, 255, 255, 0.03) 62%,
-      rgba(255, 255, 255, 0.2)
+      var(--glass-rim),
+      var(--glass-rim-soft) 28%,
+      transparent 62%,
+      color-mix(in srgb, var(--glass-rim) 55%, transparent)
     )
     border-box;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 2px 8px -2px rgba(0, 0, 0, 0.3),
-    0 24px 60px -24px rgba(0, 0, 0, 0.7);
+    inset 0 1px 0 color-mix(in srgb, var(--glass-rim) 40%, transparent),
+    0 2px 8px -2px color-mix(in srgb, var(--glass-shadow) 45%, transparent),
+    0 24px 60px -24px var(--glass-shadow);
   -webkit-backdrop-filter: blur(24px) saturate(165%);
   backdrop-filter: blur(24px) saturate(165%);
 }
 
 @utility glow-text {
-  text-shadow: 0 0 28px rgba(77, 148, 255, 0.45);
+  text-shadow: 0 0 28px color-mix(in srgb, var(--color-glow) 45%, transparent);
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -122,31 +239,22 @@
  *   pop-bar  – glossy chart bars: a highlight band on top and a shadow underneath
  * ------------------------------------------------------------------------------------------- */
 @utility raised {
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.11),
-      rgba(255, 255, 255, 0.03) 55%,
-      rgba(0, 0, 0, 0.08)
-    ),
-    rgba(14, 19, 52, 0.45);
+  border: 1px solid var(--raised-border);
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 55%), var(--raised-fill);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    0 12px 24px -10px rgba(0, 0, 0, 0.75);
+    inset 0 1px 0 color-mix(in srgb, var(--glass-rim) 60%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--glass-shadow) 40%, transparent),
+    0 2px 4px color-mix(in srgb, var(--glass-shadow) 40%, transparent),
+    0 12px 24px -10px var(--glass-shadow);
 }
 
 @utility pop {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 60%),
-    rgba(15, 20, 56, 0.9);
+  border: 1px solid var(--pop-border);
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 60%), var(--pop-fill);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 4px 10px rgba(0, 0, 0, 0.35),
-    0 22px 44px -14px rgba(0, 0, 0, 0.85);
+    inset 0 1px 0 color-mix(in srgb, var(--glass-rim) 70%, transparent),
+    0 4px 10px color-mix(in srgb, var(--glass-shadow) 50%, transparent),
+    0 22px 44px -14px var(--glass-shadow);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   backdrop-filter: blur(16px) saturate(160%);
   animation: pop-in 140ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
@@ -154,9 +262,8 @@
 
 @utility pop-text {
   text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.1),
-    0 3px 6px rgba(0, 0, 0, 0.6),
-    0 0 22px color-mix(in srgb, currentColor 38%, transparent);
+    0 3px 6px var(--emboss),
+    0 0 22px color-mix(in srgb, currentColor 30%, transparent);
 }
 
 @utility pop-bar {

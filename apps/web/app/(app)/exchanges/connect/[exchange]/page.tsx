@@ -2,6 +2,7 @@ import { EXCHANGE_CATALOG } from "@atc/shared";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connectExchangeAction } from "@/features/exchanges/actions";
+import { ExchangeMark } from "@/features/exchanges/exchange-mark";
 import { KeyForm } from "@/features/exchanges/key-form";
 import { KeyGuide } from "@/features/exchanges/key-guides";
 import { getExchangeAccounts } from "@/features/exchanges/load";
@@ -77,7 +78,8 @@ export default async function ConnectExchangePage({
       )}
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="flex items-center gap-3 text-2xl font-semibold tracking-tight">
+          <ExchangeMark exchange={exchange} size="lg" />
           Connect {info.name} {info.product}
         </h1>
         {total > 1 && (

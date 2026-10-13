@@ -29,7 +29,7 @@ const envSchema = z.object({
   AI_CONCURRENCY: z.coerce.number().int().min(1).max(20).default(2),
   /** Email (resend.com). Without a key, notifications are in-app only. */
   RESEND_API_KEY: z.string().min(1).optional(),
-  EMAIL_FROM: z.string().default("AI Trading Coach <coach@example.com>"),
+  EMAIL_FROM: z.string().default("WickMentor <coach@example.com>"),
   /** Public web address used in email links, e.g. https://app.yourdomain.com */
   APP_URL: z.url().default("http://localhost:3000"),
   SENTRY_DSN: z.url().optional(),

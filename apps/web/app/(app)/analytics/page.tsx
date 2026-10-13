@@ -21,6 +21,7 @@ import { SummaryGrid } from "@/features/analytics/summary-grid";
 import { CalendarHeatmap } from "@/features/charts/calendar-heatmap";
 import { PnlColumns } from "@/features/charts/pnl-columns";
 import { TimeSeriesChart } from "@/features/charts/time-series-chart";
+import { ExchangeMark } from "@/features/exchanges/exchange-mark";
 import { getExchangeAccounts } from "@/features/exchanges/load";
 import { StrategyInsights } from "@/features/strategy/insights";
 import { cn } from "@/lib/cn";
@@ -38,7 +39,15 @@ const RANGE_LABELS: Record<AnalyticsRange, string> = {
 const monthShort = new Intl.DateTimeFormat("en", { month: "short", timeZone: "UTC" });
 const hourLabel = (h: string) => `${h.padStart(2, "0")}:00`;
 
-function Chip({ href, active, children }: { href: string; active: boolean; children: string }) {
+function Chip({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       href={href}
@@ -126,7 +135,10 @@ export default async function AnalyticsPage({
           </Chip>
           {exchanges.map((e) => (
             <Chip key={e} href={href({ exchange: e })} active={exchange === e}>
-              {EXCHANGE_CATALOG[e].name}
+              <span className="inline-flex items-center gap-1.5">
+                <ExchangeMark exchange={e} size="xs" />
+                {EXCHANGE_CATALOG[e].name}
+              </span>
             </Chip>
           ))}
         </nav>

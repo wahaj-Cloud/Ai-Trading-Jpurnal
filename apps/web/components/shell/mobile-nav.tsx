@@ -33,7 +33,7 @@ export function MobileNav() {
                   className={cn(
                     cls,
                     active
-                      ? "bg-white/[0.12] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+                      ? "bg-hi/[0.12] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
                       : "text-ink-muted",
                   )}
                 >

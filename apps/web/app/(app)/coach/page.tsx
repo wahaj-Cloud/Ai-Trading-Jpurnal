@@ -24,9 +24,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default async function CoachPage({
   searchParams,
 }: {
-  searchParams: Promise<{ c?: string }>;
+  searchParams: Promise<{ c?: string; q?: string }>;
 }) {
-  const { c } = await searchParams;
+  const { c, q } = await searchParams;
+  const question = q?.trim().slice(0, 2000) || undefined;
   const [status, conversations, notes, habits, me] = await Promise.all([
     getCoachStatus(),
     getConversations(),
@@ -95,9 +96,10 @@ export default async function CoachPage({
         </nav>
 
         <CoachChat
-          key={conversation?.id ?? "new"}
+          key={conversation?.id ?? `new-${question ?? ""}`}
           conversation={conversation}
           disabledReason={disabledReason}
+          initialQuestion={conversation ? undefined : question}
         />
 
         <div className="grid content-start gap-6 lg:col-span-2 xl:col-span-1">

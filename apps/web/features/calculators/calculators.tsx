@@ -404,7 +404,7 @@ export function Calculators() {
             className={cn(
               "rounded-full border px-4 py-1.5 text-sm transition-colors",
               g.id === group
-                ? "border-white/20 bg-white/[0.12] text-ink shadow-[0_0_16px_-6px_rgba(77,148,255,0.8)]"
+                ? "border-hi/20 bg-hi/[0.12] text-ink shadow-[0_0_16px_-6px_color-mix(in_srgb,var(--color-coach)_80%,transparent)]"
                 : "border-rule text-ink-muted hover:bg-raised hover:text-ink",
             )}
           >

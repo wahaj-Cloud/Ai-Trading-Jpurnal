@@ -2,6 +2,7 @@ import { EXCHANGE_CATALOG } from "@atc/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { replaceKeyAction } from "@/features/exchanges/actions";
+import { ExchangeMark } from "@/features/exchanges/exchange-mark";
 import { KeyForm } from "@/features/exchanges/key-form";
 import { KeyGuide } from "@/features/exchanges/key-guides";
 import { getExchangeAccounts } from "@/features/exchanges/load";
@@ -19,7 +20,8 @@ export default async function ReconnectPage({ params }: { params: Promise<{ id: 
       <Link href="/exchanges" className="text-sm text-ink-muted hover:text-ink">
         Exchanges
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+      <h1 className="mt-2 flex items-center gap-3 text-2xl font-semibold tracking-tight">
+        <ExchangeMark exchange={account.exchange} size="lg" />
         {info.kind === "METATRADER" ? "Connect again:" : "New key for"} {account.label}
       </h1>
       <p className="mt-1 text-sm text-ink-muted">

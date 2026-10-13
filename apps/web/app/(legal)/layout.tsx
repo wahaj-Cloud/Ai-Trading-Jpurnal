@@ -5,7 +5,7 @@ import { Wordmark } from "@/components/brand/logo";
 export default function LegalLayout({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto max-w-3xl px-5 py-10 sm:px-8">
-      <Link href="/" aria-label="AI Trading Coach home">
+      <Link href="/" aria-label="WickMentor home">
         <Wordmark />
       </Link>
       <article className="mt-10 grid gap-4 text-sm leading-relaxed text-ink-muted [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-ink [&_h2]:mt-4 [&_h2]:font-semibold [&_h2]:text-ink">

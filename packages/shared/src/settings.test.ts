@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listTimezones, updateProfileSchema } from "./settings.js";
+import { listCurrencies, listTimezones, updateProfileSchema } from "./settings.js";
 
 describe("updateProfileSchema", () => {
   it("accepts a valid IANA timezone", () => {
@@ -16,6 +16,18 @@ describe("updateProfileSchema", () => {
   });
   it("lists UTC first", () => {
     expect(listTimezones()[0]).toBe("UTC");
+  });
+  it("accepts ISO display currencies in any case and rejects made-up ones", () => {
+    const pkr = updateProfileSchema.safeParse({ displayCurrency: "pkr" });
+    expect(pkr.success && pkr.data.displayCurrency).toBe("PKR");
+    expect(updateProfileSchema.safeParse({ displayCurrency: "EUR" }).success).toBe(true);
+    expect(updateProfileSchema.safeParse({ displayCurrency: "ZZZ" }).success).toBe(false);
+    expect(updateProfileSchema.safeParse({ displayCurrency: "XAU" }).success).toBe(false);
+  });
+  it("lists popular currencies first, each once", () => {
+    const list = listCurrencies();
+    expect(list.slice(0, 2)).toEqual(["USD", "PKR"]);
+    expect(new Set(list).size).toBe(list.length);
   });
 });
 

@@ -1,4 +1,5 @@
 import type { DayDto } from "@atc/shared";
+import Link from "next/link";
 import { formatPnl, formatPnlCompact } from "@/features/trades/format";
 
 import { cn } from "@/lib/cn";
@@ -38,7 +39,14 @@ function weeksOf(lead: number, days: Cell[]): Array<Array<Cell | null>> {
   return weeks;
 }
 
-function DayCell({ date, day, data, max, today }: Cell & { max: number; today: string }) {
+function DayCell({
+  date,
+  day,
+  data,
+  max,
+  today,
+  large,
+}: Cell & { max: number; today: string; large: boolean }) {
   const pnl = Number(data?.pnl ?? 0);
   const strength = max === 0 || !data ? 0 : Math.sqrt(Math.abs(pnl) / max);
   const tint = pnl > 0 ? "var(--pnl-profit)" : "var(--pnl-loss)";
@@ -51,9 +59,10 @@ function DayCell({ date, day, data, max, today }: Cell & { max: number; today: s
       aria-label={label}
       role="img"
       className={cn(
-        "flex aspect-[6/5] min-h-9 flex-col justify-between rounded-lg border p-1",
+        "flex flex-col rounded-lg border",
+        large ? "h-14 p-1.5 sm:h-16 lg:h-[4.5rem]" : "aspect-[6/5] min-h-9 justify-between p-1",
         data
-          ? "lift border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(0,0,0,0.25),0_8px_16px_-8px_rgba(0,0,0,0.75)]"
+          ? "lift border-hi/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(0,0,0,0.25),0_8px_16px_-8px_rgba(0,0,0,0.75)]"
           : "border-rule/60",
         date === today && "ring-1 ring-coach",
       )}
@@ -67,12 +76,30 @@ function DayCell({ date, day, data, max, today }: Cell & { max: number; today: s
             : undefined
       }
     >
-      <span className={cn("leading-none", data ? "text-ink" : "text-ink-faint")}>{day}</span>
-      {data && (
-        <span className="figures hidden truncate text-right leading-none text-ink sm:block">
-          {cellAmount(data.pnl)}
-        </span>
-      )}
+      <span
+        className={cn(
+          "leading-none",
+          data ? "text-ink/80" : "text-ink-faint/70",
+          large && "text-[10px] sm:text-[11px]",
+        )}
+      >
+        {day}
+      </span>
+      {data &&
+        (large ? (
+          <span className="flex flex-1 flex-col items-center justify-center">
+            <span className="figures pop-text truncate text-xs leading-tight font-semibold text-ink sm:text-sm">
+              {cellAmount(data.pnl)}
+            </span>
+            <span className="hidden text-[10px] leading-tight text-ink/70 sm:block">
+              {data.trades} {data.trades === 1 ? "trade" : "trades"}
+            </span>
+          </span>
+        ) : (
+          <span className="figures hidden truncate text-right leading-none text-ink sm:block">
+            {cellAmount(data.pnl)}
+          </span>
+        ))}
     </div>
   );
 }
@@ -87,6 +114,8 @@ export function CalendarHeatmap({
   days,
   today,
   weekTotals = false,
+  large = false,
+  monthHref,
 }: {
   /** YYYY-MM, in display order. */
   months: string[];
@@ -95,6 +124,10 @@ export function CalendarHeatmap({
   today: string;
   /** Adds a column with each week's net result. */
   weekTotals?: boolean;
+  /** Taller cells that fill the container, with the amount centred (single-month views). */
+  large?: boolean;
+  /** Turns each month title into a link, e.g. to its full month page. */
+  monthHref?: (month: string) => string;
 }) {
   const byDate = new Map(days.map((d) => [d.date, d]));
   const max = Math.max(...days.map((d) => Math.abs(Number(d.pnl))), 0);
@@ -103,7 +136,7 @@ export function CalendarHeatmap({
     <div
       className={cn(
         "grid gap-6",
-        months.length === 1 ? "max-w-xl" : "sm:grid-cols-2 xl:grid-cols-3",
+        months.length === 1 ? (large ? "" : "max-w-xl") : "sm:grid-cols-2 xl:grid-cols-3",
       )}
     >
       {months.map((month) => {
@@ -116,11 +149,28 @@ export function CalendarHeatmap({
         const total = monthDays.reduce((s, d) => s + Number(d.data?.pnl ?? 0), 0);
         return (
           <section key={month} aria-label={monthName.format(new Date(`${month}-01T00:00:00Z`))}>
-            <header className="mb-2 flex items-baseline justify-between text-sm">
-              <h3 className="font-medium">{monthName.format(new Date(`${month}-01T00:00:00Z`))}</h3>
+            <header
+              className={cn(
+                "flex items-center justify-between gap-3",
+                large ? "mb-3 text-base" : "mb-2 text-sm",
+              )}
+            >
+              <h3 className="font-medium">
+                {monthHref ? (
+                  <Link
+                    href={monthHref(month)}
+                    className="underline-offset-4 hover:text-coach hover:underline"
+                  >
+                    {monthName.format(new Date(`${month}-01T00:00:00Z`))}
+                  </Link>
+                ) : (
+                  monthName.format(new Date(`${month}-01T00:00:00Z`))
+                )}
+              </h3>
               <span
                 className={cn(
-                  "figures",
+                  "figures font-semibold",
+                  large && "pop-text rounded-full border border-hi/10 bg-well px-3 py-0.5",
                   total > 0 ? "text-profit" : total < 0 ? "text-loss" : "text-ink-muted",
                 )}
               >
@@ -129,8 +179,13 @@ export function CalendarHeatmap({
             </header>
             <div
               className={cn(
-                "grid gap-[2px] text-[11px]",
-                weekTotals ? "grid-cols-[repeat(7,minmax(0,1fr))_minmax(0,1.15fr)]" : "grid-cols-7",
+                "grid text-[11px]",
+                large ? "gap-1 sm:gap-1.5" : "gap-[2px]",
+                weekTotals
+                  ? large
+                    ? "grid-cols-[repeat(7,minmax(0,1fr))_minmax(0,1.1fr)] [&>*:nth-child(8n)]:ml-1 sm:[&>*:nth-child(8n)]:ml-2"
+                    : "grid-cols-[repeat(7,minmax(0,1fr))_minmax(0,1.15fr)]"
+                  : "grid-cols-7",
               )}
             >
               {WEEKDAYS.map((w, i) => (
@@ -154,7 +209,7 @@ export function CalendarHeatmap({
                 return [
                   ...week.map((cell, ci) =>
                     cell ? (
-                      <DayCell key={cell.date} {...cell} max={max} today={today} />
+                      <DayCell key={cell.date} {...cell} max={max} today={today} large={large} />
                     ) : (
                       // biome-ignore lint/suspicious/noArrayIndexKey: empty padding cells
                       <span key={`pad-${wi}-${ci}`} aria-hidden="true" />
@@ -166,11 +221,15 @@ export function CalendarHeatmap({
                       key={`week-${wi}`}
                       role="img"
                       aria-label={`Week ${wi + 1}: ${formatPnl(String(weekPnl))}, ${weekTrades} trades`}
-                      className="raised flex min-h-9 flex-col items-end justify-center rounded-lg px-1.5"
+                      className={cn(
+                        "raised flex flex-col justify-center rounded-lg px-1.5",
+                        large ? "h-14 items-center sm:h-16 lg:h-[4.5rem]" : "min-h-9 items-end",
+                      )}
                     >
                       <span
                         className={cn(
                           "figures truncate font-semibold leading-tight",
+                          large && "pop-text text-xs sm:text-sm",
                           weekPnl > 0
                             ? "text-profit"
                             : weekPnl < 0
@@ -181,8 +240,8 @@ export function CalendarHeatmap({
                         {weekTrades ? cellAmount(String(weekPnl)) : "—"}
                       </span>
                       {weekTrades > 0 && (
-                        <span className="hidden leading-tight text-ink-faint sm:block">
-                          {weekTrades} tr
+                        <span className="hidden text-[10px] leading-tight text-ink-faint sm:block">
+                          {weekTrades} {large ? (weekTrades === 1 ? "trade" : "trades") : "tr"}
                         </span>
                       )}
                     </div>

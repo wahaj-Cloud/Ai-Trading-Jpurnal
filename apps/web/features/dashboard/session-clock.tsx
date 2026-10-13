@@ -70,7 +70,7 @@ export function SessionClock({ timeZone }: { timeZone: string }) {
                   className="raised glow-text relative rounded-[14px] px-2.5 py-1.5 sm:px-3 sm:py-2"
                 >
                   {/* Flip-clock seam across the middle of each tile. */}
-                  <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-black/35 shadow-[0_1px_0_rgba(255,255,255,0.08)]" />
+                  <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-well shadow-[0_1px_0_rgba(255,255,255,0.08)]" />
                   {pad(n)}
                 </span>
               </span>
@@ -92,21 +92,21 @@ export function SessionClock({ timeZone }: { timeZone: string }) {
             return (
               <div key={m.id} className="grid grid-cols-[5.5rem_1fr] items-center gap-3">
                 <span className="text-xs text-ink-muted">{m.label}</span>
-                <div className="relative h-5 rounded-full bg-black/25 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.06)]">
+                <div className="relative h-5 rounded-full bg-well shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.06)]">
                   {segments(start, start + (m.close - m.open)).map(([a, b]) => (
                     <span
                       key={a}
                       className={cn(
                         "pop-bar absolute inset-y-0 rounded-full",
                         status?.open
-                          ? "bg-coach shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_0_18px_-2px_rgba(77,148,255,0.9)]"
+                          ? "bg-coach shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_0_18px_-2px_color-mix(in_srgb,var(--color-coach)_90%,transparent)]"
                           : "bg-coach/35",
                       )}
                       style={{ left: `${(a / 1440) * 100}%`, width: `${((b - a) / 1440) * 100}%` }}
                     />
                   ))}
                   <span
-                    className="absolute inset-y-[-4px] w-0.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+                    className="absolute inset-y-[-4px] w-0.5 rounded-full bg-ink shadow-[0_0_8px_color-mix(in_srgb,var(--color-ink)_70%,transparent)]"
                     style={{ left: `${nowPct}%` }}
                     aria-hidden="true"
                   />

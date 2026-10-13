@@ -10,6 +10,8 @@ export interface MeResponse {
   imageUrl: string | null;
   timezone: string;
   baseCurrency: string;
+  /** ISO code every amount is shown in (converted from USD at the latest daily rate). */
+  displayCurrency: string;
   role: "USER" | "ADMIN";
   settings: { pnlColorScheme: "standard" | "colorblind" };
   plan: { code: PlanCode; name: string; limits: PlanLimits; status: string };
@@ -26,4 +28,15 @@ export interface ApiErrorBody {
   message: string;
   issues?: { path: string; message: string }[];
   requestId?: string;
+}
+
+/** Latest daily exchange rates: units of each currency per 1 US dollar. */
+export interface FxRatesDto {
+  base: "USD";
+  /** When the provider last updated the rates (ISO time). */
+  asOf: string;
+  /** When we last fetched them. */
+  fetchedAt: string;
+  source: string;
+  rates: Record<string, number>;
 }

@@ -17,7 +17,7 @@ export async function updateProfileAction(
   const raw = {
     name: String(formData.get("name") ?? "").trim() || undefined,
     timezone: formData.get("timezone") || undefined,
-    baseCurrency: formData.get("baseCurrency") || undefined,
+    displayCurrency: formData.get("displayCurrency") || undefined,
     pnlColorScheme: formData.get("pnlColorScheme") || undefined,
   };
 
@@ -44,4 +44,17 @@ export async function updateProfileAction(
 
   revalidatePath("/", "layout");
   return { status: "saved", message: "Changes saved." };
+}
+
+/** Quick switch from the top bar's globe menu. */
+export async function setDisplayCurrencyAction(code: string): Promise<{ ok: boolean }> {
+  const parsed = updateProfileSchema.safeParse({ displayCurrency: code });
+  if (!parsed.success) return { ok: false };
+  try {
+    await apiFetch<MeResponse>("/v1/me", { method: "PATCH", body: JSON.stringify(parsed.data) });
+  } catch {
+    return { ok: false };
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

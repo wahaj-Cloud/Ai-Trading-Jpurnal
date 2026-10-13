@@ -24,7 +24,7 @@ function WinRing({ wins, losses, rate }: { wins: number; losses: number; rate: n
   return (
     <svg
       viewBox="0 0 128 128"
-      className="h-32 w-32 shrink-0 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_rgba(77,148,255,0.18))]"
+      className="h-32 w-32 shrink-0 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_color-mix(in_srgb,var(--color-coach)_18%,transparent))]"
       role="img"
       aria-label={`Win rate ${formatPercent(rate, 0)}: ${wins} wins, ${losses} losses`}
     >

@@ -5,7 +5,7 @@ export default function Privacy() {
   return (
     <>
       <h1>Privacy policy</h1>
-      <p>Last updated: [date]. [Company legal name], [address] ("we") operates AI Trading Coach.</p>
+      <p>Last updated: [date]. [Company legal name], [address] ("we") operates WickMentor.</p>
       <h2>What we collect</h2>
       <p>
         Account details (name, email) through our sign-in provider; read-only exchange API keys you

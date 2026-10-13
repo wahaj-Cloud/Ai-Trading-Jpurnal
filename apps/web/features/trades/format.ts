@@ -15,6 +15,10 @@ const coin = new Intl.NumberFormat("en", {
   signDisplay: "exceptZero",
 });
 const USD = new Set(["USDT", "USDC", "FDUSD", "BUSD", "USD"]);
+/** Government currencies (the display currency): cents like USD, unlike coin amounts. */
+const FIAT: ReadonlySet<string> = new Set(
+  Intl.supportedValuesOf("currency").filter((c) => !c.startsWith("X")),
+);
 
 /**
  * Signed money. USD amounts show cents; amounts in a coin (e.g. 0.0034 BTC on coin-margined
@@ -22,8 +26,15 @@ const USD = new Set(["USDT", "USDC", "FDUSD", "BUSD", "USD"]);
  */
 export function formatPnl(value: string | null, asset?: string): string {
   if (value === null) return "—";
-  const f = asset && !USD.has(asset) ? coin : money;
+  const f = asset && !USD.has(asset) && !FIAT.has(asset) ? coin : money;
   return f.format(Number(value)).replace("-", "−");
+}
+
+/** Unsigned amount (fees): cents for USD and other currencies, full precision for coins. */
+export function formatAmount(value: string | null, asset?: string): string {
+  if (value === null) return "—";
+  if (asset && !USD.has(asset) && !FIAT.has(asset)) return plain.format(Number(value));
+  return formatMoney(value);
 }
 
 export function pnlTone(value: string | null): "profit" | "loss" | "flat" {

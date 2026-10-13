@@ -56,6 +56,8 @@ const envSchema = z.object({
   /** AI coach. Without a key, AI features are off; rules-based grades and insights still work. */
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_BASE_URL: z.url().optional(),
+  /** Daily USD exchange rates (no key needed). Must return { result, base_code, rates, time_last_update_unix }. */
+  FX_RATES_URL: z.url().default("https://open.er-api.com/v6/latest/USD"),
   AI_FAST_MODEL: z.string().default("claude-haiku-4-5-20251001"),
   AI_SMART_MODEL: z.string().default("claude-sonnet-5"),
   /** Billing (paddle.com). Without these, online checkout is off; plans can still be granted by admins. */

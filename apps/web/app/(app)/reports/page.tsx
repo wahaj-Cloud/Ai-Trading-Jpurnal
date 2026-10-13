@@ -7,9 +7,11 @@ import { SummaryGrid } from "@/features/analytics/summary-grid";
 import { TimeSeriesChart } from "@/features/charts/time-series-chart";
 import { Habits } from "@/features/coach/habits";
 import { NoteCard } from "@/features/coach/note-card";
+import { convertReport } from "@/features/currency/convert";
 import { TradesTable } from "@/features/trades/trades-table";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { getDisplay } from "@/lib/display";
 import { getMe } from "@/lib/me";
 
 export const metadata = { title: "Reports" };
@@ -32,7 +34,12 @@ export default async function ReportsPage({
     : "week";
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? "") ? params.date : undefined;
   const q = new URLSearchParams({ period, ...(date ? { date } : {}) });
-  const [report, me] = await Promise.all([apiFetch<ReportDto>(`/v1/reports?${q}`), getMe()]);
+  const [raw, me, display] = await Promise.all([
+    apiFetch<ReportDto>(`/v1/reports?${q}`),
+    getMe(),
+    getDisplay(),
+  ]);
+  const report = convertReport(raw, display);
   const href = (p: ReportPeriod, d?: string) => `/reports?period=${p}${d ? `&date=${d}` : ""}`;
   const download = (kind: string, extra: Record<string, string>) =>
     `/reports/download?${new URLSearchParams({ kind, ...extra })}`;

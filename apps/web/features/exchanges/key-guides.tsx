@@ -7,7 +7,7 @@ interface Step {
   body: ReactNode;
 }
 
-const NAME = "AI Trading Coach";
+const NAME = "WickMentor";
 
 /** Exchange-specific steps between "open API management" and "lock to our IPs". */
 const CREATE_STEPS: Record<ExchangeId, Step[]> = {

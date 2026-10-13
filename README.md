@@ -1,4 +1,6 @@
-# AI Trading Coach
+# WickMentor
+
+AI trading journal and coach (formerly "AI Trading Coach").
 
 AI-reviewed trading journal and coach for crypto futures traders.
 
@@ -38,7 +40,7 @@ ideal) of every value marked **SAVE**. Never paste keys into chats, emails or sc
 3. Switch pooling **OFF** and copy again → **SAVE as `DIRECT_URL`**.
 
 ### Step 3 — Sign-in (Clerk)
-1. On clerk.com create an application named `AI Trading Coach`. Enable **Email** and **Google**.
+1. On clerk.com create an application named `WickMentor`. Enable **Email** and **Google**.
 2. Go to **API keys**. **SAVE** the Publishable key (`pk_test_…`) and Secret key (`sk_test_…`).
 
 ### Step 4 — API server and Redis (Railway)
@@ -71,7 +73,7 @@ ideal) of every value marked **SAVE**. Never paste keys into chats, emails or sc
 
    **Creating `CREDENTIAL_KEYS` (the master key that locks every user's exchange keys):**
    in your password manager (Bitwarden, 1Password, etc.) generate a password of **64 characters, letters
-   and numbers only**. Save it in the password manager as "AI Trading Coach master key", then paste
+   and numbers only**. Save it in the password manager as "WickMentor master key", then paste
    `v1:` plus the password into Railway, e.g. `v1:Xy7…`.
    > **If this key is lost, every user must reconnect their exchange. If it leaks, rotate it immediately**
    > (docs/launch-hardening.md, "Rotating the master key"). Never reuse it anywhere else.
@@ -152,7 +154,7 @@ Each of these is optional. Without it, the app still works and the feature expla
 | Feature | Service | Where to set it |
 |---|---|---|
 | **AI coach** (reviews, daily notes, chat) | console.anthropic.com → API keys | `ANTHROPIC_API_KEY` on the API **and** worker |
-| **Email** reminders and reports | resend.com → verify your domain → API key | Worker: `RESEND_API_KEY`, `EMAIL_FROM` (e.g. `AI Trading Coach <coach@yourdomain.com>`), `APP_URL` (your Vercel address) |
+| **Email** reminders and reports | resend.com → verify your domain → API key | Worker: `RESEND_API_KEY`, `EMAIL_FROM` (e.g. `WickMentor <coach@yourdomain.com>`), `APP_URL` (your Vercel address) |
 | **Payments** | paddle.com (start in Sandbox) | See below |
 | **Admin panel** | — | API: `ADMIN_EMAILS` = your sign-in email. Sign out and in again; **Admin** appears in the sidebar |
 | **Error alerts** | sentry.io | `SENTRY_DSN` on API and worker |

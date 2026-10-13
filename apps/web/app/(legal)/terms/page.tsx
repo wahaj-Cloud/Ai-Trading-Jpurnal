@@ -10,9 +10,9 @@ export default function Terms() {
       </p>
       <h2>The service</h2>
       <p>
-        AI Trading Coach is a journal and education tool. It reads your exchange history through
-        read-only keys, computes statistics and offers AI-written coaching. It never places trades
-        or moves funds.
+        WickMentor is a journal and education tool. It reads your exchange history through read-only
+        keys, computes statistics and offers AI-written coaching. It never places trades or moves
+        funds.
       </p>
       <h2>Not financial advice</h2>
       <p>

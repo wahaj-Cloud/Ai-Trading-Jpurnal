@@ -14,6 +14,7 @@ import {
   type Time,
 } from "lightweight-charts";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useThemeKey } from "@/features/theme/use-theme-key";
 import { formatMoney, formatPnl } from "@/features/trades/format";
 import { cn } from "@/lib/cn";
 
@@ -76,6 +77,8 @@ export function TimeSeriesChart({
   height?: number;
 }) {
   const container = useRef<HTMLDivElement>(null);
+  // Redraw with the new colours when the theme changes.
+  const themeKey = useThemeKey();
   const [hover, setHover] = useState<Point | null>(null);
   // Where the floating readout sits, in pixels inside the chart.
   const [tip, setTip] = useState<{ x: number; y: number; width: number } | null>(null);
@@ -86,6 +89,7 @@ export function TimeSeriesChart({
     [points],
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: themeKey triggers a redraw in the new colours
   useEffect(() => {
     const el = container.current;
     if (!el) return;
@@ -193,7 +197,7 @@ export function TimeSeriesChart({
       chart.unsubscribeCrosshairMove(onMove);
       chart.remove();
     };
-  }, [kind, data]);
+  }, [kind, data, themeKey]);
 
   const shown = hover ?? last;
   const valueText = shown

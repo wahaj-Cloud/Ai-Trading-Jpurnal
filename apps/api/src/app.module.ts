@@ -15,6 +15,7 @@ import { ConfigModule } from "./config/config.module.js";
 import { ENV, type Env } from "./config/env.js";
 import { EngagementModule } from "./engagement/engagement.module.js";
 import { ExchangeAccountsModule } from "./exchange-accounts/exchange-accounts.module.js";
+import { FxModule } from "./fx/fx.module.js";
 import { HealthController } from "./health/health.controller.js";
 import { OpenPositionsModule } from "./open-positions/open-positions.module.js";
 import { PositionsModule } from "./positions/positions.module.js";
@@ -50,6 +51,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module.js";
     ReportsModule,
     BillingModule,
     AdminModule,
+    FxModule,
   ],
   controllers: [HealthController],
   providers: [

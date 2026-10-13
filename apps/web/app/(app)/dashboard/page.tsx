@@ -14,6 +14,7 @@ import { PnlColumns } from "@/features/charts/pnl-columns";
 import { TimeSeriesChart } from "@/features/charts/time-series-chart";
 import { getBehaviour, getNotes } from "@/features/coach/load";
 import { CoinBars, DirectionSplit, WinLossPanel } from "@/features/dashboard/balance-panels";
+import { BestSession } from "@/features/dashboard/best-session";
 import { CoachPanel } from "@/features/dashboard/coach-panel";
 import {
   DailyWinCard,
@@ -27,10 +28,12 @@ import { SessionClock } from "@/features/dashboard/session-clock";
 import { SessionMap } from "@/features/dashboard/session-map";
 import { SetupRunway } from "@/features/dashboard/setup-runway";
 import { GoalRow, RiskBanner } from "@/features/goals/views";
-import { formatPnl } from "@/features/trades/format";
+import { MONTH_RE, shiftMonth } from "@/features/months/month-stats";
+import { MonthSummary } from "@/features/months/month-summary";
+import { getPositions } from "@/features/trades/load";
 import { TradesTable } from "@/features/trades/trades-table";
 import { apiFetch } from "@/lib/api";
-import { cn } from "@/lib/cn";
+import { getDisplay } from "@/lib/display";
 import { getMe } from "@/lib/me";
 
 export const metadata = { title: "Dashboard" };
@@ -46,38 +49,6 @@ const PanelLink = ({ href, children }: { href: string; children: string }) => (
     {children}
   </Link>
 );
-
-const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
-function shiftMonth(month: string, delta: number): string {
-  const [y, m] = month.split("-").map(Number) as [number, number];
-  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function MonthSummary({ days, month }: { days: AnalyticsDto["daily"]; month: string }) {
-  const inMonth = days.filter((d) => d.date.startsWith(month));
-  const trades = inMonth.reduce((n, d) => n + d.trades, 0);
-  if (trades === 0) return null;
-  const wins = inMonth.reduce((n, d) => n + d.wins, 0);
-  const net = inMonth.reduce((n, d) => n + Number(d.pnl), 0);
-  const green = inMonth.filter((d) => Number(d.pnl) > 0).length;
-  const items: Array<[string, string, string?]> = [
-    ["Trades", String(trades)],
-    ["Win rate", `${Math.round((wins / trades) * 100)}%`],
-    ["Green days", `${green} of ${inMonth.length}`],
-    ["Net", formatPnl(net.toFixed(2)), net >= 0 ? "text-profit" : "text-loss"],
-  ];
-  return (
-    <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-rule pt-4 sm:grid-cols-4">
-      {items.map(([label, value, tone]) => (
-        <div key={label}>
-          <dt className="text-xs text-ink-faint">{label}</dt>
-          <dd className={cn("figures text-sm font-semibold", tone)}>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
 
 function MonthNav({
   month,
@@ -129,14 +100,12 @@ export default async function DashboardPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   const { month: monthParam } = await searchParams;
-  const me = await getMe();
+  const [me, display] = await Promise.all([getMe(), getDisplay()]);
   const firstName = me.name?.split(" ")[0];
   const [report, open, recent, notes, habits, risk, goals] = await Promise.all([
     orNull<AnalyticsDto>(getAnalytics("all")),
     orNull<OpenPositionsDto>(getOpenPositions()),
-    orNull<PositionsPage>(
-      apiFetch<PositionsPage>("/v1/positions?status=CLOSED&sort=closed&limit=5"),
-    ),
+    orNull<PositionsPage>(getPositions("status=CLOSED&sort=closed&limit=5")),
     orNull(getNotes(1)),
     orNull(getBehaviour(30)),
     orNull(apiFetch<RiskStatusDto>("/v1/risk-status")),
@@ -148,7 +117,10 @@ export default async function DashboardPage({
   const currentMonth = today.slice(0, 7);
   const firstMonth = report?.daily[0]?.date.slice(0, 7) ?? currentMonth;
   const month =
-    monthParam && MONTH.test(monthParam) && monthParam <= currentMonth && monthParam >= firstMonth
+    monthParam &&
+    MONTH_RE.test(monthParam) &&
+    monthParam <= currentMonth &&
+    monthParam >= firstMonth
       ? monthParam
       : currentMonth;
   const prevMonth = month > firstMonth ? shiftMonth(month, -1) : null;
@@ -162,6 +134,16 @@ export default async function DashboardPage({
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
           Times and daily totals use {me.timezone}.
+          {display.code !== "USD" && (
+            <>
+              {" "}
+              Amounts in {display.code} at today's rate (1 USD ={" "}
+              {display.rate.toLocaleString("en", { maximumFractionDigits: 2 })} {display.code}).
+            </>
+          )}
+          {display.unavailable && (
+            <> No rate for {display.unavailable} yet, so amounts show in USD.</>
+          )}
           {me.timezone === "UTC" && (
             <>
               {" "}
@@ -175,9 +157,17 @@ export default async function DashboardPage({
       </header>
       {!onboarded && <SetupRunway onboarding={me.onboarding} />}
       <RiskBanner status={risk} />
-      <Panel title="Market sessions">
-        <SessionClock timeZone={me.timezone} />
-      </Panel>
+      <div className="grid items-stretch gap-6 xl:grid-cols-[1fr_26rem]">
+        <Panel title="Market sessions">
+          <SessionClock timeZone={me.timezone} />
+        </Panel>
+        <Panel
+          title="Your best session"
+          action={hasTrades ? <PanelLink href="/analytics">Details</PanelLink> : undefined}
+        >
+          <BestSession bySession={report?.bySession ?? []} timeZone={me.timezone} />
+        </Panel>
+      </div>
       <KpiBand report={report} />
 
       <div className="grid gap-6 xl:grid-cols-[1fr_24rem]">
@@ -224,10 +214,24 @@ export default async function DashboardPage({
       <div className="grid items-start gap-6 xl:grid-cols-[1fr_24rem]">
         <Panel
           title={month === currentMonth ? "This month" : "Calendar"}
-          action={<MonthNav month={month} prev={prevMonth} next={nextMonth} />}
+          action={
+            <div className="flex items-center gap-3">
+              {hasTrades && <PanelLink href={`/months/${month}`}>Full month</PanelLink>}
+              <MonthNav month={month} prev={prevMonth} next={nextMonth} />
+            </div>
+          }
         >
-          <CalendarHeatmap months={[month]} days={report?.daily ?? []} today={today} weekTotals />
-          <MonthSummary days={report?.daily ?? []} month={month} />
+          <div className="grid gap-5">
+            <CalendarHeatmap
+              months={[month]}
+              days={report?.daily ?? []}
+              today={today}
+              weekTotals
+              large
+              monthHref={hasTrades ? (m) => `/months/${m}` : undefined}
+            />
+            {hasTrades && <MonthSummary days={report?.daily ?? []} month={month} />}
+          </div>
         </Panel>
         <CoachPanel note={notes?.[0] ?? null} habits={habits} />
       </div>

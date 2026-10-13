@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>WickMentor</title>
+  <defs>
+    <linearGradient id="ww-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22327a"/>
+      <stop offset="0.55" stop-color="#0e1640"/>
+      <stop offset="1" stop-color="#070a1f"/>
+    </linearGradient>
+    <radialGradient id="ww-glow" cx="0.28" cy="0.12" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.24"/>
+      <stop offset="0.6" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ww-ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7cc4ff"/>
+      <stop offset="0.5" stop-color="#4d94ff"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="ww-candle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6ff7c8"/>
+      <stop offset="1" stop-color="#1fb886"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#ww-bg)"/>
+  <rect width="64" height="64" rx="15" fill="url(#ww-glow)"/>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="14.25" fill="none" stroke="#fff" stroke-opacity="0.2" stroke-width="1.5"/>
+  <path d="M12.5 21 L22 47.5 L32 31.5 L42 47.5 L51.5 21" fill="none" stroke="url(#ww-ink)" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 7.5 V28" stroke="#6ff7c8" stroke-width="2" stroke-linecap="round"/>
+  <rect x="28" y="12.5" width="8" height="11.5" rx="1.8" fill="url(#ww-candle)"/>
+</svg>

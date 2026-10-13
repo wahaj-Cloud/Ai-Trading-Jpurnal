@@ -11,9 +11,9 @@ export async function NotificationBell() {
     <Link
       href="/notifications"
       aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
-      className="relative flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] text-ink-muted hover:bg-raised hover:text-ink"
+      className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-hi/[0.08] hover:text-ink"
     >
-      <Bell className="h-5 w-5" aria-hidden="true" />
+      <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
       {unread > 0 && (
         <span className="figures absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-coach px-1 text-center text-[10px] font-semibold leading-4 text-coach-ink">
           {unread > 99 ? "99+" : unread}

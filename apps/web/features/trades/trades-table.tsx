@@ -1,8 +1,9 @@
 import { EXCHANGE_CATALOG, type PositionDto } from "@atc/shared";
 import { NotebookPen, Star } from "lucide-react";
 import Link from "next/link";
+import { ExchangeMark } from "@/features/exchanges/exchange-mark";
 import { cn } from "@/lib/cn";
-import { formatDuration, formatNumber, formatPnl, pnlTone } from "./format";
+import { formatAmount, formatDuration, formatNumber, formatPnl, pnlTone } from "./format";
 
 const TONE = { profit: "text-profit", loss: "text-loss", flat: "text-ink-muted" } as const;
 
@@ -132,7 +133,10 @@ export function TradesTable({
                     <Review p={p} />
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-ink-muted">
-                    <span>{p.accountLabel ?? EXCHANGE_CATALOG[p.exchange].name}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <ExchangeMark exchange={p.exchange} size="xs" />
+                      {p.accountLabel ?? EXCHANGE_CATALOG[p.exchange].name}
+                    </span>
                     {p.leverage && <span>{formatNumber(p.leverage)}x</span>}
                     <Notes p={p} />
                   </div>
@@ -156,7 +160,7 @@ export function TradesTable({
                       {formatNumber(p.exitPrice)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-ink-muted">
-                      {formatNumber(p.fees)}
+                      {formatAmount(p.fees, p.settleAsset)}
                     </td>
                   </>
                 )}
@@ -190,7 +194,8 @@ export function TradesTable({
                   <Direction value={p.direction} />
                   <Review p={p} />
                 </div>
-                <p className="mt-0.5 text-xs text-ink-muted">
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-muted">
+                  <ExchangeMark exchange={p.exchange} size="xs" />
                   {p.accountLabel ?? EXCHANGE_CATALOG[p.exchange].name} · {date(p.openedAt)}
                 </p>
               </div>

@@ -5,8 +5,8 @@ import { ButtonLink } from "@/components/ui/button";
 import { getOpenPositions } from "@/features/analytics/load";
 import { OpenPositionsTable } from "@/features/analytics/open-positions-table";
 import { getExchangeAccounts } from "@/features/exchanges/load";
+import { getPositions } from "@/features/trades/load";
 import { TradesTable } from "@/features/trades/trades-table";
-import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { getMe } from "@/lib/me";
 
@@ -20,16 +20,18 @@ const VIEWS = [
 export default async function TradesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; cursor?: string }>;
+  searchParams: Promise<{ view?: string; cursor?: string; symbol?: string }>;
 }) {
   const params = await searchParams;
   const view = params.view === "open" ? "open" : undefined;
+  const symbol = params.symbol?.toUpperCase().match(/^[A-Z0-9_]{2,30}$/)?.[0];
   const query = new URLSearchParams({ limit: "50", status: "CLOSED" });
   if (params.cursor) query.set("cursor", params.cursor);
+  if (symbol) query.set("symbol", symbol);
 
   const empty: PositionsPage = { items: [], nextCursor: null };
   const [page, open, me, { accounts }] = await Promise.all([
-    view ? Promise.resolve(empty) : apiFetch<PositionsPage>(`/v1/positions?${query}`),
+    view ? Promise.resolve(empty) : getPositions(query),
     view ? getOpenPositions() : Promise.resolve<OpenPositionsDto | null>(null),
     getMe(),
     getExchangeAccounts(),
@@ -37,7 +39,9 @@ export default async function TradesPage({
   const importing = accounts.some((a) => a.status === "ACTIVE" && a.sync.state !== "IDLE");
   const href = (next: Record<string, string | undefined>) => {
     const q = new URLSearchParams(
-      Object.entries(next).filter((e): e is [string, string] => Boolean(e[1])),
+      Object.entries({ symbol: view ? undefined : symbol, ...next }).filter(
+        (e): e is [string, string] => Boolean(e[1]),
+      ),
     );
     const s = q.toString();
     return s ? `/trades?${s}` : "/trades";
@@ -74,6 +78,15 @@ export default async function TradesPage({
             {f.label}
           </Link>
         ))}
+        {symbol && !view && (
+          <Link
+            href="/trades"
+            className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-coach/60 bg-coach/15 px-3 py-1 text-sm text-ink hover:bg-coach/25"
+            aria-label={`Showing ${symbol} only. Show all coins`}
+          >
+            {symbol} <span aria-hidden="true">×</span>
+          </Link>
+        )}
       </nav>
 
       {importing && (
@@ -93,7 +106,7 @@ export default async function TradesPage({
         <section className="rounded-[var(--radius-surface)] surface p-8 text-center">
           <CandlestickChart className="mx-auto h-6 w-6 text-coach" aria-hidden="true" />
           <h2 className="mt-3 font-semibold">
-            {params.cursor ? "No older trades" : "No trades yet"}
+            {params.cursor ? "No older trades" : symbol ? `No ${symbol} trades` : "No trades yet"}
           </h2>
           <p className="mx-auto mt-2 max-w-[52ch] text-sm text-ink-muted">
             {accounts.length === 0

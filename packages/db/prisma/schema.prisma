@@ -40,6 +40,8 @@ model User {
   imageUrl       String?   @map("image_url")
   timezone       String    @default("UTC")
   baseCurrency   String    @default("USDT") @map("base_currency")
+  /// ISO code amounts are shown in; stored values stay in USD and are converted for display.
+  displayCurrency String   @default("USD") @map("display_currency")
   role           UserRole  @default(USER)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -783,4 +785,17 @@ model Announcement {
 
   @@index([startsAt, endsAt])
   @@map("announcements")
+}
+
+/// Latest daily exchange rates, units of each currency per 1 USD. One row per currency, replaced on
+/// each refresh; kept in the database so a provider outage still leaves the last good rates.
+model FxRate {
+  currency  String   @id @db.VarChar(3)
+  perUsd    Decimal  @map("per_usd") @db.Decimal(24, 10)
+  /// When the provider published these rates.
+  asOf      DateTime @map("as_of") @db.Timestamptz(3)
+  fetchedAt DateTime @map("fetched_at") @db.Timestamptz(3)
+  source    String
+
+  @@map("fx_rates")
 }

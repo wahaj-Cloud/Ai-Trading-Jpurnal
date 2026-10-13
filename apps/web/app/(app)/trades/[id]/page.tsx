@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Metric } from "@/features/analytics/metric";
 import { ReviewPanel } from "@/features/coach/review-panel";
+import { ExchangeMark } from "@/features/exchanges/exchange-mark";
 import { JournalForm } from "@/features/journal/journal-form";
 import { ContextPanel } from "@/features/strategy/context-panel";
 import {
@@ -14,7 +15,8 @@ import {
   formatR,
   formatRatio,
 } from "@/features/trades/format";
-import { ApiError, apiFetch } from "@/lib/api";
+import { getTradeDetail } from "@/features/trades/load";
+import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { getMe } from "@/lib/me";
 
@@ -25,7 +27,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function load(id: string): Promise<TradeDetailDto> {
   if (!UUID.test(id)) notFound();
   try {
-    return await apiFetch<TradeDetailDto>(`/v1/positions/${id}`);
+    return await getTradeDetail(id);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) notFound();
     throw err;
@@ -71,7 +73,8 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
             <span className="rounded border border-coach px-2 py-0.5 text-xs text-coach">Open</span>
           )}
         </div>
-        <p className="mt-1 text-sm text-ink-muted">
+        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-ink-muted">
+          <ExchangeMark exchange={t.exchange} size="xs" />
           {source} · opened {when.format(new Date(t.openedAt))}
           {t.closedAt ? ` · closed ${when.format(new Date(t.closedAt))}` : ""} · held{" "}
           {formatDuration(t.holdingSeconds)}

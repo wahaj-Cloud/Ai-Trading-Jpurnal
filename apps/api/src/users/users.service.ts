@@ -235,6 +235,7 @@ export class UsersService {
       imageUrl: user.imageUrl,
       timezone: user.timezone,
       baseCurrency: user.baseCurrency,
+      displayCurrency: user.displayCurrency,
       role: user.role,
       settings: {
         pnlColorScheme: user.settings?.pnlColorScheme === "colorblind" ? "colorblind" : "standard",

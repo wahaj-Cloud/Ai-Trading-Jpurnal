@@ -109,7 +109,7 @@ export function renderEmail(
     .join("");
   const html = `<!doctype html><html><body style="margin:0;background:#0f141c;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#e7ecf3">
 <div style="max-width:560px;margin:0 auto;padding:32px 20px">
-<p style="margin:0 0 20px;font-weight:600;color:#f0b429">AI Trading Coach</p>
+<p style="margin:0 0 20px;font-weight:700;font-size:18px;color:#0b1030">Wick<span style="color:#3a6ff7">Mentor</span></p>
 <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(n.title)}</h1>
 <div style="font-size:15px;line-height:1.5;color:#c9d2de">${paragraphs}</div>
 <p style="margin:24px 0"><a href="${escapeHtml(url)}" style="background:#f0b429;color:#1a1405;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600">Open in the app</a></p>

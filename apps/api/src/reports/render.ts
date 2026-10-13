@@ -60,7 +60,7 @@ export async function toXlsx(
   title: string,
 ): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "AI Trading Coach";
+  wb.creator = "WickMentor";
   wb.created = new Date();
 
   if (report) {
@@ -144,7 +144,7 @@ export function toPdf(report: ReportDto, trader: string): Promise<Buffer> {
   const doc = new PDFDocument({
     size: "A4",
     margin: 48,
-    info: { Title: `Trading report ${report.label}`, Author: "AI Trading Coach" },
+    info: { Title: `Trading report ${report.label}`, Author: "WickMentor" },
   });
   const chunks: Buffer[] = [];
   doc.on("data", (c: Buffer) => chunks.push(c));

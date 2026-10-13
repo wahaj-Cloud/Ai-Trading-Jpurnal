@@ -16,10 +16,13 @@ import { MessageText } from "./message-text";
 export function CoachChat({
   conversation,
   disabledReason,
+  initialQuestion,
 }: {
   conversation: ConversationDto | null;
   /** Set when the coach cannot answer (AI off or daily limit used). */
   disabledReason: string | null;
+  /** A question typed in the top-bar search: sent once on arrival (or left in the box if the coach is off). */
+  initialQuestion?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<CoachMessageDto[]>(conversation?.messages ?? []);
@@ -67,6 +70,15 @@ export function CoachChat({
       }
     });
   };
+  const asked = useRef(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: send exactly once per arrival
+  useEffect(() => {
+    if (!initialQuestion || asked.current) return;
+    asked.current = true;
+    if (disabledReason) setDraft(initialQuestion);
+    else send(initialQuestion);
+  }, [initialQuestion]);
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     send(draft);

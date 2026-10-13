@@ -1,4 +1,5 @@
 import type { AnalyticsDto, BucketDto, DayDto, MonthDto } from "@atc/shared";
+import Link from "next/link";
 import { formatPercent, formatPnl, formatPnlCompact, pnlTone } from "@/features/trades/format";
 import { cn } from "@/lib/cn";
 
@@ -133,7 +134,7 @@ export function SymbolsDonut({ buckets, top = 5 }: { buckets: BucketDto[]; top?:
     <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
       <svg
         viewBox="0 0 120 120"
-        className="h-36 w-36 shrink-0 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_rgba(77,148,255,0.18))]"
+        className="h-36 w-36 shrink-0 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_color-mix(in_srgb,var(--color-coach)_18%,transparent))]"
         role="img"
         aria-label={`${rows.length} symbols traded across ${total} trades`}
       >
@@ -226,7 +227,7 @@ export function DailyWinCard({ days }: { days: DayDto[] }) {
       <div className="flex flex-col items-center">
         <svg
           viewBox="0 0 120 70"
-          className="w-40 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_rgba(77,148,255,0.18))]"
+          className="w-40 [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.6))_drop-shadow(0_0_14px_color-mix(in_srgb,var(--color-coach)_18%,transparent))]"
           role="img"
           aria-label={`Winning days ${formatPercent(s.winRate, 0)}`}
         >
@@ -383,23 +384,18 @@ export function YearlyGrid({ months }: { months: MonthDto[] }) {
             {MONTHS.map((label, i) => {
               const m = byKey.get(`${y}-${String(i + 1).padStart(2, "0")}`);
               const v = Number(m?.pnl ?? 0);
-              return (
-                <div
-                  key={label}
-                  className={cn(
-                    "lift rounded-[10px] border px-1.5 py-1.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_8px_16px_-8px_rgba(0,0,0,0.7)]",
-                    !m
-                      ? "border-rule/60 bg-raised/30"
-                      : v >= 0
-                        ? "border-profit/50 bg-profit/10"
-                        : "border-loss/50 bg-loss/10",
-                  )}
-                  title={
-                    m
-                      ? `${label} ${y}: ${formatPnl(m.pnl)} over ${m.trades} trades`
-                      : `${label} ${y}: no trades`
-                  }
-                >
+              const key = `${y}-${String(i + 1).padStart(2, "0")}`;
+              const cls = cn(
+                "rounded-[10px] border px-1.5 py-1.5 text-center",
+                !m
+                  ? "border-rule/60 bg-raised/30"
+                  : cn(
+                      "lift shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_8px_16px_-8px_rgba(0,0,0,0.7)] hover:brightness-125",
+                      v >= 0 ? "border-profit/50 bg-profit/10" : "border-loss/50 bg-loss/10",
+                    ),
+              );
+              const body = (
+                <>
                   <p className="text-[10px] text-ink-faint">{label}</p>
                   <p
                     className={cn(
@@ -410,6 +406,21 @@ export function YearlyGrid({ months }: { months: MonthDto[] }) {
                     {m ? formatPnlCompact(m.pnl) : "—"}
                   </p>
                   {m && <p className="text-[10px] text-ink-faint">{m.trades} tr</p>}
+                </>
+              );
+              // Months with trades open their full month page.
+              return m ? (
+                <Link
+                  key={label}
+                  href={`/months/${key}`}
+                  className={cls}
+                  aria-label={`${label} ${y}: ${formatPnl(m.pnl)} over ${m.trades} trades. Open month`}
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div key={label} className={cls} title={`${label} ${y}: no trades`}>
+                  {body}
                 </div>
               );
             })}

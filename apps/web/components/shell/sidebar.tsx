@@ -13,7 +13,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <aside className="surface sticky top-3 my-3 ml-3 hidden h-[calc(100dvh-1.5rem)] w-60 shrink-0 flex-col rounded-[var(--radius-surface)] lg:flex">
       <div className="flex h-16 items-center px-5">
-        <Link href="/dashboard" aria-label="AI Trading Coach home">
+        <Link href="/dashboard" aria-label="WickMentor home">
           <Wordmark />
         </Link>
       </div>
@@ -43,8 +43,8 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
                   className={cn(
                     "relative flex h-10 items-center gap-3 rounded-[var(--radius-control)] px-3 text-sm transition-colors",
                     active
-                      ? "bg-white/[0.12] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_14px_-6px_rgba(0,0,0,0.5)]"
-                      : "text-ink-muted hover:bg-white/[0.06] hover:text-ink",
+                      ? "bg-hi/[0.12] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_14px_-6px_rgba(0,0,0,0.5)]"
+                      : "text-ink-muted hover:bg-hi/[0.06] hover:text-ink",
                   )}
                 >
                   {active && (

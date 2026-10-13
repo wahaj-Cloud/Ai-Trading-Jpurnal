@@ -5,13 +5,20 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/ui/themes";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { BOOT_SCRIPT } from "@/features/theme/theme";
 
 export const metadata: Metadata = {
-  title: { default: "AI Trading Coach", template: "%s · AI Trading Coach" },
+  title: { default: "WickMentor · AI trading journal and coach", template: "%s · WickMentor" },
   description: "An AI-reviewed trading journal for crypto, forex and gold traders.",
 };
 
-export const viewport: Viewport = { themeColor: "#0f141c", colorScheme: "dark" };
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#050819" },
+    { media: "(prefers-color-scheme: light)", color: "#edf1fb" },
+  ],
+  colorScheme: "dark light",
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -33,7 +40,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <html lang="en">
+      {/* The boot script sets data-mode/data-preset from this device's saved theme before paint. */}
+      <html lang="en" data-mode="dark" data-preset="wickmentor" suppressHydrationWarning>
+        <head>
+          {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static, first-party theme boot script */}
+          <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
+        </head>
         <body className="min-h-dvh">{children}</body>
       </html>
     </ClerkProvider>

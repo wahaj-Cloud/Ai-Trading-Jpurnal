@@ -1,15 +1,30 @@
 "use client";
 
-import { BASE_CURRENCIES, type MeResponse } from "@atc/shared";
+import { type MeResponse, POPULAR_CURRENCIES } from "@atc/shared";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
+import type { Display } from "@/features/currency/convert";
 import { cn } from "@/lib/cn";
 import { type ProfileFormState, updateProfileAction } from "./actions";
 
 const initial: ProfileFormState = { status: "idle" };
 
-export function ProfileForm({ me, timezones }: { me: MeResponse; timezones: string[] }) {
+const POPULAR: ReadonlySet<string> = new Set(POPULAR_CURRENCIES);
+const rateDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" });
+
+export function ProfileForm({
+  me,
+  timezones,
+  currencies,
+  display,
+}: {
+  me: MeResponse;
+  timezones: string[];
+  /** Codes with their English names, named on the server so both renders match. */
+  currencies: Array<{ code: string; name: string }>;
+  display: Display;
+}) {
   const [state, action, pending] = useActionState(updateProfileAction, initial);
   const err = state.fieldErrors ?? {};
 
@@ -59,15 +74,45 @@ export function ProfileForm({ me, timezones }: { me: MeResponse; timezones: stri
             ))}
           </Select>
         </Field>
-        <Field label="Reporting currency" htmlFor="baseCurrency" error={err.baseCurrency}>
-          <Select id="baseCurrency" name="baseCurrency" defaultValue={me.baseCurrency}>
-            {BASE_CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+        <Field
+          label="Show amounts in"
+          htmlFor="displayCurrency"
+          error={err.displayCurrency}
+          hint={
+            display.unavailable
+              ? `No exchange rate for ${display.unavailable} yet, so amounts show in USD for now.`
+              : display.code !== "USD" && display.asOf
+                ? `1 USD = ${display.rate.toLocaleString("en", { maximumFractionDigits: 4 })} ${display.code}, rates of ${rateDate.format(new Date(display.asOf))}. Rates update every day; all amounts use the latest rate.`
+                : "Trades are recorded in USD. Pick another currency to see every amount converted at the latest daily rate."
+          }
+        >
+          <Select id="displayCurrency" name="displayCurrency" defaultValue={me.displayCurrency}>
+            {[
+              { label: "Popular", list: currencies.filter((c) => POPULAR.has(c.code)) },
+              { label: "All currencies", list: currencies.filter((c) => !POPULAR.has(c.code)) },
+            ].map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.list.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} · {c.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </Select>
         </Field>
+        {display.code !== "USD" && (
+          <p className="-mt-3 text-xs text-ink-faint">
+            <a
+              href="https://www.exchangerate-api.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-ink"
+            >
+              Rates by Exchange Rate API
+            </a>
+          </p>
+        )}
         <div className="grid gap-2" role="radiogroup" aria-labelledby="pnl-label">
           <span id="pnl-label" className="text-sm font-medium">
             Profit and loss colours

@@ -10,9 +10,9 @@ export default function Risk() {
         margin in some cases. Most retail traders lose money.
       </p>
       <p>
-        AI Trading Coach reviews what you already did. Its grades, statistics, behaviour detection,
-        market analysis and AI coaching are educational. They describe the past and do not predict
-        prices or tell you what to trade.
+        WickMentor reviews what you already did. Its grades, statistics, behaviour detection, market
+        analysis and AI coaching are educational. They describe the past and do not predict prices
+        or tell you what to trade.
       </p>
       <p>
         Only trade with money you can afford to lose, and seek independent advice if you are unsure.

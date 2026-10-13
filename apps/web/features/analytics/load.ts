@@ -6,16 +6,29 @@ import type {
   StrategyInsightDto,
 } from "@atc/shared";
 import { cache } from "react";
+import { convertAnalytics, convertOpenPositions } from "@/features/currency/convert";
 import { apiFetch } from "@/lib/api";
+import { getDisplay } from "@/lib/display";
 
-export const getAnalytics = cache((range: AnalyticsRange = "all", exchange?: string) => {
+/** Amounts arrive in USD and are converted to the trader's display currency. */
+export const getAnalytics = cache(async (range: AnalyticsRange = "all", exchange?: string) => {
   const q = new URLSearchParams({ range });
   if (exchange) q.set("exchange", exchange);
-  return apiFetch<AnalyticsDto>(`/v1/analytics?${q}`);
+  const [dto, display] = await Promise.all([
+    apiFetch<AnalyticsDto>(`/v1/analytics?${q}`),
+    getDisplay(),
+  ]);
+  return convertAnalytics(dto, display);
 });
 
 export const getStrategyInsights = cache((days: number) =>
   apiFetch<StrategyInsightDto[]>(`/v1/coach/strategy?days=${days}`),
 );
 
-export const getOpenPositions = cache(() => apiFetch<OpenPositionsDto>("/v1/open-positions"));
+export const getOpenPositions = cache(async () => {
+  const [dto, display] = await Promise.all([
+    apiFetch<OpenPositionsDto>("/v1/open-positions"),
+    getDisplay(),
+  ]);
+  return convertOpenPositions(dto, display);
+});
