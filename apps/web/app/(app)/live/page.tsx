@@ -1,6 +1,6 @@
 import type { OpenPositionsDto } from "@atc/shared";
-import { LIVE_INTERVALS, type LiveInterval } from "@/features/live/binance";
 import { LiveMarkets } from "@/features/live/live-markets";
+import { LIVE_INTERVALS, type LiveInterval } from "@/features/live/market";
 import { apiFetch } from "@/lib/api";
 
 export const metadata = { title: "Live Markets" };
@@ -22,8 +22,9 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Live Markets</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-          Prices update every second, straight from Binance futures. Tap a coin to chart it; your
-          open positions show on the chart with live profit or loss.
+          Live prices for Bitcoin, gold, silver and the top 100 futures markets, straight from
+          Binance. Draw on the chart, add indicators, and see your open positions with live profit
+          or loss and the time left on every candle.
         </p>
       </header>
       <LiveMarkets symbol={symbol} interval={tf} positions={open?.items ?? []} />

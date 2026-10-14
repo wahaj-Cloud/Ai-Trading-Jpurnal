@@ -228,8 +228,9 @@ export const HELP_TOPICS: HelpTopic[] = [
     id: "live-markets",
     question: "Where can I see live prices and charts?",
     answer:
-      "Live Markets (and the live BTC price in the top bar) shows the top 100 Binance futures coins with prices updating every second, and a live candlestick chart for any coin with timeframes from 1 minute to 1 day. Your open positions appear on the chart with live profit or loss. Star coins to keep them at the top. Prices come straight from Binance's public feed, so it is unavailable in regions Binance blocks, such as the USA.",
-    keywords: "live price chart btc bitcoin candles realtime real time ticker markets watchlist",
+      "Live Markets shows Bitcoin, gold (XAU), silver (XAG) and the top 100 Binance futures markets with prices updating every second. The chart works like TradingView: timeframes from 1 minute to 1 week, candles, Heikin Ashi, bars, line or area, indicators (EMA/SMA, Bollinger Bands, VWAP, volume, RSI, MACD), drawing tools (trend line, ray, horizontal and vertical lines, rectangle, Fibonacci) with a magnet, and a countdown to each candle's close under the price. Drawings and settings are saved on your device. Your open positions show with live profit or loss and their liquidation price. Switch to \"TradingView\" for TradingView's own chart with every tool, including spot XAUUSD. Prices come from Binance's public feed, so they are unavailable in regions Binance blocks, such as the USA.",
+    keywords:
+      "live price chart btc bitcoin gold xau xauusd silver candles realtime ticker markets watchlist tradingview drawing trendline fibonacci indicators ema rsi macd countdown candle close timer",
     href: "/live",
   },
   {

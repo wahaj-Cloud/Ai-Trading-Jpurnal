@@ -364,3 +364,14 @@ html[data-preset="lavender"] {
     animation: none;
   }
 }
+
+/* Live chart: cursor while hovering or drawing (the chart's canvases set their own otherwise). */
+.wm-chart[data-cursor="crosshair"] canvas {
+  cursor: crosshair !important;
+}
+.wm-chart[data-cursor="move"] canvas {
+  cursor: move !important;
+}
+.wm-chart[data-cursor="pointer"] canvas {
+  cursor: pointer !important;
+}

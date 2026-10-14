@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { LiveCandle, LiveInterval } from "./market";
+
+export * from "./market";
 
 /**
  * Binance USDⓈ-M futures public market data, read straight from the trader's browser: no API key,
@@ -10,18 +13,6 @@ import { useEffect, useRef, useState } from "react";
 
 const REST = "https://fapi.binance.com";
 const WS = "wss://fstream.binance.com/stream?streams=";
-
-export const LIVE_INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
-export type LiveInterval = (typeof LIVE_INTERVALS)[number];
-
-export interface LiveCandle {
-  /** Open time, seconds (UTC). */
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-}
 
 export interface MiniTicker {
   symbol: string;
@@ -38,14 +29,17 @@ export type FeedStatus = "connecting" | "live" | "reconnecting" | "blocked";
 
 export class BlockedError extends Error {}
 
+/** Candles ending now, or (with `endTime`, ms) older history for scrolling back. */
 export async function fetchCandles(
   symbol: string,
   interval: LiveInterval,
   limit = 500,
   signal?: AbortSignal,
+  endTime?: number,
 ): Promise<LiveCandle[]> {
+  const end = endTime === undefined ? "" : `&endTime=${Math.floor(endTime)}`;
   const res = await fetch(
-    `${REST}/fapi/v1/klines?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`,
+    `${REST}/fapi/v1/klines?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}${end}`,
     { signal, cache: "no-store" },
   );
   if (res.status === 451 || res.status === 403) throw new BlockedError("region");
@@ -57,7 +51,28 @@ export async function fetchCandles(
     high: Number(r[2]),
     low: Number(r[3]),
     close: Number(r[4]),
+    volume: Number(r[5]),
+    closeTime: Number(r[6]),
   }));
+}
+
+/** A kline stream message's candle (`k`), or null. */
+export function parseKline(d: unknown): LiveCandle | null {
+  const k = (
+    d as {
+      k?: { t: number; T: number; o: string; h: string; l: string; c: string; v: string };
+    } | null
+  )?.k;
+  if (!k) return null;
+  return {
+    time: Math.floor(k.t / 1000),
+    open: Number(k.o),
+    high: Number(k.h),
+    low: Number(k.l),
+    close: Number(k.c),
+    volume: Number(k.v),
+    closeTime: Number(k.T),
+  };
 }
 
 /**
@@ -140,16 +155,3 @@ export function parseMiniTicker(d: {
     change: open24h > 0 ? price / open24h - 1 : 0,
   };
 }
-
-/** Prices to a sensible number of decimals for their size (63,512.4 · 0.15432 · 0.00001234). */
-export function formatPrice(v: number): string {
-  if (!Number.isFinite(v)) return "—";
-  const abs = Math.abs(v);
-  const digits = abs >= 1000 ? 1 : abs >= 1 ? 3 : abs >= 0.01 ? 5 : 8;
-  return v.toLocaleString("en", { minimumFractionDigits: digits, maximumFractionDigits: digits });
-}
-
-export const formatChange = (c: number) => {
-  const pct = Number((c * 100).toFixed(2));
-  return `${pct > 0 ? "+" : pct < 0 ? "−" : ""}${Math.abs(pct).toFixed(2)}%`;
-};

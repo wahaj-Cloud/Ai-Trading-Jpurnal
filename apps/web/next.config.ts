@@ -34,13 +34,13 @@ const securityHeaders = [
     key: "Content-Security-Policy-Report-Only",
     value: [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline' ${clerk} https://cdn.paddle.com https://challenges.cloudflare.com`,
+      `script-src 'self' 'unsafe-inline' ${clerk} https://cdn.paddle.com https://challenges.cloudflare.com https://s3.tradingview.com`,
       // Live Markets: browsers read Binance's public price feed directly (no keys, no server cost).
       `connect-src 'self' ${clerk} https://*.paddle.com https://fapi.binance.com wss://fstream.binance.com`,
       "img-src 'self' data: https://img.clerk.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
-      "frame-src https://*.paddle.com https://challenges.cloudflare.com",
+      "frame-src https://*.paddle.com https://challenges.cloudflare.com https://s.tradingview.com https://www.tradingview-widget.com",
       "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
@@ -52,7 +52,7 @@ const securityHeaders = [
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ["@atc/shared"],
+  transpilePackages: ["@atc/shared", "@atc/ta"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

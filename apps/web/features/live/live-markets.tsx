@@ -9,16 +9,20 @@ import {
   type FeedStatus,
   formatChange,
   formatPrice,
-  LIVE_INTERVALS,
   type LiveInterval,
   type MiniTicker,
   parseMiniTicker,
+  symbolLabel,
+  TRADFI_NAMES,
   useBinanceStream,
 } from "./binance";
-import { LiveChart, livePnl } from "./live-chart";
+import { ChartWorkspace } from "./chart/workspace";
+import { livePnl, positionMatch } from "./positions";
 
 const ALL_TICKERS = ["!miniTicker@arr"];
 const TOP = 100;
+/** Always one tap away, whatever their volume today. */
+const PINNED = ["BTCUSDT", "ETHUSDT", "XAUUSDT", "XAGUSDT", "SOLUSDT"];
 const FAV_KEY = "wm-live-favs";
 
 function readFavs(): string[] {
@@ -101,13 +105,21 @@ export function LiveMarkets({
     ...base.filter((t) => !favs.includes(t.symbol)),
   ];
   const cur = tickers.current.get(symbol);
-  const mine = positions.filter((p) => p.symbol === symbol);
-  const openSymbols = new Set(positions.map((p) => p.symbol));
+  const mine = positions.filter((p) => positionMatch(p, symbol) !== null);
+  // Broker gold/silver (Exness XAUUSD, XAUUSDm…) is marked on the matching perpetual.
+  const openSymbols = new Set(
+    positions.map((p) => PINNED.find((s) => positionMatch(p, s) === "related") ?? p.symbol),
+  );
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <section className="surface grid min-w-0 gap-3 rounded-[var(--radius-surface)] p-4 sm:p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <ChartWorkspace
+        symbol={symbol}
+        interval={interval}
+        positions={positions}
+        onInterval={(tf) => go(symbol, tf)}
+        onStatus={setChartStatus}
+        header={
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm text-ink-muted">
               <span
@@ -117,10 +129,11 @@ export function LiveMarkets({
                   chartStatus === "live" ? "animate-pulse bg-profit" : "bg-ink-faint",
                 )}
               />
-              {STATUS_TEXT[chartStatus]} · Binance USDT perpetual
+              {STATUS_TEXT[chartStatus]} · Binance {TRADFI_NAMES[symbol] ? "TradFi " : ""}USDT
+              perpetual
             </p>
             <h2 className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="text-2xl font-semibold">{symbol.replace(/USDT$/, "")}/USDT</span>
+              <span className="text-2xl font-semibold">{symbolLabel(symbol)}</span>
               {cur && (
                 <>
                   <span className="figures text-2xl font-semibold tabular-nums">
@@ -144,45 +157,31 @@ export function LiveMarkets({
               </p>
             )}
           </div>
-          <fieldset className="flex gap-1 rounded-full border border-rule p-1">
-            <legend className="sr-only">Timeframe</legend>
-            {LIVE_INTERVALS.map((tf) => (
-              <button
-                key={tf}
-                type="button"
-                aria-pressed={tf === interval}
-                onClick={() => go(symbol, tf)}
-                className={cn(
-                  "h-7 rounded-full px-2.5 text-xs",
-                  tf === interval
-                    ? "bg-coach/15 font-medium text-ink"
-                    : "text-ink-muted hover:text-ink",
-                )}
-              >
-                {tf}
-              </button>
-            ))}
-          </fieldset>
-        </div>
-        <LiveChart
-          key={`${symbol}-${interval}`}
-          symbol={symbol}
-          interval={interval}
-          positions={positions}
-          onStatus={setChartStatus}
-        />
+        }
+      >
         {mine.length > 0 && (
           <ul className="grid gap-2 border-t border-hi/10 pt-3 text-sm">
             {mine.map((p) => {
-              const pnl = cur ? livePnl(p, cur.price) : null;
+              const exact = positionMatch(p, symbol) === "exact";
+              const pnl = cur && exact ? livePnl(p, cur.price) : null;
               return (
                 <li key={p.id} className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-ink-muted">
-                    Your {p.direction.toLowerCase()} on {p.accountLabel} · entry{" "}
+                    Your {p.direction.toLowerCase()} on {p.accountLabel}
+                    {exact ? "" : ` (${p.symbol})`} · entry{" "}
                     <span className="figures text-ink">
                       {p.entryPrice ? formatPrice(Number(p.entryPrice)) : "—"}
                     </span>
                     {p.leverage ? ` · ${Number(p.leverage)}x` : ""}
+                    {p.liquidationPrice && Number(p.liquidationPrice) > 0 ? (
+                      <>
+                        {" "}
+                        · liquidation{" "}
+                        <span className="figures text-ink">
+                          {formatPrice(Number(p.liquidationPrice))}
+                        </span>
+                      </>
+                    ) : null}
                   </span>
                   {pnl !== null && (
                     <span
@@ -199,7 +198,7 @@ export function LiveMarkets({
             })}
           </ul>
         )}
-      </section>
+      </ChartWorkspace>
 
       <aside
         className="surface grid min-w-0 content-start gap-3 rounded-[var(--radius-surface)] p-4"
@@ -222,6 +221,35 @@ export function LiveMarkets({
             className="h-9 w-full rounded-full border border-rule bg-canvas pr-3 pl-9 text-sm text-ink placeholder:text-ink-faint focus:border-coach focus:outline-none"
           />
         </label>
+        <fieldset className="flex flex-wrap gap-1.5">
+          <legend className="sr-only">Popular markets</legend>
+          {PINNED.map((p) => {
+            const t = tickers.current.get(p);
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => go(p)}
+                aria-current={p === symbol ? "true" : undefined}
+                className={cn(
+                  "figures inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs",
+                  p === symbol
+                    ? "border-coach bg-coach/15 text-ink"
+                    : "border-rule text-ink-muted hover:text-ink",
+                )}
+              >
+                <span className="font-medium text-ink">
+                  {TRADFI_NAMES[p] ?? p.replace(/USDT$/, "")}
+                </span>
+                {t && (
+                  <span className={t.change >= 0 ? "text-profit" : "text-loss"}>
+                    {formatChange(t.change)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </fieldset>
         {listStatus === "blocked" ? (
           <p className="text-sm text-ink-muted">
             Binance does not serve live prices in your region, so live markets are unavailable here.
@@ -260,6 +288,11 @@ export function LiveMarkets({
                 >
                   <span className="truncate font-medium">
                     {t.symbol.replace(/USDT$/, "")}
+                    {TRADFI_NAMES[t.symbol] && (
+                      <span className="ml-1.5 rounded bg-[#f59e0b]/20 px-1 text-[10px] text-[#f59e0b]">
+                        {TRADFI_NAMES[t.symbol]}
+                      </span>
+                    )}
                     {openSymbols.has(t.symbol) && (
                       <span className="ml-1.5 rounded bg-coach/20 px-1 text-[10px] text-coach">
                         open
