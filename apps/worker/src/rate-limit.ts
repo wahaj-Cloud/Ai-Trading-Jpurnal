@@ -34,6 +34,10 @@ export const POLICIES: Record<ExchangeId, Policy> = {
               ? 5
               : 1,
   },
+  // Bybit: 600 requests / 5 s per IP; per-account endpoint limits are 10+/s.
+  BYBIT: { capacity: 15, windowMs: 1_000, weight: () => 1 },
+  // OKX: position history 10 / 2 s and bill archive 5 / 2 s per account; public data per IP.
+  OKX: { capacity: 8, windowMs: 1_000, weight: () => 1 },
   // MEXC futures private endpoints: 20 requests / 2 s.
   MEXC: { capacity: 8, windowMs: 1_000, weight: () => 1 },
   // KuCoin: resource pools of ~2000 weight / 30 s; history calls are light.

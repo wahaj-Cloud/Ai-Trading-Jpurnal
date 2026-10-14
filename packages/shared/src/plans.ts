@@ -29,6 +29,8 @@ export const planLimitsSchema = z.object({
   /** Market Pulse: coins shown (-1 = all) and whether the 7d/30d windows are open. */
   marketPulseCoins: z.number().int().min(-1).optional(),
   marketPulseAllWindows: z.number().int().min(0).max(1).optional(),
+  /** Estimated liquidation map: 0 = Bitcoin only (preview), 1 = every supported market. */
+  liquidationMap: z.number().int().min(0).max(1).optional(),
 });
 export type StoredPlanLimits = z.infer<typeof planLimitsSchema>;
 export type PlanLimits = Required<StoredPlanLimits>;
@@ -68,6 +70,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     backtestHistoryMonths: 0,
     marketPulseCoins: 20,
     marketPulseAllWindows: 0,
+    liquidationMap: 0,
   },
   PRO: {
     aiBudgetUsd: 3,
@@ -79,6 +82,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     backtestHistoryMonths: 0,
     marketPulseCoins: UNLIMITED,
     marketPulseAllWindows: 1,
+    liquidationMap: 1,
   },
   PREMIUM: {
     aiBudgetUsd: 7,
@@ -90,6 +94,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     backtestHistoryMonths: 24,
     marketPulseCoins: UNLIMITED,
     marketPulseAllWindows: 1,
+    liquidationMap: 1,
   },
   ENTERPRISE: {
     aiBudgetUsd: UNLIMITED,
@@ -101,6 +106,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     backtestHistoryMonths: 24,
     marketPulseCoins: UNLIMITED,
     marketPulseAllWindows: 1,
+    liquidationMap: 1,
   },
 };
 

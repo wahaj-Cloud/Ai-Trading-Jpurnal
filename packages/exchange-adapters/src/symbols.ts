@@ -20,7 +20,8 @@ const BASE_ALIASES: Record<string, string> = { XBT: "BTC" };
 
 /**
  * Normalises exchange-native futures symbols:
- * Binance "BTCUSDT", MEXC "BTC_USDT", KuCoin "XBTUSDTM", BingX "BTC-USDT" -> "BTCUSDT".
+ * Binance "BTCUSDT", MEXC "BTC_USDT", KuCoin "XBTUSDTM", BingX "BTC-USDT", OKX "BTC-USDT-SWAP"
+ * -> "BTCUSDT"; Bybit's USDC perpetuals "BTCPERP" -> "BTCUSDC".
  */
 export function canonicalSymbol(exchange: ExchangeId, native: string): CanonicalSymbol {
   if (exchange === "EXNESS") return metatraderSymbol(native);
@@ -33,6 +34,11 @@ export function canonicalSymbol(exchange: ExchangeId, native: string): Canonical
   ) {
     raw = raw.slice(0, -1);
   }
+
+  // OKX perpetuals end in "-SWAP"; Bybit names its USDC perpetuals "<BASE>PERP".
+  if (exchange === "OKX" && raw.endsWith("-SWAP")) raw = raw.slice(0, -"-SWAP".length);
+  if (exchange === "BYBIT" && raw.endsWith("PERP") && raw.length > 4)
+    raw = `${raw.slice(0, -4)}USDC`;
 
   // Dated delivery contracts (Binance "BTCUSDT_260327") keep their expiry in the symbol, so they never
   // merge with the perpetual, but the pair itself is parsed without it.

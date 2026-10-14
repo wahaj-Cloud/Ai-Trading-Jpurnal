@@ -28,7 +28,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     id: "exchanges-supported",
     question: "Which exchanges are supported?",
     answer:
-      "Binance Futures, MEXC Futures, KuCoin Futures, BingX and Exness (MetaTrader 4/5). More exchanges such as Bybit and OKX are coming.",
+      "Binance Futures, Bybit (USDT and USDC perpetuals), OKX (perpetual swaps), MEXC Futures, KuCoin Futures, BingX and Exness (MetaTrader 4/5). OKX keys need the passphrase you set when creating the key. Bitget and Hyperliquid are next.",
     keywords: "supported exchanges list bybit okx hyperliquid bitget brokers which",
     href: "/exchanges/connect",
   },
@@ -231,6 +231,15 @@ export const HELP_TOPICS: HelpTopic[] = [
       "Live Markets shows Bitcoin, gold (XAU), silver (XAG) and the top 100 Binance futures markets with prices updating every second. The chart works like TradingView: timeframes from 1 minute to 1 week, candles, Heikin Ashi, bars, line or area, indicators (EMA/SMA, Bollinger Bands, VWAP, volume, RSI, MACD), drawing tools (trend line, ray, horizontal and vertical lines, rectangle, Fibonacci) with a magnet, and a countdown to each candle's close under the price. Drawings and settings are saved on your device. Your open positions show with live profit or loss and their liquidation price. Switch to \"TradingView\" for TradingView's own chart with every tool, including spot XAUUSD. Prices come from Binance's public feed, so they are unavailable in regions Binance blocks, such as the USA.",
     keywords:
       "live price chart btc bitcoin gold xau xauusd silver candles realtime ticker markets watchlist tradingview drawing trendline fibonacci indicators ema rsi macd countdown candle close timer",
+    href: "/live",
+  },
+  {
+    id: "liquidation-map",
+    question: "What is the liquidation map?",
+    answer:
+      "Live Markets → Liq. map shows, behind the candles, where many traders' positions would be liquidated if price got there: brighter bands mean more value at risk. No exchange publishes real liquidation prices, so it is an estimate built every 5 minutes from public open interest on Binance, Bybit and OKX (when open interest rises, new positions were opened near that price), who was buying or selling, and a typical leverage mix. Levels disappear once price trades through them. The card under the chart lists the biggest clusters above and below the price. Free shows Bitcoin; Pro and Premium cover BTC, ETH, SOL, XRP, DOGE, BNB, SUI, ADA, LINK, AVAX, gold and silver. It is context for your own decisions, never a signal.",
+    keywords:
+      "liquidation map heatmap liquidations levels clusters coinglass open interest oi leverage magnet",
     href: "/live",
   },
   {

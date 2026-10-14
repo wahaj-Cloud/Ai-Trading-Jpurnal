@@ -38,6 +38,10 @@ export function nativeSymbol(
       return `${base === "BTC" ? "XBT" : base}${quote}M`;
     case "BINGX":
       return `${base}-${quote}`;
+    case "BYBIT":
+      return quote === "USDC" ? `${base}PERP` : symbol;
+    case "OKX":
+      return `${base}-${quote}-SWAP`;
     case "EXNESS":
       return symbol;
   }
@@ -150,6 +154,56 @@ function pager(
           )) as { code?: string; data?: unknown[][] };
           if (json?.code && json.code !== "200000")
             throw new ExchangeHttpError(400, json.code, "KuCoin kline request rejected");
+          return (json?.data ?? []).map((r) => ({
+            t: num(r[0]),
+            o: num(r[1]),
+            h: num(r[2]),
+            l: num(r[3]),
+            c: num(r[4]),
+            v: num(r[5]),
+          }));
+        },
+      };
+    }
+    case "BYBIT": {
+      const f = resolveFetch(config.bybit ?? {});
+      const base = config.bybit?.baseUrl ?? "https://api.bybit.com";
+      const interval = { "5m": "5", "15m": "15", "1h": "60", "4h": "240" }[tf];
+      return {
+        limit: 1000,
+        page: async (from, to) => {
+          const json = (await getJson(
+            f,
+            `${base}/v5/market/kline?category=linear&symbol=${encodeURIComponent(native)}&interval=${interval}&start=${from}&end=${to}&limit=1000`,
+          )) as { retCode?: number; result?: { list?: string[][] } };
+          if (json?.retCode !== undefined && json.retCode !== 0)
+            throw new ExchangeHttpError(400, json.retCode, "Bybit kline request rejected");
+          // Newest first; the caller sorts.
+          return (json?.result?.list ?? []).map((r) => ({
+            t: num(r[0]),
+            o: num(r[1]),
+            h: num(r[2]),
+            l: num(r[3]),
+            c: num(r[4]),
+            v: num(r[5]),
+          }));
+        },
+      };
+    }
+    case "OKX": {
+      const f = resolveFetch(config.okx ?? {});
+      const base = config.okx?.baseUrl ?? "https://www.okx.com";
+      const bar = { "5m": "5m", "15m": "15m", "1h": "1H", "4h": "4H" }[tf];
+      return {
+        limit: 100,
+        page: async (from, to) => {
+          // `after` = older than, `before` = newer than (both exclusive), newest first.
+          const json = (await getJson(
+            f,
+            `${base}/api/v5/market/history-candles?instId=${encodeURIComponent(native)}&bar=${bar}&after=${to + 1}&before=${from - 1}&limit=100`,
+          )) as { code?: string; data?: string[][] };
+          if (json?.code && json.code !== "0")
+            throw new ExchangeHttpError(400, json.code, "OKX candle request rejected");
           return (json?.data ?? []).map((r) => ({
             t: num(r[0]),
             o: num(r[1]),

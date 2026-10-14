@@ -4,7 +4,7 @@ import { ImportForm } from "@/features/trades/import-form";
 export const metadata = { title: "Import trades" };
 
 const COLUMNS: [string, string, boolean][] = [
-  ["exchange", "BINANCE, MEXC, KUCOIN or BINGX", true],
+  ["exchange", "BINANCE, BYBIT, OKX, MEXC, KUCOIN or BINGX", true],
   ["symbol", "The futures pair, e.g. BTCUSDT", true],
   ["direction", "LONG or SHORT", true],
   ["opened_at", "When you opened, e.g. 2026-03-02 09:15:00 (UTC)", true],

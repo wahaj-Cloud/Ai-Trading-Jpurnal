@@ -1,16 +1,20 @@
 import type { ExchangeId } from "@atc/shared";
-import { ExchangeBinance, ExchangeKucoin } from "@web3icons/react";
+import { ExchangeBinance, ExchangeBybit, ExchangeKucoin } from "@web3icons/react";
 import { cn } from "@/lib/cn";
 
 /** Official marks from the MIT-licensed web3icons set, where the set has the venue. */
 const MARKS: Partial<Record<ExchangeId, typeof ExchangeBinance>> = {
   BINANCE: ExchangeBinance,
+  BYBIT: ExchangeBybit,
   KUCOIN: ExchangeKucoin,
 };
 
 /** Venues without a mark in the set get a lettered badge tinted with the venue's colour. */
 const MONOGRAMS: Record<ExchangeId, { text: string; color: string }> = {
   BINANCE: { text: "B", color: "#f0b90b" },
+  BYBIT: { text: "By", color: "#f7a600" },
+  // OKX's mark is black, which disappears on our dark tiles.
+  OKX: { text: "OKX", color: "#e5e7eb" },
   KUCOIN: { text: "K", color: "#24ae8f" },
   MEXC: { text: "M", color: "#3b82f6" },
   BINGX: { text: "BX", color: "#4a6bff" },

@@ -5,6 +5,9 @@ import { BinanceHistorySource } from "./binance/history.js";
 import { BingxAdapter } from "./bingx/adapter.js";
 import type { BingxClientOptions } from "./bingx/client.js";
 import { BingxHistorySource } from "./bingx/history.js";
+import { BybitAdapter } from "./bybit/adapter.js";
+import type { BybitClientOptions } from "./bybit/client.js";
+import { BybitHistorySource } from "./bybit/history.js";
 import type { HistorySource } from "./history/types.js";
 import { KucoinAdapter } from "./kucoin/adapter.js";
 import type { KucoinClientOptions } from "./kucoin/client.js";
@@ -15,6 +18,9 @@ import type { MetaApiOptions } from "./metatrader/metaapi.js";
 import { MexcAdapter } from "./mexc/adapter.js";
 import type { MexcClientOptions } from "./mexc/client.js";
 import { MexcHistorySource } from "./mexc/history.js";
+import { OkxAdapter } from "./okx/adapter.js";
+import type { OkxClientOptions } from "./okx/client.js";
+import { OkxHistorySource } from "./okx/history.js";
 import type { ApiCredentials, ClientOptions, ExchangeAdapter, ExchangeId } from "./types.js";
 
 export interface AdapterConfig {
@@ -22,6 +28,8 @@ export interface AdapterConfig {
   mexc?: MexcClientOptions;
   kucoin?: KucoinClientOptions;
   bingx?: BingxClientOptions;
+  bybit?: BybitClientOptions;
+  okx?: OkxClientOptions;
   /** MetaTrader brokers (Exness) through MetaApi. */
   metaapi?: MetaApiOptions;
 }
@@ -34,6 +42,8 @@ export type AdapterRegistry = Record<ExchangeId, ExchangeAdapter>;
 export function createAdapterRegistry(config: AdapterConfig = {}): AdapterRegistry {
   return {
     BINANCE: new BinanceAdapter(config.binance),
+    BYBIT: new BybitAdapter(config.bybit),
+    OKX: new OkxAdapter(config.okx),
     MEXC: new MexcAdapter(config.mexc),
     KUCOIN: new KucoinAdapter(config.kucoin),
     BINGX: new BingxAdapter(config.bingx),
@@ -54,6 +64,10 @@ export function createHistorySource(
   switch (exchange) {
     case "BINANCE":
       return new BinanceHistorySource(credentials, { ...config.binance, ...shared });
+    case "BYBIT":
+      return new BybitHistorySource(credentials, { ...config.bybit, ...shared });
+    case "OKX":
+      return new OkxHistorySource(credentials, { ...config.okx, ...shared });
     case "MEXC":
       return new MexcHistorySource(credentials, { ...config.mexc, ...shared });
     case "KUCOIN":

@@ -1,4 +1,4 @@
-import type { OpenPositionDto } from "@atc/shared";
+import type { LiquidationMapDto, OpenPositionDto } from "@atc/shared";
 import { heikinAshi } from "@atc/ta/indicators";
 import {
   AreaSeries,
@@ -33,6 +33,7 @@ import { livePnl, positionMatch } from "../positions";
 import { CountdownPrimitive } from "./countdown";
 import { DrawingsPrimitive } from "./drawings";
 import { type ChartPoint, TimeAxis } from "./geometry";
+import { HeatmapPrimitive } from "./heatmap";
 import type { ChartSettings, ChartType } from "./settings";
 import { computeStudies, type StudyLine, studyPanes, toTaCandles } from "./studies";
 
@@ -118,6 +119,7 @@ export class ChartController {
   readonly chart: IChartApi;
   readonly drawings = new DrawingsPrimitive();
   private readonly countdown = new CountdownPrimitive();
+  private readonly heatmap = new HeatmapPrimitive((pt) => this.drawings.toXY(pt));
   private main: ISeriesApi<SeriesType>;
   private mainType: ChartType;
   private volume: ISeriesApi<"Histogram"> | null = null;
@@ -167,6 +169,7 @@ export class ChartController {
     // Detach first: the countdown's timer must stop before the chart is disposed.
     this.main.detachPrimitive(this.countdown);
     this.main.detachPrimitive(this.drawings);
+    this.main.detachPrimitive(this.heatmap);
     this.chart.remove();
   }
 
@@ -278,6 +281,7 @@ export class ChartController {
       this.mainType = s.type;
       this.main.detachPrimitive(this.drawings);
       this.main.detachPrimitive(this.countdown);
+      this.main.detachPrimitive(this.heatmap);
       this.chart.removeSeries(this.main);
       this.main = this.createMain(s.type);
       this.main.applyOptions({
@@ -290,6 +294,11 @@ export class ChartController {
     if (!initial) this.redrawAll();
     const last = this.rows.at(-1);
     if (last) this.updateCountdown(last);
+  }
+
+  /** The estimated liquidation map behind the candles (null hides it). */
+  setLiquidationMap(map: LiquidationMapDto | null): void {
+    this.heatmap.set(map);
   }
 
   // ─── Positions ───
@@ -448,6 +457,7 @@ export class ChartController {
       series = this.chart.addSeries(AreaSeries, { ...common, ...this.mainStyle(type, s) });
     else
       series = this.chart.addSeries(CandlestickSeries, { ...common, ...this.mainStyle(type, s) });
+    series.attachPrimitive(this.heatmap);
     series.attachPrimitive(this.drawings);
     series.attachPrimitive(this.countdown);
     return series;

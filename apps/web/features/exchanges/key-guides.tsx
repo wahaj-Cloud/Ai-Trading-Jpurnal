@@ -21,6 +21,26 @@ const CREATE_STEPS: Record<ExchangeId, Step[]> = {
       body: 'Click Edit restrictions. Leave only "Enable Reading" ticked. Every trading, withdrawal and transfer option must stay off.',
     },
   ],
+  BYBIT: [
+    {
+      title: "Create a system-generated key",
+      body: `Click Create New Key, choose "System-generated API Keys", then "API Transaction", and name it "${NAME}".`,
+    },
+    {
+      title: "Choose Read-Only",
+      body: 'Under API Key Permissions pick "Read-Only". Tick Contracts (Orders and Positions); for a Unified Trading Account also tick Unified Trading. Leave Wallet, Spot trading and every transfer or withdrawal option off.',
+    },
+  ],
+  OKX: [
+    {
+      title: "Create a key with a passphrase",
+      body: `Click Create API key, choose "API trading", name it "${NAME}" and set a passphrase. Write the passphrase down: you will paste it below, and OKX cannot show it again.`,
+    },
+    {
+      title: "Allow Read only",
+      body: 'Under Permissions tick only "Read". Trade and Withdraw must stay off.',
+    },
+  ],
   MEXC: [
     {
       title: "Create a key",
@@ -60,7 +80,9 @@ function ipStep(exchange: ExchangeId, egressIps: string[]): Step | null {
   const expiry =
     exchange === "MEXC"
       ? " MEXC also expires keys that have no IP lock; locked keys last longer."
-      : "";
+      : exchange === "BYBIT"
+        ? " Bybit expires keys without an IP lock after 3 months; locked keys do not expire."
+        : "";
   return {
     title: "Lock the key to our servers",
     body: (

@@ -31,6 +31,7 @@ import { queueAutoReviews, scheduleCoachNotes } from "./ai/schedule.js";
 import { processBacktest } from "./backtest/process.js";
 import { loadEnv } from "./env.js";
 import { log } from "./logger.js";
+import { runLiquidationMaps } from "./market/liq-map.js";
 import { runMarketPulse } from "./market/pulse.js";
 import { initMonitoring } from "./monitoring.js";
 import { startLiveNews } from "./news/live.js";
@@ -75,6 +76,8 @@ async function main(): Promise<void> {
       ...throttle("KUCOIN"),
     },
     bingx: { baseUrl: env.BINGX_BASE_URL, ...throttle("BINGX") },
+    bybit: { baseUrl: env.BYBIT_BASE_URL, ...throttle("BYBIT") },
+    okx: { baseUrl: env.OKX_BASE_URL, ...throttle("OKX") },
     metaapi: {
       token: env.METAAPI_TOKEN,
       provisioningUrl: env.METAAPI_PROVISIONING_URL,
@@ -259,9 +262,28 @@ async function main(): Promise<void> {
   } else {
     await market.removeJobScheduler("market-pulse");
   }
+  if (env.LIQ_MAP_ENABLED) {
+    await market.upsertJobScheduler(
+      "liquidation-maps",
+      { pattern: "*/5 * * * *" },
+      { name: "liquidation-maps", opts: { removeOnComplete: true, removeOnFail: 50 } },
+    );
+    await market.add(
+      "liquidation-maps",
+      {},
+      { jobId: `liquidation-maps-boot-${Date.now()}`, removeOnComplete: true, removeOnFail: true },
+    );
+  } else {
+    await market.removeJobScheduler("liquidation-maps");
+  }
   const marketWorker = new Worker(
     MARKET_QUEUE,
-    async () => {
+    async (job) => {
+      if (job.name === "liquidation-maps") {
+        const res = await runLiquidationMaps(marketDeps);
+        log.info("liquidation maps updated", res);
+        return;
+      }
       const res = await runMarketPulse(marketDeps);
       log.info("market pulse updated", res);
     },
@@ -324,6 +346,7 @@ async function main(): Promise<void> {
     liveNews: liveNews ? "on" : "off",
     officialNews: official ? "on" : "off",
     marketPulse: env.MARKET_PULSE_ENABLED ? "on" : "off",
+    liquidationMaps: env.LIQ_MAP_ENABLED ? "on" : "off",
     ai: model.enabled ? env.AI_FAST_MODEL : "off",
     concurrency: env.SYNC_CONCURRENCY,
     intervalMinutes: env.SYNC_INTERVAL_MINUTES,

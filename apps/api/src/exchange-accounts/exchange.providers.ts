@@ -36,5 +36,7 @@ export const exchangeAdaptersProvider: Provider<AdapterRegistry> = {
         futuresBaseUrl: env.KUCOIN_FUTURES_BASE_URL,
       },
       bingx: { baseUrl: env.BINGX_BASE_URL },
+      bybit: { baseUrl: env.BYBIT_BASE_URL },
+      okx: { baseUrl: env.OKX_BASE_URL },
     }),
 };

@@ -119,6 +119,7 @@ export function LiveMarkets({
         positions={positions}
         onInterval={(tf) => go(symbol, tf)}
         onStatus={setChartStatus}
+        price={cur?.price ?? null}
         header={
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm text-ink-muted">

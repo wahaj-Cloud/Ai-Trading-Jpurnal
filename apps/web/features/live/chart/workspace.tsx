@@ -9,6 +9,7 @@ import {
   Clock,
   Eye,
   EyeOff,
+  Flame,
   Magnet,
   Maximize,
   Minimize,
@@ -34,6 +35,7 @@ import type { FeedStatus } from "../binance";
 import { LIVE_INTERVALS, type LiveInterval, QUICK_INTERVALS, TRADFI_NAMES } from "../market";
 import { DRAWING_COLORS, DRAWING_LABELS, type DrawingKind } from "./drawings";
 import { formatCountdown } from "./geometry";
+import { LiqMapCard, mapOf, useLiquidationMap } from "./liq-map";
 import { IndicatorsPanel, SettingsPanel } from "./panels";
 import { ProChart, type ProChartHandle } from "./pro-chart";
 import {
@@ -102,6 +104,7 @@ export function ChartWorkspace({
   onInterval,
   onStatus,
   header,
+  price = null,
   children,
 }: {
   symbol: string;
@@ -110,6 +113,8 @@ export function ChartWorkspace({
   onInterval: (tf: LiveInterval) => void;
   onStatus?: (s: FeedStatus | "loading" | "error") => void;
   header: ReactNode;
+  /** Latest price, for distances to liquidation clusters. */
+  price?: number | null;
   children?: ReactNode;
 }) {
   const [settings, setSettings] = useState<ChartSettings>(DEFAULT_SETTINGS);
@@ -170,6 +175,14 @@ export function ChartWorkspace({
     if (document.fullscreenElement) void document.exitFullscreen();
     else void section.current?.requestFullscreen?.();
   };
+
+  const liqState = useLiquidationMap(
+    symbol,
+    settings.liqMap.on && engine === "wm",
+    settings.liqMap.window,
+  );
+  const setLiq = (patch: Partial<ChartSettings["liqMap"]>) =>
+    update({ ...settings, liqMap: { ...settings.liqMap, ...patch } });
 
   const panes = studyPanes(settings).length;
   const baseHeight = fullscreen
@@ -267,6 +280,21 @@ export function ChartWorkspace({
                   {activeIndicators}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              aria-pressed={settings.liqMap.on}
+              onClick={() => setLiq({ on: !settings.liqMap.on })}
+              className={cn(
+                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs",
+                settings.liqMap.on
+                  ? "border-[#f59e0b]/60 bg-[#f59e0b]/10 text-ink"
+                  : "border-rule text-ink-muted hover:text-ink",
+              )}
+              title="Estimated liquidation map"
+            >
+              <Flame className="h-4 w-4 text-[#f59e0b]" aria-hidden="true" />
+              Liq. map
             </button>
             <button
               type="button"
@@ -477,9 +505,20 @@ export function ChartWorkspace({
               onCandleClose={setCloseTime}
               onSelectionChange={setHasSelection}
               baseHeight={baseHeight}
+              liqMap={settings.liqMap.on ? mapOf(liqState) : null}
             />
           </div>
         </div>
+      )}
+
+      {engine === "wm" && settings.liqMap.on && (
+        <LiqMapCard
+          state={liqState}
+          window={settings.liqMap.window}
+          onWindow={(w) => setLiq({ window: w })}
+          onClose={() => setLiq({ on: false })}
+          price={price}
+        />
       )}
 
       {children}

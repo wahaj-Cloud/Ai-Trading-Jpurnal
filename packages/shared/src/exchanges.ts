@@ -4,7 +4,15 @@ import { z } from "zod";
  * Single source of truth for which exchanges exist and how users connect them.
  * The API (adapters) and the web app (forms, guides) both read this catalog.
  */
-export const EXCHANGE_IDS = ["BINANCE", "MEXC", "KUCOIN", "BINGX", "EXNESS"] as const;
+export const EXCHANGE_IDS = [
+  "BINANCE",
+  "BYBIT",
+  "OKX",
+  "MEXC",
+  "KUCOIN",
+  "BINGX",
+  "EXNESS",
+] as const;
 export type ExchangeId = (typeof EXCHANGE_IDS)[number];
 
 /**
@@ -21,7 +29,7 @@ export interface ExchangeInfo {
   kind: ConnectionKind;
   /** The product we journal, as the venue names it. */
   product: string;
-  /** KuCoin-style keys carry a third secret chosen by the user when creating the key. */
+  /** KuCoin- and OKX-style keys carry a third secret chosen by the user when creating the key. */
   needsPassphrase: boolean;
   /** Where users create API keys (API_KEY) or find their account details (METATRADER). */
   apiManagementUrl: string;
@@ -40,6 +48,24 @@ export const EXCHANGE_CATALOG: Record<ExchangeId, ExchangeInfo> = {
     needsPassphrase: false,
     apiManagementUrl: "https://www.binance.com/en/my/settings/api-management",
     historyLimitNote: null,
+  },
+  BYBIT: {
+    id: "BYBIT",
+    kind: "API_KEY",
+    name: "Bybit",
+    product: "USDT & USDC Perpetuals",
+    needsPassphrase: false,
+    apiManagementUrl: "https://www.bybit.com/app/user/api-management",
+    historyLimitNote: null,
+  },
+  OKX: {
+    id: "OKX",
+    kind: "API_KEY",
+    name: "OKX",
+    product: "Perpetual Swaps",
+    needsPassphrase: true,
+    apiManagementUrl: "https://www.okx.com/account/my-api",
+    historyLimitNote: "OKX's API returns only the last 3 months of closed positions.",
   },
   MEXC: {
     id: "MEXC",
@@ -135,7 +161,7 @@ const label = z.string().trim().min(1, "Give this connection a name.").max(40);
 
 const apiKeyConnectSchema = z
   .object({
-    exchange: z.enum(["BINANCE", "MEXC", "KUCOIN", "BINGX"]),
+    exchange: z.enum(["BINANCE", "BYBIT", "OKX", "MEXC", "KUCOIN", "BINGX"]),
     label,
     apiKey: keyMaterial,
     apiSecret: keyMaterial,

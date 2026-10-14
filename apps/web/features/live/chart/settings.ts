@@ -68,8 +68,13 @@ export const chartSettingsSchema = z.object({
       signal: period(2, 100, 9),
     })
     .catch({ on: false, fast: 12, slow: 26, signal: 9 }),
+  /** Estimated liquidation map behind the candles. */
+  liqMap: z
+    .object({ on: z.boolean().catch(false), window: z.enum(["24h", "7d"]).catch("24h") })
+    .catch({ on: false, window: "24h" }),
 });
 export type ChartSettings = z.infer<typeof chartSettingsSchema>;
+export type LiqMapSetting = ChartSettings["liqMap"];
 
 export const DEFAULT_SETTINGS: ChartSettings = chartSettingsSchema.parse({});
 

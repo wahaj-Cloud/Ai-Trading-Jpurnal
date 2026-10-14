@@ -233,6 +233,7 @@ export const adminPlanUpdateSchema = z
     backtestHistoryMonths: limitInt,
     marketPulseCoins: limitInt,
     marketPulseAllWindows: z.number().int().min(0).max(1),
+    liquidationMap: z.number().int().min(0).max(1),
   })
   .strict();
 export type AdminPlanUpdate = z.infer<typeof adminPlanUpdateSchema>;

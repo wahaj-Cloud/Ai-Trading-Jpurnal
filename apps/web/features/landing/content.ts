@@ -119,7 +119,11 @@ export const BEHAVIOURS = [
 ];
 
 export const COMPARISON: Array<{ feature: string; us: string | true; them: string | false }> = [
-  { feature: "Auto-sync from Binance, MEXC, KuCoin, BingX", us: true, them: "Often manual or CSV" },
+  {
+    feature: "Auto-sync from Binance, Bybit, OKX, MEXC, KuCoin, BingX",
+    us: true,
+    them: "Often manual or CSV",
+  },
   { feature: "MetaTrader 4/5 brokers (Exness)", us: true, them: "Sometimes" },
   { feature: "AI review and grade of every trade", us: true, them: false },
   { feature: "Behaviour detection (FOMO, revenge, oversizing)", us: true, them: false },
@@ -140,7 +144,7 @@ export const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "Which exchanges and brokers are supported?",
-    a: "Binance Futures, MEXC Futures, KuCoin Futures, BingX and Exness (MetaTrader 4 and 5). You can connect several accounts at once. Bybit and OKX are next.",
+    a: "Binance Futures, Bybit, OKX, MEXC Futures, KuCoin Futures, BingX and Exness (MetaTrader 4 and 5). You can connect several accounts at once. Bitget and Hyperliquid are next.",
   },
   {
     q: "Does WickMentor trade for me or give signals?",

@@ -1,6 +1,6 @@
 "use client";
 
-import type { OpenPositionDto } from "@atc/shared";
+import type { LiquidationMapDto, OpenPositionDto } from "@atc/shared";
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { cssVar } from "@/features/charts/time-series-chart";
 import { useThemeKey } from "@/features/theme/use-theme-key";
@@ -61,6 +61,7 @@ export function ProChart({
   onSelectionChange,
   baseHeight = 480,
   fill = false,
+  liqMap = null,
 }: {
   ref?: Ref<ProChartHandle>;
   symbol: string;
@@ -78,6 +79,8 @@ export function ProChart({
   baseHeight?: number;
   /** Fill the parent's height (full screen) instead of a fixed height. */
   fill?: boolean;
+  /** Estimated liquidation map to paint behind the candles. */
+  liqMap?: LiquidationMapDto | null;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const ctrl = useRef<ChartController | null>(null);
@@ -206,6 +209,11 @@ export function ProChart({
   useEffect(() => {
     ctrl.current?.setPositions(positions);
   }, [positions]);
+
+  // Re-applied after the chart is rebuilt (new coin, timeframe or theme).
+  useEffect(() => {
+    ctrl.current?.setLiquidationMap(ready ? liqMap : null);
+  }, [liqMap, ready]);
 
   useEffect(() => {
     ctrl.current?.drawings.set({ visible: drawingsVisible });

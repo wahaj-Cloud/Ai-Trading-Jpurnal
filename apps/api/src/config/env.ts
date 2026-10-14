@@ -60,6 +60,9 @@ const envSchema = z.object({
   KUCOIN_SPOT_BASE_URL: z.url().optional(),
   KUCOIN_FUTURES_BASE_URL: z.url().optional(),
   BINGX_BASE_URL: z.url().optional(),
+  BYBIT_BASE_URL: z.url().optional(),
+  /** Fixes the OKX host; without it the regional hosts (global, EEA, US) are tried in turn. */
+  OKX_BASE_URL: z.url().optional(),
   /** AI coach. Without a key, AI features are off; rules-based grades and insights still work. */
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_BASE_URL: z.url().optional(),

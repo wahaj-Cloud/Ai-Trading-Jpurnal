@@ -1,4 +1,7 @@
 import {
+  type LiquidationMapQuery,
+  type LiquidationMapResponse,
+  liquidationMapQuerySchema,
   type MarketPulseDto,
   type MarketPulseQuery,
   marketPulseQuerySchema,
@@ -30,6 +33,15 @@ export class MarketController {
     @Query(new ZodValidationPipe(marketPulseQuerySchema)) q: MarketPulseQuery,
   ): Promise<MarketPulseDto> {
     return this.market.pulse(user.id, q);
+  }
+
+  @Get("liquidation-map")
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  liquidationMap(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(liquidationMapQuerySchema)) q: LiquidationMapQuery,
+  ): Promise<LiquidationMapResponse> {
+    return this.market.liquidationMap(user.id, q);
   }
 
   @Get("pulse/me")

@@ -154,6 +154,8 @@ enum Exchange {
   KUCOIN
   BINGX
   EXNESS // MetaTrader broker, synced through MetaApi
+  BYBIT
+  OKX
 }
 
 enum ExchangeAccountStatus {
@@ -1020,4 +1022,16 @@ model MarketCorrelationHourly {
   @@id([symbol, hour])
   @@index([hour])
   @@map("market_correlation_hourly")
+}
+
+/// Estimated liquidation map per market and window, recomputed by the worker every 5 minutes.
+/// `data` holds the encoded heatmap and clusters (LiquidationMapDto without symbol/window).
+model LiquidationMap {
+  symbol     String   @db.VarChar(30)
+  window     String   @db.VarChar(4)
+  data       Json
+  computedAt DateTime @map("computed_at") @db.Timestamptz(3)
+
+  @@id([symbol, window])
+  @@map("liquidation_maps")
 }

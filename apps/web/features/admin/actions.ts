@@ -127,6 +127,7 @@ export async function updatePlanAction(
     backtestHistoryMonths: num(form.get("backtestHistoryMonths")),
     marketPulseCoins: num(form.get("marketPulseCoins")),
     marketPulseAllWindows: num(form.get("marketPulseAllWindows")),
+    liquidationMap: num(form.get("liquidationMap")),
   });
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

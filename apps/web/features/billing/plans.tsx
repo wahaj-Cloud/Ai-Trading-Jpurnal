@@ -62,6 +62,9 @@ function features(o: PlanOfferDto): string[] {
     o.limits.marketPulseCoins === -1
       ? "Market Pulse: every coin, 24h / 7d / 30d"
       : `Market Pulse: top ${o.limits.marketPulseCoins} coins, 24h`,
+    o.limits.liquidationMap === 1
+      ? "Liquidation map: BTC, ETH, gold and 9 more"
+      : "Liquidation map: Bitcoin",
   ];
 }
 

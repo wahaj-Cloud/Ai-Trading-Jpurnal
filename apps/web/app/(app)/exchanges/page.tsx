@@ -86,7 +86,7 @@ export default async function ExchangesPage({
           arrive with billing.
         </p>
       )}
-      <p className="text-sm text-ink-faint">Bybit, OKX, Hyperliquid and Bitget will follow.</p>
+      <p className="text-sm text-ink-faint">Bitget and Hyperliquid will follow.</p>
     </div>
   );
 }

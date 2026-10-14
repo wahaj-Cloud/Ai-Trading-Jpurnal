@@ -38,12 +38,14 @@ import { serverEnv } from "@/lib/env";
 export const metadata: Metadata = {
   title: { absolute: "WickMentor · The AI trading coach that shows you why you lose" },
   description:
-    "AI trading journal and coach for crypto futures, forex and gold. Auto-sync Binance, MEXC, KuCoin, BingX and Exness, get every trade graded, find your costly habits, replay your rules and backtest your setups. Free plan.",
+    "AI trading journal and coach for crypto futures, forex and gold. Auto-sync Binance, Bybit, OKX, MEXC, KuCoin, BingX and Exness, get every trade graded, find your costly habits, replay your rules and backtest your setups. Free plan.",
   alternates: { canonical: "/" },
 };
 
 const EXCHANGES: Array<{ id: ExchangeId; name: string; note: string }> = [
   { id: "BINANCE", name: "Binance", note: "USDⓈ-M futures" },
+  { id: "BYBIT", name: "Bybit", note: "Perpetuals" },
+  { id: "OKX", name: "OKX", note: "Swaps" },
   { id: "MEXC", name: "MEXC", note: "Futures" },
   { id: "KUCOIN", name: "KuCoin", note: "Futures" },
   { id: "BINGX", name: "BingX", note: "Perpetuals" },
@@ -108,6 +110,7 @@ function planFeatures(l: PlanLimits): string[] {
     l.marketPulseCoins === UNLIMITED
       ? "Market Pulse: all coins, 24h/7d/30d"
       : `Market Pulse: top ${l.marketPulseCoins} coins`,
+    l.liquidationMap === 1 ? "Liquidation map: 12 markets incl. gold" : "Liquidation map: Bitcoin",
     ...(l.brokerAccounts !== 0 ? [`${n(l.brokerAccounts, "Exness account")}`] : []),
     "Live Markets and economic calendar",
   ];
@@ -329,7 +332,7 @@ export default async function LandingPage() {
                 </li>
               ))}
               <li className="flex items-center rounded-2xl border border-dashed border-hi/15 px-4 py-3 text-sm text-ink-muted">
-                Bybit &amp; OKX next
+                Bitget &amp; Hyperliquid next
               </li>
             </ul>
           </section>

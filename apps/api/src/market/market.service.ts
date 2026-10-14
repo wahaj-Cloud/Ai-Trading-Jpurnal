@@ -1,6 +1,11 @@
 import { planLimits } from "@atc/coach";
 import type { Prisma } from "@atc/db";
 import {
+  LIQ_MAP_FREE_SYMBOL,
+  LIQ_MAP_SYMBOLS,
+  type LiquidationMapDto,
+  type LiquidationMapQuery,
+  type LiquidationMapResponse,
   type MarketPulseDto,
   type MarketPulseQuery,
   PULSE_LINKS,
@@ -164,5 +169,32 @@ export class MarketService {
       };
     });
     return { groups, total: groups.reduce((a, g) => a + g.trades, 0) };
+  }
+
+  /**
+   * The latest estimated liquidation map the worker saved. Free plans see Bitcoin only; the map is
+   * read from the table (never computed in the request), so this is fast and costs nothing extra.
+   */
+  async liquidationMap(userId: string, q: LiquidationMapQuery): Promise<LiquidationMapResponse> {
+    if (!(LIQ_MAP_SYMBOLS as readonly string[]).includes(q.symbol)) {
+      return { status: "unavailable", reason: "unsupported" };
+    }
+    const limits = await planLimits(this.prisma.client, userId);
+    if (limits.liquidationMap === 0 && q.symbol !== LIQ_MAP_FREE_SYMBOL)
+      return { status: "locked" };
+    const row = await this.prisma.client.liquidationMap.findUnique({
+      where: { symbol_window: { symbol: q.symbol, window: q.window } },
+    });
+    if (!row) return { status: "unavailable", reason: "pending" };
+    const data = row.data as unknown as Omit<LiquidationMapDto, "symbol" | "window" | "computedAt">;
+    return {
+      status: "ok",
+      map: {
+        ...data,
+        symbol: row.symbol,
+        window: q.window,
+        computedAt: row.computedAt.toISOString(),
+      },
+    };
   }
 }

@@ -211,6 +211,15 @@ export function IndicatorsPanel({
           )}
         </Section>
 
+        <Section title="Liquidations">
+          <Toggle
+            label="Liquidation map (estimated)"
+            hint="Where many positions would be liquidated, estimated from open interest on Binance, Bybit and OKX. Brighter = more value at risk."
+            checked={s.liqMap.on}
+            onChange={(v) => onChange({ ...s, liqMap: { ...s.liqMap, on: v } })}
+          />
+        </Section>
+
         <Section title="In their own panel">
           <Toggle
             label="RSI"
@@ -272,6 +281,7 @@ export function IndicatorsPanel({
               bollinger: DEFAULT_SETTINGS.bollinger,
               rsi: DEFAULT_SETTINGS.rsi,
               macd: DEFAULT_SETTINGS.macd,
+              liqMap: DEFAULT_SETTINGS.liqMap,
             })
           }
         >
