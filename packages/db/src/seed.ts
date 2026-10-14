@@ -8,6 +8,7 @@ const plans = [
     code: "FREE",
     name: "Free",
     sortOrder: 0,
+    priceUsd: 0,
     limits: {
       exchangeAccounts: 1,
       aiReviewsPerMonth: 20,
@@ -21,19 +22,21 @@ const plans = [
     code: "PRO",
     name: "Pro",
     sortOrder: 1,
+    priceUsd: 15,
     limits: {
-      exchangeAccounts: 5, // enough for all four supported exchanges plus a second account
+      exchangeAccounts: 2, // crypto exchanges; Exness is counted separately (brokerAccounts)
       aiReviewsPerMonth: 300,
       historyDays: 365,
       coachMessagesPerDay: 50,
       aiBudgetUsd: 3,
-      brokerAccounts: 0, // Exness (MetaApi) is Premium: one terminal costs too much of a Pro price
+      brokerAccounts: 1, // one Exness account: a MetaApi terminal costs ~US$8 a month
     },
   },
   {
     code: "PREMIUM",
     name: "Premium",
     sortOrder: 2,
+    priceUsd: 25,
     limits: {
       exchangeAccounts: 10,
       aiReviewsPerMonth: 2000,

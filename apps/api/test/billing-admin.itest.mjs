@@ -97,7 +97,7 @@ let s = await subOf(alice);
 assert.equal(s.planCode, "PRO");
 assert.equal(s.status, "ACTIVE");
 assert.equal(s.paddleSubscriptionId, "sub_a");
-assert.equal((await planLimits(db, alice.id)).exchangeAccounts, 5);
+assert.equal((await planLimits(db, alice.id)).exchangeAccounts, 2);
 assert.equal(await billing.handleEvent(created), "DUPLICATE");
 assert.equal(
   await billing.handleEvent(

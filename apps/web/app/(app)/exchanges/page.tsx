@@ -16,12 +16,14 @@ export default async function ExchangesPage({
 }: {
   searchParams: Promise<{ connected?: string; updated?: string }>;
 }) {
-  const [{ accounts, limit }, me, params] = await Promise.all([
+  const [{ accounts, limit, brokers }, me, params] = await Promise.all([
     getExchangeAccounts(),
     getMe(),
     searchParams,
   ]);
-  const atLimit = limit.max !== -1 && limit.used >= limit.max;
+  const isFull = (l: { used: number; max: number }) => l.max !== -1 && l.used >= l.max;
+  // Exness has its own allowance, so there may be room for it even when crypto slots are full.
+  const atLimit = isFull(limit) && (brokers.max === 0 || isFull(brokers));
   const connected = parseIds(params.connected).map((id) => EXCHANGE_CATALOG[id].name);
   const notice =
     connected.length > 0
@@ -38,8 +40,13 @@ export default async function ExchangesPage({
           <h1 className="text-2xl font-semibold tracking-tight">Exchanges</h1>
           <p className="mt-1 text-sm text-ink-muted">
             {limit.max === -1
-              ? `${limit.used} connected`
-              : `${limit.used} of ${limit.max} connections used on the ${me.plan.name} plan`}
+              ? `${limit.used} exchange${limit.used === 1 ? "" : "s"} connected`
+              : `${limit.used} of ${limit.max} exchange connections used`}
+            {brokers.max !== 0 &&
+              (brokers.max === -1
+                ? ` · ${brokers.used} Exness`
+                : ` · ${brokers.used} of ${brokers.max} Exness`)}
+            {` on the ${me.plan.name} plan`}
           </p>
         </div>
         {!atLimit && accounts.length > 0 && (

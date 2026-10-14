@@ -36,7 +36,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     id: "exness",
     question: "How do I connect Exness (MetaTrader)?",
     answer:
-      "Exchanges → Connect → Exness. Enter your MT4/MT5 account number, the server name exactly as Exness shows it (e.g. Exness-MT5Real8) and an INVESTOR (read-only) password, never your trading password. Set an investor password in the Exness Personal Area → your account → Change investor password. The first connection takes a few minutes. Exness is included with the Premium plan.",
+      "Exchanges → Connect → Exness. Enter your MT4/MT5 account number, the server name exactly as Exness shows it (e.g. Exness-MT5Real8) and an INVESTOR (read-only) password, never your trading password. Set an investor password in the Exness Personal Area → your account → Change investor password. The first connection takes a few minutes. Pro includes one Exness account and Premium two, on top of your crypto exchange connections.",
     keywords: "exness metatrader mt4 mt5 investor password server forex gold broker",
     href: "/exchanges/connect",
   },

@@ -374,6 +374,24 @@ assert.deepEqual(
   ["mt-old"],
 );
 await expectHttp(svcExness.requestSync(erin.id, exness.id, meta), 409, /still connecting/);
+// Exness has its own allowance and does not use up a crypto exchange connection.
+const premiumLimits = (await client.plan.findUnique({ where: { code: "PREMIUM" } })).limits;
+const erinList = await svcExness.list(erin.id);
+assert.deepEqual(erinList.limit, { used: 0, max: premiumLimits.exchangeAccounts });
+assert.deepEqual(erinList.brokers, { used: 1, max: premiumLimits.brokerAccounts });
+// Free has no Exness allowance.
+const fay = await client.user.create({
+  data: { authProviderId: "u-fay", email: "fay@x.io", settings: { create: {} } },
+});
+await expectHttp(
+  svcExness.connect(
+    fay.id,
+    connectExchangeSchema.parse({ ...exnessInput, login: "81234568" }),
+    meta,
+  ),
+  403,
+  /Pro and Premium/,
+);
 console.log(
   "✓ Exness: saved as connecting (password encrypted), off unless switched on, same-account reconnects only",
 );
@@ -382,6 +400,7 @@ console.log(
 const list = await svc.list(alice.id);
 const proMax = (await client.plan.findUnique({ where: { code: "PRO" } })).limits.exchangeAccounts;
 assert.deepEqual(list.limit, { used: 1, max: proMax });
+assert.equal(list.brokers.used, 0);
 assert.deepEqual(list.egressIps, ["203.0.113.7"]);
 const actions = (
   await client.auditLog.findMany({

@@ -6,8 +6,15 @@ export const metadata = { title: "Plan and billing" };
 
 const dateFmt = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 
-export default async function BillingPage() {
-  const billing = await apiFetch<BillingDto>("/v1/billing");
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  const [billing, { plan }] = await Promise.all([
+    apiFetch<BillingDto>("/v1/billing"),
+    searchParams,
+  ]);
   return (
     <div className="mx-auto grid max-w-5xl gap-6">
       <header>
@@ -23,7 +30,7 @@ export default async function BillingPage() {
           {billing.manualPlan ? " This plan was set up for you by our team." : ""}
         </p>
       </header>
-      <Plans billing={billing} />
+      <Plans billing={billing} highlight={plan} />
       <p className="text-xs text-ink-faint">
         Payments are processed by Paddle, our reseller, which handles taxes and invoices. We never
         see your card details.

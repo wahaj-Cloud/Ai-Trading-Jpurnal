@@ -103,6 +103,8 @@ assert.equal((await reports.report(bob.id, "week", "2026-09-16", now)).analytics
 console.log("✓ weekly report in the trader's timezone with best/worst trades and behaviours");
 
 // 2. CSV: every closed trade with its journal; formula injection neutralised.
+// Exports use the real clock, so lift Free's 30-day history window for these fixed September trades.
+await db.subscription.update({ where: { userId: alice.id }, data: { planCode: "PREMIUM" } });
 const { rows } = await reports.exportRows(alice.id, { from: "2026-09-14", to: "2026-09-20" });
 assert.equal(rows.length, 3);
 const csv = toCsv(rows);

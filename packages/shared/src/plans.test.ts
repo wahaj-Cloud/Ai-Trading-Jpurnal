@@ -12,6 +12,7 @@ const old = {
 describe("plan limits", () => {
   it("fills fields added later from the plan defaults", () => {
     expect(resolveLimits("PRO", old)).toEqual({ ...old, ...PLAN_DEFAULTS.PRO });
+    expect(resolveLimits("PRO", old).brokerAccounts).toBe(1);
     expect(resolveLimits("PREMIUM", old).brokerAccounts).toBe(2);
     expect(resolveLimits("PREMIUM", old).backtestRunsPerMonth).toBe(30);
     expect(resolveLimits("FREE", old)).toMatchObject({
@@ -21,9 +22,9 @@ describe("plan limits", () => {
     });
   });
   it("keeps values an admin saved", () => {
-    expect(resolveLimits("PRO", { ...old, aiBudgetUsd: 5, brokerAccounts: 1 })).toMatchObject({
+    expect(resolveLimits("PRO", { ...old, aiBudgetUsd: 5, brokerAccounts: 0 })).toMatchObject({
       aiBudgetUsd: 5,
-      brokerAccounts: 1,
+      brokerAccounts: 0,
     });
   });
   it("fails closed on unreadable limits", () => {

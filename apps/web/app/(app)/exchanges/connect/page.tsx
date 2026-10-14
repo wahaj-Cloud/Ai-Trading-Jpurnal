@@ -3,14 +3,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ExchangePicker } from "@/features/exchanges/exchange-picker";
 import { getExchangeAccounts } from "@/features/exchanges/load";
-import { getMe } from "@/lib/me";
 
 export const metadata = { title: "Connect exchanges" };
 
 export default async function ConnectPickerPage() {
-  const [{ accounts, limit }, me] = await Promise.all([getExchangeAccounts(), getMe()]);
-  const slotsLeft = limit.max === -1 ? -1 : Math.max(limit.max - limit.used, 0);
-  if (slotsLeft === 0) redirect("/exchanges");
+  const { accounts, limit, brokers } = await getExchangeAccounts();
+  const left = (l: { used: number; max: number }) =>
+    l.max === -1 ? -1 : Math.max(l.max - l.used, 0);
+  const slotsLeft = left(limit);
+  const brokerSlotsLeft = left(brokers);
+  // Nothing left to connect on this plan (crypto and Exness are counted separately).
+  if (slotsLeft === 0 && (brokerSlotsLeft === 0 || brokers.max === 0)) redirect("/exchanges");
 
   const connectedCounts: Partial<Record<ExchangeId, number>> = {};
   for (const a of accounts) {
@@ -34,11 +37,8 @@ export default async function ConnectPickerPage() {
         <ExchangePicker
           connectedCounts={connectedCounts}
           slotsLeft={slotsLeft}
-          brokerSlotsLeft={
-            me.plan.limits.brokerAccounts === -1
-              ? -1
-              : Math.max(me.plan.limits.brokerAccounts - (connectedCounts.EXNESS ?? 0), 0)
-          }
+          brokerSlotsLeft={brokerSlotsLeft}
+          brokerIncluded={brokers.max !== 0}
         />
       </div>
     </div>

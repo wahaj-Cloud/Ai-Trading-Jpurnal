@@ -51,12 +51,12 @@ export class ExchangeAccountsService {
   ) {}
 
   async list(userId: string): Promise<ExchangeAccountsResponse> {
-    const [accounts, max] = await Promise.all([
+    const [accounts, limits] = await Promise.all([
       this.prisma.client.exchangeAccount.findMany({
         where: { userId },
         orderBy: { createdAt: "asc" },
       }),
-      this.accountLimit(userId),
+      planLimits(this.prisma.client, userId),
     ]);
     const running = await this.prisma.client.syncRun.findMany({
       where: {
@@ -71,7 +71,14 @@ export class ExchangeAccountsService {
     return {
       accounts: accounts.map((a) => toDto(a, syncing.has(a.id))),
       egressIps: this.env.EXCHANGE_EGRESS_IPS,
-      limit: { used: accounts.filter((a) => a.status !== "DISCONNECTED").length, max },
+      limit: {
+        used: accounts.filter((a) => a.status !== "DISCONNECTED" && a.exchange !== "EXNESS").length,
+        max: limits.exchangeAccounts,
+      },
+      brokers: {
+        used: accounts.filter((a) => a.status !== "DISCONNECTED" && a.exchange === "EXNESS").length,
+        max: limits.brokerAccounts,
+      },
     };
   }
 
@@ -126,7 +133,7 @@ export class ExchangeAccountsService {
         `${name} connections are not switched on yet. Please try again later.`,
       );
     }
-    await this.assertBelowLimit(userId);
+    // MetaTrader accounts have their own allowance, separate from crypto exchange connections.
     await this.assertBrokerAllowed(userId);
     const externalAccountId = metatraderAccountId(input);
     const existing = await this.prisma.client.exchangeAccount.findUnique({
@@ -141,7 +148,8 @@ export class ExchangeAccountsService {
     }
     try {
       const account = await this.prisma.client.$transaction(async (tx) => {
-        await this.lockAndCheckLimit(tx, userId);
+        await this.lockUser(tx, userId);
+        await this.assertBrokerAllowed(userId, tx);
         const data = {
           label: input.label,
           ...connectingFields(input, existing?.metadata ?? null),
@@ -343,7 +351,7 @@ export class ExchangeAccountsService {
     }
     const updated = await this.prisma.client.$transaction(async (tx) => {
       if (account.status === "DISCONNECTED") {
-        await this.lockAndCheckLimit(tx, userId);
+        await this.lockUser(tx, userId);
         await this.assertBrokerAllowed(userId, tx);
       }
       const row = await tx.exchangeAccount.update({
@@ -476,15 +484,20 @@ export class ExchangeAccountsService {
     return (await planLimits(this.prisma.client, userId)).exchangeAccounts;
   }
 
+  /** Serialises one user's connects, so parallel requests cannot all slip past a plan limit. */
+  private async lockUser(tx: Prisma.TransactionClient, userId: string): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`exchange-accounts:${userId}`}, 0))`;
+  }
+
   /** Per-user lock, then the plan limit: parallel connects or reconnects cannot all slip through. */
   private async lockAndCheckLimit(tx: Prisma.TransactionClient, userId: string): Promise<void> {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`exchange-accounts:${userId}`}, 0))`;
+    await this.lockUser(tx, userId);
     await this.assertBelowLimit(userId, tx);
   }
 
   /**
    * MetaTrader (Exness) connections have their own cap: each one runs a paid cloud terminal at
-   * MetaApi, so they are limited by plan (none on Free and Pro by default).
+   * MetaApi, so they are limited by plan and counted separately from crypto exchanges.
    */
   private async assertBrokerAllowed(
     userId: string,
@@ -500,7 +513,7 @@ export class ExchangeAccountsService {
     if (max === UNLIMITED || used < max) return;
     throw new ForbiddenException(
       max === 0
-        ? "Exness (MetaTrader) accounts are included with the Premium plan. Upgrade to connect one."
+        ? "Exness (MetaTrader) accounts are included with the Pro and Premium plans. Upgrade to connect one."
         : `Your plan allows ${max} Exness (MetaTrader) account${max === 1 ? "" : "s"}. Disconnect one or upgrade your plan.`,
     );
   }
@@ -511,8 +524,9 @@ export class ExchangeAccountsService {
   ): Promise<void> {
     const [max, used] = await Promise.all([
       this.accountLimit(userId),
+      // Crypto exchanges only: MetaTrader accounts have their own allowance (brokerAccounts).
       db.exchangeAccount.count({
-        where: { userId, status: { not: "DISCONNECTED" } },
+        where: { userId, exchange: { not: "EXNESS" }, status: { not: "DISCONNECTED" } },
       }),
     ]);
     if (max !== UNLIMITED && used >= max) {

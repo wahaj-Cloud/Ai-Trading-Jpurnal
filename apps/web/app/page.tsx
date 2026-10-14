@@ -1,5 +1,6 @@
 import {
   type ExchangeId,
+  LIST_PRICE_USD,
   PLAN_DEFAULTS,
   type PlanLimits,
   type PublicPlanDto,
@@ -71,17 +72,22 @@ async function loadPlans(): Promise<PublicPlanDto[]> {
   } catch {
     // fall through to defaults
   }
+  // Mirrors the seeded plans; only used when the API cannot be reached.
   const base = {
-    exchangeAccounts: 1,
-    aiReviewsPerMonth: 20,
-    historyDays: 30,
-    coachMessagesPerDay: 5,
+    FREE: { exchangeAccounts: 1, aiReviewsPerMonth: 20, historyDays: 30, coachMessagesPerDay: 5 },
+    PRO: { exchangeAccounts: 2, aiReviewsPerMonth: 300, historyDays: 365, coachMessagesPerDay: 50 },
+    PREMIUM: {
+      exchangeAccounts: 10,
+      aiReviewsPerMonth: 2000,
+      historyDays: UNLIMITED,
+      coachMessagesPerDay: 200,
+    },
   };
   return (["FREE", "PRO", "PREMIUM"] as const).map((code) => ({
     code,
     name: code === "FREE" ? "Free" : code === "PRO" ? "Pro" : "Premium",
-    priceUsd: code === "FREE" ? 0 : null,
-    limits: { ...base, ...PLAN_DEFAULTS[code] } as PlanLimits,
+    priceUsd: LIST_PRICE_USD[code],
+    limits: { ...base[code], ...PLAN_DEFAULTS[code] } as PlanLimits,
   }));
 }
 
@@ -620,8 +626,8 @@ export default async function LandingPage() {
                       {p.code === "FREE"
                         ? "Everything you need to start journaling."
                         : p.code === "PRO"
-                          ? "For traders building consistency."
-                          : "For full-time traders and MT4/MT5."}
+                          ? "For traders building consistency, with Exness included."
+                          : "For full-time traders: backtesting and more accounts."}
                     </p>
                     <ul className="mt-6 grid gap-2.5 text-sm">
                       {planFeatures(p.limits).map((f) => (
@@ -635,7 +641,9 @@ export default async function LandingPage() {
                       ))}
                     </ul>
                     <ButtonLink
-                      href="/sign-up"
+                      href={
+                        p.code === "FREE" ? "/sign-up" : `/sign-up?plan=${p.code.toLowerCase()}`
+                      }
                       variant={featured ? "primary" : "secondary"}
                       className="mt-8 w-full"
                     >

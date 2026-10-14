@@ -16,18 +16,27 @@ export function ExchangePicker({
   connectedCounts,
   slotsLeft,
   brokerSlotsLeft = -1,
+  brokerIncluded = true,
 }: {
   connectedCounts: Partial<Record<ExchangeId, number>>;
   /** -1 means unlimited. */
   slotsLeft: number;
   /** MetaTrader (Exness) connections the plan still allows; -1 means unlimited. */
   brokerSlotsLeft?: number;
+  /** False when the plan has no Exness allowance at all (upgrade needed, not just a full slot). */
+  brokerIncluded?: boolean;
 }) {
   const [picked, setPicked] = useState<ExchangeId[]>([]);
-  const full = slotsLeft !== -1 && picked.length >= slotsLeft;
+  const isBroker = (id: ExchangeId) => EXCHANGE_CATALOG[id].kind === "METATRADER";
+  // Crypto exchanges and Exness are counted against separate allowances.
+  const cryptoPicked = picked.filter((id) => !isBroker(id)).length;
+  const brokerPicked = picked.length - cryptoPicked;
+  const full = slotsLeft !== -1 && cryptoPicked >= slotsLeft;
+  const brokerFull = brokerSlotsLeft !== -1 && brokerPicked >= brokerSlotsLeft;
+  const blocked = (id: ExchangeId) => (isBroker(id) ? brokerFull : full);
 
   const toggle = (id: ExchangeId) =>
-    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : full ? p : [...p, id]));
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : blocked(id) ? p : [...p, id]));
 
   return (
     <form method="get" action="/exchanges/connect/start" className="grid gap-6">
@@ -36,8 +45,8 @@ export function ExchangePicker({
         {EXCHANGE_IDS.map((id) => {
           const info = EXCHANGE_CATALOG[id];
           const checked = picked.includes(id);
-          const locked = info.kind === "METATRADER" && brokerSlotsLeft === 0;
-          const disabled = (!checked && full) || locked;
+          const locked = info.kind === "METATRADER" && !brokerIncluded;
+          const disabled = (!checked && blocked(id)) || locked;
           const count = connectedCounts[id] ?? 0;
           return (
             <label
@@ -67,7 +76,7 @@ export function ExchangePicker({
                 {locked && (
                   <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-coach/15 px-2 py-0.5 text-xs font-medium text-coach">
                     <Lock className="h-3 w-3" aria-hidden="true" />
-                    Premium plan
+                    Pro and Premium
                   </span>
                 )}
               </span>
@@ -86,10 +95,10 @@ export function ExchangePicker({
         })}
       </fieldset>
 
-      {brokerSlotsLeft === 0 && (
+      {!brokerIncluded && (
         <p className="text-sm text-ink-muted">
           Exness (MetaTrader) syncing runs a dedicated cloud terminal for your account, so it is
-          part of the Premium plan.{" "}
+          included with the Pro and Premium plans.{" "}
           <Link href="/billing" className="text-coach underline-offset-4 hover:underline">
             See plans
           </Link>
@@ -103,9 +112,11 @@ export function ExchangePicker({
         <p className="text-sm text-ink-muted" role="status">
           {slotsLeft === -1
             ? "Pick as many as you use. You will add each connection in turn."
-            : full
-              ? `That uses all ${slotsLeft} connection${slotsLeft === 1 ? "" : "s"} left on your plan.`
-              : `You can pick up to ${slotsLeft}. You will add each connection in turn.`}
+            : slotsLeft === 0
+              ? "Your crypto exchange connections are all in use. You can still add Exness."
+              : full
+                ? `That uses all ${slotsLeft} exchange connection${slotsLeft === 1 ? "" : "s"} left on your plan.`
+                : `You can pick up to ${slotsLeft} exchange${slotsLeft === 1 ? "" : "s"}. You will add each connection in turn.`}
         </p>
       </div>
     </form>

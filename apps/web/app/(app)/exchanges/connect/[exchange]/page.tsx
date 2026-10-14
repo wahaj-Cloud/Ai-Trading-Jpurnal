@@ -23,7 +23,7 @@ export default async function ConnectExchangePage({
   params: Params;
   searchParams: Search;
 }) {
-  const [{ exchange: slug }, search, { egressIps, limit }] = await Promise.all([
+  const [{ exchange: slug }, search, { egressIps, limit, brokers }] = await Promise.all([
     params,
     searchParams,
     getExchangeAccounts(),
@@ -33,9 +33,11 @@ export default async function ConnectExchangePage({
 
   const queue = buildQueue(exchange, search.q, search.done);
   // Plan full mid-queue (or on arrival): finish with what was connected instead of showing a dead form.
-  if (limit.max !== -1 && limit.used >= limit.max) redirect(finishHref(queue.done));
-
   const info = EXCHANGE_CATALOG[exchange];
+  // Exness has its own allowance; crypto exchanges share the plan's connection limit.
+  const cap = info.kind === "METATRADER" ? brokers : limit;
+  if (cap.max !== -1 && cap.used >= cap.max) redirect(finishHref(queue.done));
+
   const step = queue.order.indexOf(exchange) + 1;
   const total = queue.order.length;
   const action = connectExchangeAction.bind(null, exchange, { q: search.q, done: search.done });

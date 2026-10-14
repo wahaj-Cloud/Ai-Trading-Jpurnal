@@ -36,9 +36,19 @@ export type PlanLimits = Required<StoredPlanLimits>;
 export type PlanCodeId = "FREE" | "PRO" | "PREMIUM" | "ENTERPRISE";
 
 /**
- * Sized for a 75%+ gross margin: AI is the main cost that grows with each user, so each plan gets
- * a monthly AI budget well under a quarter of its price. Exness is Premium-only because one
- * MetaApi terminal alone costs a large share of a Pro subscription.
+ * Monthly list prices (US$). The live price shown at checkout comes from Paddle; this is the
+ * fallback for the public pricing section and the seed. Admins can change it in Costs & margins.
+ */
+export const LIST_PRICE_USD: Record<Exclude<PlanCodeId, "ENTERPRISE">, number> = {
+  FREE: 0,
+  PRO: 15,
+  PREMIUM: 25,
+};
+
+/**
+ * Each plan's monthly AI budget stays well under a quarter of its price, the main cost that grows
+ * with each user. Exness is counted separately from crypto exchanges because each account runs a
+ * paid MetaApi cloud terminal (~US$8/month): Pro includes one, Premium two.
  */
 type OptionalLimit = Exclude<keyof PlanLimits, RequiredLimit>;
 type RequiredLimit =
@@ -61,7 +71,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
   },
   PRO: {
     aiBudgetUsd: 3,
-    brokerAccounts: 0,
+    brokerAccounts: 1,
     setups: 5,
     setupAlertEmail: 1,
     whatIf: 1,

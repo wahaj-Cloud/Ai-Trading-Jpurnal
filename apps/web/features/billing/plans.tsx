@@ -66,7 +66,14 @@ function features(o: PlanOfferDto): string[] {
 }
 
 /** Plan cards with Paddle checkout (loaded only on this page) and the billing portal. */
-export function Plans({ billing }: { billing: BillingDto }) {
+export function Plans({
+  billing,
+  highlight,
+}: {
+  billing: BillingDto;
+  /** Plan the visitor picked on the pricing section before signing up. */
+  highlight?: string;
+}) {
   const router = useRouter();
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [ready, setReady] = useState(false);
@@ -167,6 +174,7 @@ export function Plans({ billing }: { billing: BillingDto }) {
             const current = billing.hasOnlineSubscription
               ? price?.priceId === billing.currentPriceId
               : o.code === billing.plan.code;
+            const picked = !current && o.code === highlight;
             return (
               <section
                 key={o.code}
@@ -174,8 +182,14 @@ export function Plans({ billing }: { billing: BillingDto }) {
                 className={cn(
                   "flex flex-col rounded-[var(--radius-surface)] border bg-panel p-5",
                   current ? "border-coach" : "border-rule",
+                  picked && "border-coach shadow-[0_0_0_1px_var(--color-coach)_inset]",
                 )}
               >
+                {picked && (
+                  <p className="mb-2 w-fit rounded-full bg-coach/15 px-2.5 py-0.5 text-xs font-medium text-coach">
+                    The plan you picked
+                  </p>
+                )}
                 <h2 className="font-semibold">{o.name}</h2>
                 <p className="figures mt-1 text-2xl font-semibold">
                   {o.code === "FREE"

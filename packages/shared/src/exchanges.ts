@@ -209,5 +209,8 @@ export interface ExchangeAccountsResponse {
   accounts: ExchangeAccountDto[];
   /** Our servers' outbound IPs, for users to whitelist on the exchange. Empty if not configured. */
   egressIps: string[];
+  /** Crypto exchange connections (API keys). Exness is counted separately in `brokers`. -1 = unlimited. */
   limit: { used: number; max: number };
+  /** MetaTrader (Exness) connections; each runs a paid cloud terminal. -1 = unlimited. */
+  brokers: { used: number; max: number };
 }
