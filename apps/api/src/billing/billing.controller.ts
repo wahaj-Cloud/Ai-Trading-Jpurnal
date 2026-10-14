@@ -1,4 +1,4 @@
-import { type BillingDto, changePlanSchema } from "@atc/shared";
+import { type BillingDto, changePlanSchema, type PublicPlanDto } from "@atc/shared";
 import {
   BadRequestException,
   Body,
@@ -28,6 +28,14 @@ export class BillingController {
     private readonly billing: BillingService,
     @Inject(ENV) private readonly env: Env,
   ) {}
+
+  /** Plan names, list prices and limits for the public pricing section. */
+  @Public()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get("public/plans")
+  plans(): Promise<PublicPlanDto[]> {
+    return this.billing.publicPlans();
+  }
 
   @Get("billing")
   get(@CurrentUser() user: AuthenticatedUser): Promise<BillingDto> {

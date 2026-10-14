@@ -1,6 +1,6 @@
 import { planLimits } from "@atc/coach";
 import type { Prisma } from "@atc/db";
-import { type BillingDto, type PlanOfferDto, resolveLimits } from "@atc/shared";
+import { type BillingDto, type PlanOfferDto, type PublicPlanDto, resolveLimits } from "@atc/shared";
 import {
   BadRequestException,
   Inject,
@@ -41,6 +41,20 @@ export class BillingService {
 
   private planForPrice(priceId: string | undefined): "PRO" | "PREMIUM" | null {
     return this.env.PADDLE_PRICES.find((p) => p.priceId === priceId)?.plan ?? null;
+  }
+
+  /** Public plans for the landing page: names, list prices and limits only. */
+  async publicPlans(): Promise<PublicPlanDto[]> {
+    const plans = await this.prisma.client.plan.findMany({
+      where: { isPublic: true, code: { not: "ENTERPRISE" } },
+      orderBy: { sortOrder: "asc" },
+    });
+    return plans.map((p) => ({
+      code: p.code,
+      name: p.name,
+      priceUsd: p.priceUsd === null ? null : Number(p.priceUsd),
+      limits: resolveLimits(p.code, p.limits),
+    }));
   }
 
   async billing(userId: string): Promise<BillingDto> {

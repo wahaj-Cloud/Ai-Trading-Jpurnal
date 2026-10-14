@@ -12,6 +12,15 @@ export interface PlanOfferDto {
   prices: { interval: BillingInterval; priceId: string }[];
 }
 
+/** Plans shown on the public pricing section (no sign-in). */
+export interface PublicPlanDto {
+  code: PlanOfferDto["code"];
+  name: string;
+  /** Monthly list price in USD, null until set in Admin → Costs & margins. */
+  priceUsd: number | null;
+  limits: PlanLimits;
+}
+
 export interface BillingDto {
   /** Plan whose limits apply now (Free when a paid subscription has lapsed). */
   plan: { code: PlanOfferDto["code"]; name: string };

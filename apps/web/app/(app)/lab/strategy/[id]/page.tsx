@@ -132,8 +132,8 @@ export default async function BacktestPage({ params }: { params: Promise<{ id: s
               ))}
             </section>
           )}
-          <dl className="surface grid grid-cols-2 gap-5 rounded-[var(--radius-surface)] p-5 sm:grid-cols-4 lg:grid-cols-8">
-            <Metric label="Net result" value={usd(s.netPnl)} signed={String(s.netPnl)} size="lg" />
+          <dl className="surface grid grid-cols-2 gap-5 rounded-[var(--radius-surface)] p-5 sm:grid-cols-4 2xl:grid-cols-8">
+            <Metric label="Net result" value={usd(s.netPnl)} signed={String(s.netPnl)} />
             <Metric
               label="Return"
               value={`${s.returnPct >= 0 ? "+" : "−"}${Math.abs(s.returnPct).toFixed(2)}%`}
