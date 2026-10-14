@@ -35,7 +35,8 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline' ${clerk} https://cdn.paddle.com https://challenges.cloudflare.com`,
-      `connect-src 'self' ${clerk} https://*.paddle.com`,
+      // Live Markets: browsers read Binance's public price feed directly (no keys, no server cost).
+      `connect-src 'self' ${clerk} https://*.paddle.com https://fapi.binance.com wss://fstream.binance.com`,
       "img-src 'self' data: https://img.clerk.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",

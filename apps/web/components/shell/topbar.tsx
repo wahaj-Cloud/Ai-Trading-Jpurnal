@@ -3,6 +3,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Settings } from "lucide-react";
 import Link from "next/link";
 import { LogoMark } from "@/components/brand/logo";
+import { BtcTicker } from "@/features/live/btc-ticker";
 import { CommandBar } from "@/features/search/command-bar";
 import { CurrencyMenu } from "@/features/shell/currency-menu";
 import { FullscreenButton } from "@/features/shell/fullscreen-button";
@@ -22,6 +23,7 @@ export function Topbar({ me, bell }: { me: MeResponse; bell?: React.ReactNode })
       <CommandBar isAdmin={me.role === "ADMIN"} />
       <div className="hidden flex-1 lg:block" />
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+        <BtcTicker />
         <MarketClock timeZone={me.timezone} />
         <CurrencyMenu current={me.displayCurrency} />
         {bell}

@@ -225,6 +225,14 @@ export const HELP_TOPICS: HelpTopic[] = [
     href: "/lab/strategy",
   },
   {
+    id: "live-markets",
+    question: "Where can I see live prices and charts?",
+    answer:
+      "Live Markets (and the live BTC price in the top bar) shows the top 100 Binance futures coins with prices updating every second, and a live candlestick chart for any coin with timeframes from 1 minute to 1 day. Your open positions appear on the chart with live profit or loss. Star coins to keep them at the top. Prices come straight from Binance's public feed, so it is unavailable in regions Binance blocks, such as the USA.",
+    keywords: "live price chart btc bitcoin candles realtime real time ticker markets watchlist",
+    href: "/live",
+  },
+  {
     id: "market-pulse",
     question: "What is Market Pulse?",
     answer:
