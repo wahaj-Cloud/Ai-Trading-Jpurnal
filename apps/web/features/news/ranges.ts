@@ -68,7 +68,11 @@ export function rangeFor(
   const [y, m] = today;
   switch (preset) {
     case "upcoming":
-      return { from: now, to: new Date(now.getTime() + 7 * 86_400_000) };
+      // The last hour stays in view so a release that just came out shows its actual figure.
+      return {
+        from: new Date(now.getTime() - 3_600_000),
+        to: new Date(now.getTime() + 7 * 86_400_000),
+      };
     case "today":
       return { from: day(today), to: day(addDays(today, 1)) };
     case "tomorrow":

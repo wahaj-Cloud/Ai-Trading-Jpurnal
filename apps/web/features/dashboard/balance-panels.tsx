@@ -1,4 +1,5 @@
 import type { BucketDto, SummaryDto } from "@atc/shared";
+import { FitText } from "@/components/ui/fit-text";
 import {
   formatPercent,
   formatPnl,
@@ -85,9 +86,9 @@ function PairBar({
   const w = max > 0 ? Math.max((value / max) * 100, 2) : 0;
   return (
     <div className="grid gap-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-ink-muted">{label}</span>
-        <span className="figures text-ink">
+      <div className="flex min-w-0 justify-between gap-2 text-xs">
+        <span className="shrink-0 text-ink-muted">{label}</span>
+        <span className="figures min-w-0 truncate text-ink">
           {formatPnl(String(tone === "loss" ? -value : value))}
         </span>
       </div>
@@ -106,10 +107,10 @@ export function WinLossPanel({ s }: { s: SummaryDto }) {
   const avgLoss = Number(s.avgLoss ?? 0);
   const max = Math.max(avgWin, avgLoss);
   return (
-    <div className="grid gap-5">
-      <div className="flex items-center gap-5">
+    <div className="grid min-w-0 gap-5">
+      <div className="flex min-w-0 items-center gap-4">
         <WinRing wins={s.wins} losses={s.losses} rate={s.winRate} />
-        <dl className="grid flex-1 gap-3 text-sm">
+        <dl className="grid min-w-0 flex-1 gap-3 text-sm">
           <div className="flex justify-between gap-2">
             <dt className="text-ink-muted">Wins / losses</dt>
             <dd className="figures">
@@ -125,9 +126,11 @@ export function WinLossPanel({ s }: { s: SummaryDto }) {
             <dt className="text-ink-muted">Reward : risk</dt>
             <dd className="figures">{formatRatio(s.payoffRatio)}</dd>
           </div>
-          <div className="flex justify-between gap-2">
+          <div className="grid gap-0.5">
             <dt className="text-ink-muted">Max drawdown</dt>
-            <dd className="figures text-loss">{formatPnl(`-${s.maxDrawdown}`)}</dd>
+            <dd className="figures text-loss">
+              <FitText>{formatPnl(`-${s.maxDrawdown}`)}</FitText>
+            </dd>
           </div>
         </dl>
       </div>
@@ -136,13 +139,17 @@ export function WinLossPanel({ s }: { s: SummaryDto }) {
         <PairBar label="Average loss" value={avgLoss} max={max} tone="loss" />
       </div>
       <dl className="grid grid-cols-2 gap-3 border-t border-rule pt-4 text-sm">
-        <div>
+        <div className="min-w-0">
           <dt className="text-xs text-ink-muted">Largest win</dt>
-          <dd className="figures font-semibold text-profit">{formatPnl(s.largestWin)}</dd>
+          <dd className="figures font-semibold text-profit">
+            <FitText>{formatPnl(s.largestWin)}</FitText>
+          </dd>
         </div>
-        <div>
+        <div className="min-w-0">
           <dt className="text-xs text-ink-muted">Largest loss</dt>
-          <dd className="figures font-semibold text-loss">{formatPnl(s.largestLoss)}</dd>
+          <dd className="figures font-semibold text-loss">
+            <FitText>{formatPnl(s.largestLoss)}</FitText>
+          </dd>
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Current streak</dt>
@@ -183,7 +190,7 @@ export function CoinBars({ buckets, limit = 7 }: { buckets: BucketDto[]; limit?:
         return (
           <li
             key={b.key}
-            className="grid grid-cols-[5.5rem_1fr_5.5rem] items-center gap-3 text-sm"
+            className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 text-sm"
             title={`${b.key}: ${formatPnl(b.pnl)} over ${b.trades} trades, ${formatPercent(b.winRate, 0)} won`}
           >
             <span className="truncate font-medium">{b.key.replace(/USDT?$|USDC$/, "")}</span>
@@ -199,7 +206,12 @@ export function CoinBars({ buckets, limit = 7 }: { buckets: BucketDto[]; limit?:
                 style={{ width: `${Math.max(share, 0.6)}%` }}
               />
             </div>
-            <span className={cn("figures text-right", TONE[pnlTone(b.pnl)])}>
+            <span
+              className={cn(
+                "figures min-w-[4.5rem] text-right whitespace-nowrap",
+                TONE[pnlTone(b.pnl)],
+              )}
+            >
               {formatPnlCompact(b.pnl)}
             </span>
           </li>
@@ -240,7 +252,7 @@ export function DirectionSplit({ buckets }: { buckets: BucketDto[] }) {
           return (
             <div
               key={label as string}
-              className="rounded-[var(--radius-control)] border border-rule bg-raised/50 p-3"
+              className="min-w-0 rounded-[var(--radius-control)] border border-rule bg-raised/50 p-3"
             >
               <dt className="text-xs text-ink-muted">{label as string}</dt>
               <dd
@@ -249,7 +261,7 @@ export function DirectionSplit({ buckets }: { buckets: BucketDto[] }) {
                   bucket?.trades ? TONE[pnlTone(bucket.pnl)] : "text-ink-faint",
                 )}
               >
-                {bucket?.trades ? formatPnl(bucket.pnl) : "—"}
+                <FitText>{bucket?.trades ? formatPnl(bucket.pnl) : "—"}</FitText>
               </dd>
               <dd className="text-xs text-ink-faint">
                 {bucket?.trades ?? 0} trades · {formatPercent(bucket?.winRate ?? null, 0)} won

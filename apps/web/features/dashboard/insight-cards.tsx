@@ -1,6 +1,13 @@
 import type { AnalyticsDto, BucketDto, DayDto, MonthDto } from "@atc/shared";
 import Link from "next/link";
-import { formatPercent, formatPnl, formatPnlCompact, pnlTone } from "@/features/trades/format";
+import { FitText } from "@/components/ui/fit-text";
+import {
+  formatPercent,
+  formatPnl,
+  formatPnlCompact,
+  formatSignedTiny,
+  pnlTone,
+} from "@/features/trades/format";
 import { cn } from "@/lib/cn";
 
 const TONE = { profit: "text-profit", loss: "text-loss", flat: "text-ink" } as const;
@@ -223,7 +230,7 @@ export function DailyWinCard({ days }: { days: DayDto[] }) {
   const winShare =
     s.avgWinDay + s.avgLossDay > 0 ? s.avgWinDay / (s.avgWinDay + s.avgLossDay) : 0.5;
   return (
-    <div className="grid gap-5 sm:grid-cols-2">
+    <div className="grid min-w-0 gap-5 sm:grid-cols-2 lg:grid-cols-1">
       <div className="flex flex-col items-center">
         <svg
           viewBox="0 0 120 70"
@@ -263,8 +270,8 @@ export function DailyWinCard({ days }: { days: DayDto[] }) {
           <span className="text-loss">{s.red}</span>
         </p>
       </div>
-      <div className="grid content-center gap-2">
-        <div className="flex items-baseline justify-between">
+      <div className="grid min-w-0 content-center gap-2">
+        <div className="flex items-baseline justify-between gap-2">
           <span className="text-xs text-ink-muted">Avg green day / avg red day</span>
           <span className="figures pop-text text-lg font-semibold">
             {ratio === null ? "—" : ratio.toFixed(2)}
@@ -280,9 +287,13 @@ export function DailyWinCard({ days }: { days: DayDto[] }) {
             style={{ width: `${(1 - winShare) * 100}%` }}
           />
         </div>
-        <div className="flex justify-between text-xs">
-          <span className="figures text-profit">{formatPnl(String(s.avgWinDay))}</span>
-          <span className="figures text-loss">{formatPnl(String(-s.avgLossDay))}</span>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <span className="figures min-w-0 text-profit">
+            <FitText min={0.75}>{formatPnl(String(s.avgWinDay))}</FitText>
+          </span>
+          <span className="figures min-w-0 text-right text-loss">
+            <FitText min={0.75}>{formatPnl(String(-s.avgLossDay))}</FitText>
+          </span>
         </div>
       </div>
     </div>
@@ -367,7 +378,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export function YearlyGrid({ months }: { months: MonthDto[] }) {
   const byKey = new Map(months.map((m) => [m.month, m]));
-  const years = [...new Set(months.map((m) => m.month.slice(0, 4)))].sort().reverse();
+  // Oldest year first, like a calendar.
+  const years = [...new Set(months.map((m) => m.month.slice(0, 4)))].sort();
   if (years.length === 0) return <p className="text-sm text-ink-muted">No closed trades yet.</p>;
   return (
     <div className="grid gap-3 overflow-x-auto">
@@ -378,7 +390,7 @@ export function YearlyGrid({ months }: { months: MonthDto[] }) {
         return (
           <div
             key={y}
-            className="grid min-w-[44rem] grid-cols-[3rem_repeat(12,minmax(0,1fr))_5rem] items-stretch gap-1.5"
+            className="grid min-w-[48rem] grid-cols-[3rem_repeat(12,minmax(0,1fr))_6rem] items-stretch gap-1.5"
           >
             <span className="self-center text-sm font-medium text-ink-muted">{y}</span>
             {MONTHS.map((label, i) => {
@@ -386,7 +398,7 @@ export function YearlyGrid({ months }: { months: MonthDto[] }) {
               const v = Number(m?.pnl ?? 0);
               const key = `${y}-${String(i + 1).padStart(2, "0")}`;
               const cls = cn(
-                "rounded-[10px] border px-1.5 py-1.5 text-center",
+                "min-w-0 overflow-hidden rounded-[10px] border px-1 py-1.5 text-center",
                 !m
                   ? "border-rule/60 bg-raised/30"
                   : cn(
@@ -403,7 +415,8 @@ export function YearlyGrid({ months }: { months: MonthDto[] }) {
                       m ? TONE[pnlTone(m.pnl)] : "text-ink-faint",
                     )}
                   >
-                    {m ? formatPnlCompact(m.pnl) : "—"}
+                    {/* Symbol-less so it fits the small tile; the year total names the currency. */}
+                    {m ? formatSignedTiny(m.pnl) : "—"}
                   </p>
                   {m && <p className="text-[10px] text-ink-faint">{m.trades} tr</p>}
                 </>
@@ -424,7 +437,7 @@ export function YearlyGrid({ months }: { months: MonthDto[] }) {
                 </div>
               );
             })}
-            <div className="raised rounded-[10px] px-1.5 py-1.5 text-center">
+            <div className="raised min-w-0 overflow-hidden rounded-[10px] px-1 py-1.5 text-center">
               <p className="text-[10px] text-ink-faint">Year</p>
               <p
                 className={cn(

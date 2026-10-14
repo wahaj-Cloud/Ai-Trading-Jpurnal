@@ -7,6 +7,9 @@ import {
   type ConversationSummaryDto,
   chatInputSchema,
   dailyNoteRequestSchema,
+  type HelpAnswerDto,
+  type HelpAskInput,
+  helpAskSchema,
   type ReviewedTradeDto,
   type StrategyInsightDto,
 } from "@atc/shared";
@@ -126,5 +129,16 @@ export class CoachController {
     @Body(new ZodValidationPipe(chatInputSchema)) body: ChatInput,
   ): Promise<ConversationDto> {
     return this.coach.chat(user.id, body);
+  }
+
+  /** In-app help assistant: how to use the app. Sees no user data and stores nothing. */
+  @Post("help")
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  help(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(helpAskSchema)) body: HelpAskInput,
+  ): Promise<HelpAnswerDto> {
+    return this.coach.help(user.id, body);
   }
 }

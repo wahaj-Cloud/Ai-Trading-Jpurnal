@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isValidTimeZone, tradeRisk } from "@atc/analytics";
 import type { Prisma, PrismaClient } from "@atc/db";
-import { type PlanLimits, planLimitsSchema, UNLIMITED } from "@atc/shared";
+import { type PlanLimits, resolveLimits, UNLIMITED } from "@atc/shared";
 import type { CoachTrade } from "./types.js";
 
 const s = (v: Prisma.Decimal | null) => (v === null ? null : v.toString());
@@ -14,16 +14,34 @@ export async function userTimeZone(db: PrismaClient, userId: string): Promise<st
 export async function planLimits(db: PrismaClient, userId: string): Promise<PlanLimits> {
   const sub = await db.subscription.findUnique({
     where: { userId },
-    select: { status: true, plan: { select: { limits: true } } },
+    select: { status: true, plan: { select: { code: true, limits: true } } },
   });
-  const free = await db.plan.findUnique({ where: { code: "FREE" }, select: { limits: true } });
   // A lapsed paid subscription falls back to the Free plan's limits.
   const active =
     sub && (sub.status === "ACTIVE" || sub.status === "TRIALING" || sub.status === "PAST_DUE");
-  const parsed = planLimitsSchema.safeParse(active ? sub.plan.limits : free?.limits);
-  return parsed.success
-    ? parsed.data
-    : { exchangeAccounts: 1, aiReviewsPerMonth: 0, historyDays: 30, coachMessagesPerDay: 0 };
+  if (active) return resolveLimits(sub.plan.code, sub.plan.limits);
+  const free = await db.plan.findUnique({ where: { code: "FREE" }, select: { limits: true } });
+  return resolveLimits("FREE", free?.limits);
+}
+
+/**
+ * Adds an amount to a counter (used for AI spend in micro-dollars). One SQL statement, so
+ * concurrent calls never lose an update.
+ */
+export async function addUsage(
+  db: PrismaClient,
+  userId: string,
+  metric: string,
+  period: string,
+  amount: number,
+): Promise<void> {
+  if (amount <= 0) return;
+  const n = Math.min(Math.round(amount), 2_000_000_000);
+  await db.$executeRaw`
+    INSERT INTO usage_counters (user_id, metric, period, count)
+    VALUES (${userId}::uuid, ${metric}, ${period}, ${n})
+    ON CONFLICT (user_id, metric, period)
+    DO UPDATE SET count = LEAST(usage_counters.count + ${n}, 2147483647)`;
 }
 
 /** Earliest date the user's plan shows history from (null = full history). */
@@ -41,7 +59,7 @@ export async function historyCutoff(
  * A single SQL statement, so two concurrent requests can never both take the last unit.
  */
 export async function reserveUsage(
-  db: PrismaClient,
+  db: Pick<PrismaClient, "$queryRaw">,
   userId: string,
   metric: string,
   period: string,
@@ -102,6 +120,8 @@ const positionSelect = {
   holdingSeconds: true,
   settleAsset: true,
   quoteAsset: true,
+  setupAlertId: true,
+  btcCorrAtEntry: true,
 } satisfies Prisma.PositionSelect;
 
 type PositionRow = Prisma.PositionGetPayload<{ select: typeof positionSelect }>;
@@ -140,6 +160,8 @@ function toCoachTrade(
     quoteAsset: p.quoteAsset,
     rMultiple: risk.rMultiple,
     plannedRewardRisk: risk.plannedRewardRisk,
+    planned: p.setupAlertId !== null,
+    btcCorr: p.btcCorrAtEntry,
     journal: j
       ? {
           rating: j.rating,

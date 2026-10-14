@@ -1,4 +1,5 @@
 import { type BucketDto, SESSIONS, type SessionId } from "@atc/shared";
+import { FitText } from "@/components/ui/fit-text";
 import {
   localHour,
   localSegments,
@@ -111,7 +112,7 @@ export function SessionMap({
                   trades ? TONE[tone] : "text-ink-faint",
                 )}
               >
-                {trades ? formatPnl(pnl) : "—"}
+                <FitText>{trades ? formatPnl(pnl) : "—"}</FitText>
               </p>
               <div className="mt-3">
                 <div

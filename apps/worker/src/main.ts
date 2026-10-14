@@ -13,10 +13,14 @@ import { checkRisk, notify, ResendSender, runScheduledNotifications } from "@atc
 import {
   AI_QUEUE,
   type AiJobData,
+  BACKTEST_QUEUE,
+  type BacktestJobData,
   ENGAGEMENT_QUEUE,
   EXCHANGE_CATALOG,
   type ExchangeId,
   MAINTENANCE_QUEUE,
+  MARKET_QUEUE,
+  SETUP_SCAN_QUEUE,
   SYNC_QUEUE,
   type SyncJobData,
 } from "@atc/shared";
@@ -24,12 +28,17 @@ import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { processAiJob } from "./ai/process.js";
 import { queueAutoReviews, scheduleCoachNotes } from "./ai/schedule.js";
+import { processBacktest } from "./backtest/process.js";
 import { loadEnv } from "./env.js";
 import { log } from "./logger.js";
+import { runMarketPulse } from "./market/pulse.js";
 import { initMonitoring } from "./monitoring.js";
+import { startLiveNews } from "./news/live.js";
+import { startOfficialWatcher } from "./news/official.js";
 import { ExchangeRateLimiter } from "./rate-limit.js";
 import { rewrapCredentials } from "./rotate-keys.js";
 import { scheduleDueSyncs } from "./scheduler.js";
+import { matchAlertsToTrades, scanSetups } from "./setups/scan.js";
 import { cleanupMetatrader } from "./sync/metatrader.js";
 import { syncAccount } from "./sync/sync-account.js";
 
@@ -108,6 +117,10 @@ async function main(): Promise<void> {
 
   const deps = {
     afterSync: async (account: { id: string; userId: string }) => {
+      // "Planned" vs "no setup": link new trades to the setup alert they followed.
+      await matchAlertsToTrades(db, account.userId).catch((err: unknown) =>
+        log.warn("alert matching failed", { err }),
+      );
       await queueAutoReviews(db, aiQueue, account.id, new Date(), { reviews: model.enabled });
       await checkRisk(notifyDeps, account.userId);
     },
@@ -226,18 +239,91 @@ async function main(): Promise<void> {
     { connection, concurrency: 1 },
   );
 
+  // Market Pulse (hourly, at minute 5) and My Setup Alerts (every minute, on candle close).
+  const marketDeps = { db, config: adapterConfig, redis };
+  const market = new Queue(MARKET_QUEUE, { connection });
+  if (env.MARKET_PULSE_ENABLED) {
+    await market.upsertJobScheduler(
+      "market-pulse",
+      { pattern: "5 * * * *" },
+      { name: "market-pulse", opts: { removeOnComplete: true, removeOnFail: 50 } },
+    );
+    // A fresh deployment fills the page straight away instead of waiting for minute 5.
+    const latest = await db.marketCorrelation.findFirst({ select: { computedAt: true } });
+    if (!latest || Date.now() - latest.computedAt.getTime() > 65 * 60_000)
+      await market.add(
+        "market-pulse",
+        {},
+        { jobId: "market-pulse-boot", removeOnComplete: true, removeOnFail: true },
+      );
+  } else {
+    await market.removeJobScheduler("market-pulse");
+  }
+  const marketWorker = new Worker(
+    MARKET_QUEUE,
+    async () => {
+      const res = await runMarketPulse(marketDeps);
+      log.info("market pulse updated", res);
+    },
+    { connection, concurrency: 1 },
+  );
+  const setupScan = new Queue(SETUP_SCAN_QUEUE, { connection });
+  await setupScan.upsertJobScheduler(
+    "scan-setups",
+    { every: 60_000 },
+    { name: "scan-setups", opts: { removeOnComplete: true, removeOnFail: 50 } },
+  );
+  const setupWorker = new Worker(
+    SETUP_SCAN_QUEUE,
+    async () => {
+      const res = await scanSetups({
+        db,
+        redis,
+        config: adapterConfig,
+        notify: (n) => notify(notifyDeps, n),
+      });
+      if (res.alerts > 0) log.info("setup alerts sent", res);
+    },
+    { connection, concurrency: 1 },
+  );
+  // Strategy Lab: CPU-heavy, so few at a time; each user has at most one run queued (API rule).
+  const backtestWorker = new Worker<BacktestJobData>(
+    BACKTEST_QUEUE,
+    async (job) => processBacktest(marketDeps, job.data.runId),
+    { connection, concurrency: env.BACKTEST_CONCURRENCY, lockDuration: 120_000 },
+  );
+
   // Without "error" listeners, a Redis connection error can crash the process.
   const onError = (name: string) => (err: Error) => log.error(`${name} error`, { err });
   syncWorker.on("error", onError("sync worker"));
   aiWorker.on("error", onError("ai worker"));
   maintenanceWorker.on("error", onError("maintenance worker"));
   engagementWorker.on("error", onError("engagement worker"));
+  marketWorker.on("error", onError("market worker"));
+  setupWorker.on("error", onError("setup worker"));
+  backtestWorker.on("error", onError("backtest worker"));
+  market.on("error", onError("market queue"));
+  setupScan.on("error", onError("setup queue"));
+  marketWorker.on("failed", (_job, err) => log.warn("market pulse failed", { err }));
+  setupWorker.on("failed", (_job, err) => log.warn("setup scan failed", { err }));
   syncQueue.on("error", onError("sync queue"));
   aiQueue.on("error", onError("ai queue"));
   maintenance.on("error", onError("maintenance queue"));
   engagement.on("error", onError("engagement queue"));
 
+  // Live economic results: one stream per deployment (run a single worker replica).
+  const liveNews = env.TE_STREAM_KEY
+    ? startLiveNews({ url: env.TE_STREAM_URL, key: env.TE_STREAM_KEY, db, redis })
+    : null;
+  // Free live US figures (CPI, PPI, jobs report) straight from the Bureau of Labor Statistics.
+  const official = env.BLS_API_KEY
+    ? startOfficialWatcher({ key: env.BLS_API_KEY, db, redis })
+    : null;
+
   log.info("worker started", {
+    liveNews: liveNews ? "on" : "off",
+    officialNews: official ? "on" : "off",
+    marketPulse: env.MARKET_PULSE_ENABLED ? "on" : "off",
     ai: model.enabled ? env.AI_FAST_MODEL : "off",
     concurrency: env.SYNC_CONCURRENCY,
     intervalMinutes: env.SYNC_INTERVAL_MINUTES,
@@ -245,18 +331,25 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string) => {
     log.info("worker stopping", { signal });
+    liveNews?.stop();
+    official?.stop();
     // Let running syncs finish their current step; cursors make any unfinished work resumable.
     await Promise.allSettled([
       syncWorker.close(),
       maintenanceWorker.close(),
       engagementWorker.close(),
       aiWorker.close(),
+      marketWorker.close(),
+      setupWorker.close(),
+      backtestWorker.close(),
     ]);
     await Promise.allSettled([
       syncQueue.close(),
       aiQueue.close(),
       maintenance.close(),
       engagement.close(),
+      market.close(),
+      setupScan.close(),
       redis.quit(),
       db.$disconnect(),
     ]);

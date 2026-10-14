@@ -28,6 +28,10 @@ export interface PositionDto {
   netPnl: string | null;
   holdingSeconds: number | null;
   incompleteHistory: boolean;
+  /** Followed one of the trader's setup alerts (My Setup Alerts). */
+  planned: boolean;
+  /** How closely the coin moved with BTC (24h correlation) when the trade opened. */
+  btcCorrAtEntry: number | null;
   /** Whether the trader has written a journal entry for this trade, and its rating. */
   reviewed: boolean;
   rating: number | null;
@@ -49,6 +53,8 @@ export const positionsQuerySchema = z
       .toUpperCase()
       .regex(/^[A-Z0-9_]{2,30}$/)
       .optional(),
+    /** Trades closed on this calendar day, in the trader's timezone (YYYY-MM-DD). */
+    day: z.iso.date().optional(),
     /** `closed`: most recently closed first (only closed trades). Default: most recently opened. */
     sort: z.enum(["opened", "closed"]).default("opened"),
     cursor: z.string().max(200).optional(),

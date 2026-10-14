@@ -17,10 +17,18 @@ const VIEWS = [
   { label: "Open now", value: "open" },
 ] as const;
 
+const dayLabel = (d: string) =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString("en", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+
 export default async function TradesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; cursor?: string; symbol?: string }>;
+  searchParams: Promise<{ view?: string; cursor?: string; symbol?: string; day?: string }>;
 }) {
   const params = await searchParams;
   const view = params.view === "open" ? "open" : undefined;
@@ -28,6 +36,12 @@ export default async function TradesPage({
   const query = new URLSearchParams({ limit: "50", status: "CLOSED" });
   if (params.cursor) query.set("cursor", params.cursor);
   if (symbol) query.set("symbol", symbol);
+  // From a calendar day: that day's closed trades, newest first.
+  const day = params.day?.match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
+  if (day) {
+    query.set("day", day);
+    query.set("sort", "closed");
+  }
 
   const empty: PositionsPage = { items: [], nextCursor: null };
   const [page, open, me, { accounts }] = await Promise.all([
@@ -39,9 +53,11 @@ export default async function TradesPage({
   const importing = accounts.some((a) => a.status === "ACTIVE" && a.sync.state !== "IDLE");
   const href = (next: Record<string, string | undefined>) => {
     const q = new URLSearchParams(
-      Object.entries({ symbol: view ? undefined : symbol, ...next }).filter(
-        (e): e is [string, string] => Boolean(e[1]),
-      ),
+      Object.entries({
+        symbol: view ? undefined : symbol,
+        day: view ? undefined : day,
+        ...next,
+      }).filter((e): e is [string, string] => Boolean(e[1])),
     );
     const s = q.toString();
     return s ? `/trades?${s}` : "/trades";
@@ -62,7 +78,7 @@ export default async function TradesPage({
         </ButtonLink>
       </header>
 
-      <nav aria-label="Trade views" className="flex gap-1">
+      <nav aria-label="Trade views" className="flex flex-wrap gap-1">
         {VIEWS.map((f) => (
           <Link
             key={f.label}
@@ -78,9 +94,18 @@ export default async function TradesPage({
             {f.label}
           </Link>
         ))}
+        {day && !view && (
+          <Link
+            href={symbol ? `/trades?symbol=${symbol}` : "/trades"}
+            className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-coach/60 bg-coach/15 px-3 py-1 text-sm text-ink hover:bg-coach/25"
+            aria-label={`Showing trades closed on ${dayLabel(day)} only. Show all days`}
+          >
+            {dayLabel(day)} <span aria-hidden="true">×</span>
+          </Link>
+        )}
         {symbol && !view && (
           <Link
-            href="/trades"
+            href={day ? `/trades?day=${day}` : "/trades"}
             className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-coach/60 bg-coach/15 px-3 py-1 text-sm text-ink hover:bg-coach/25"
             aria-label={`Showing ${symbol} only. Show all coins`}
           >
@@ -106,7 +131,13 @@ export default async function TradesPage({
         <section className="rounded-[var(--radius-surface)] surface p-8 text-center">
           <CandlestickChart className="mx-auto h-6 w-6 text-coach" aria-hidden="true" />
           <h2 className="mt-3 font-semibold">
-            {params.cursor ? "No older trades" : symbol ? `No ${symbol} trades` : "No trades yet"}
+            {params.cursor
+              ? "No older trades"
+              : day
+                ? `No trades closed on ${dayLabel(day)}`
+                : symbol
+                  ? `No ${symbol} trades`
+                  : "No trades yet"}
           </h2>
           <p className="mx-auto mt-2 max-w-[52ch] text-sm text-ink-muted">
             {accounts.length === 0

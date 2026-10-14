@@ -31,6 +31,9 @@ export interface EconomicEventDto {
   actual: string | null;
   forecast: string | null;
   previous: string | null;
+  /** Source that delivered the actual first ("bls", "tradingeconomics") and when (ISO). */
+  actualSource?: string | null;
+  actualAt?: string | null;
 }
 
 export interface EconomicCalendarDto {
@@ -38,6 +41,8 @@ export interface EconomicCalendarDto {
   /** When the source was last read (ISO), null if never. */
   fetchedAt: string | null;
   source: { name: string; url: string };
+  /** Released figures are pushed live (instant actual values). */
+  live: boolean;
 }
 
 /** Longest window one request may ask for. */
@@ -72,3 +77,16 @@ export const economicCalendarQuerySchema = z
     { message: `Ask for at most ${CALENDAR_MAX_DAYS} days at a time` },
   );
 export type EconomicCalendarQuery = z.infer<typeof economicCalendarQuerySchema>;
+
+// ─── Live results ───
+
+/** Redis channel the worker publishes released figures on; the API relays them to browsers. */
+export const ECON_LIVE_CHANNEL = "econ:live";
+
+/** A release whose actual figure just came in (sent over the live stream). */
+export interface EconomicLiveUpdate {
+  type: "release";
+  event: EconomicEventDto;
+  /** When our server received it (ISO), for measuring delay. */
+  receivedAt: string;
+}

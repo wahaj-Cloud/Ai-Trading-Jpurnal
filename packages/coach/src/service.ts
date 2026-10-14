@@ -1,18 +1,23 @@
 import { addDays, computeAnalytics, localParts, startOfLocalDay } from "@atc/analytics";
 import type { Prisma, PrismaClient } from "@atc/db";
-import type {
-  BehaviourFlagDto,
-  BehaviourSummaryDto,
-  CoachNoteDto,
-  CoachStatusDto,
-  ConversationDto,
-  Grade,
-  TradeReviewDto,
+import {
+  AI_COST_METRIC,
+  aiCostMicros,
+  type BehaviourFlagDto,
+  type BehaviourSummaryDto,
+  type CoachNoteDto,
+  type CoachStatusDto,
+  type ConversationDto,
+  type Grade,
+  type PlanLimits,
+  type TradeReviewDto,
+  UNLIMITED,
 } from "@atc/shared";
 import { contextFacts } from "@atc/ta";
 import { behaviourSummary, type Detection, detectBehaviours } from "./behaviour.js";
 import { type CandleSource, ensureContext, marketFlags, storedContext } from "./context.js";
 import {
+  addUsage,
   loadCoachTrades,
   planLimits,
   releaseUsage,
@@ -21,7 +26,7 @@ import {
   usageCount,
   userTimeZone,
 } from "./data.js";
-import { periodFacts, recentTradesFacts, tradeFacts } from "./facts.js";
+import { edgeFacts, periodFacts, recentTradesFacts, tradeFacts } from "./facts.js";
 import { type GradeResult, gradeTrade } from "./grade.js";
 import { AiRequestError, AiUnavailableError, type CoachModel } from "./model.js";
 import {
@@ -46,13 +51,15 @@ export interface CoachDeps {
 }
 
 export class CoachLimitError extends Error {
-  constructor(readonly metric: "reviews" | "messages" | "notes") {
+  constructor(readonly metric: "reviews" | "messages" | "notes" | "budget") {
     super(
       metric === "reviews"
         ? "You have used this month's AI reviews on your plan."
         : metric === "notes"
           ? `You can ask for ${NOTE_REQUESTS_PER_DAY} coaching notes a day. Try again tomorrow.`
-          : "You have used today's coach messages on your plan.",
+          : metric === "budget"
+            ? "You have used this month's AI allowance on your plan. It resets on the 1st, or upgrade for more."
+            : "You have used today's coach messages on your plan.",
     );
     this.name = "CoachLimitError";
   }
@@ -81,6 +88,49 @@ const usagePeriod = (deps: CoachDeps) => {
 /** On-demand coaching notes per UTC day ("Coach me on this day"). */
 export const NOTE_REQUESTS_PER_DAY = 10;
 const METRIC_NOTE_REQUEST = "ai_coach_note_request";
+
+// ─── AI spend ───
+
+/** True while the user's AI spend this month is under their plan's budget. */
+export async function aiBudgetLeft(
+  db: PrismaClient,
+  userId: string,
+  limits: PlanLimits,
+  month: string,
+): Promise<boolean> {
+  if (limits.aiBudgetUsd === UNLIMITED) return true;
+  if (limits.aiBudgetUsd <= 0) return false;
+  const spent = await usageCount(db, userId, AI_COST_METRIC, month);
+  return spent < limits.aiBudgetUsd * 1_000_000;
+}
+
+/** Records what one model call cost against the user's month. Never fails the caller. */
+export async function recordAiCost(
+  db: PrismaClient,
+  userId: string,
+  month: string,
+  res: { model: string; inputTokens: number; outputTokens: number },
+): Promise<void> {
+  await addUsage(
+    db,
+    userId,
+    AI_COST_METRIC,
+    month,
+    aiCostMicros(res.model, res.inputTokens, res.outputTokens),
+  ).catch(() => undefined);
+}
+
+/** The model, with every call's cost charged to this user (retries included). */
+function meteredModel(deps: CoachDeps, userId: string, month: string): CoachModel {
+  return {
+    enabled: deps.model.enabled,
+    async complete(req) {
+      const res = await deps.model.complete(req);
+      await recordAiCost(deps.db, userId, month, res);
+      return res;
+    },
+  };
+}
 
 // ─── Trade reviews ───
 
@@ -211,7 +261,10 @@ export async function reviewTrade(
   };
   const { month } = usagePeriod(deps);
   const limits = await planLimits(db, userId);
-  if (!(await reserveUsage(db, userId, METRIC_REVIEW, month, limits.aiReviewsPerMonth))) {
+  if (
+    !(await aiBudgetLeft(db, userId, limits, month)) ||
+    !(await reserveUsage(db, userId, METRIC_REVIEW, month, limits.aiReviewsPerMonth))
+  ) {
     const row = await db.tradeReview.upsert({
       where: key,
       create: {
@@ -235,7 +288,7 @@ export async function reviewTrade(
     );
     const marketContext = ctx ? contextFacts(ctx) : null;
     const { data, res } = await toolCall<TradeReviewOutput>(
-      model,
+      meteredModel(deps, userId, month),
       {
         tier: "fast",
         system: TRADE_REVIEW_SYSTEM,
@@ -415,6 +468,7 @@ export async function writeNote(
   const limits = await planLimits(db, userId);
   if (limits.aiReviewsPerMonth === 0) throw new CoachLimitError("reviews");
   const { day, month } = usagePeriod(deps);
+  if (!(await aiBudgetLeft(db, userId, limits, month))) throw new CoachLimitError("budget");
   if (
     opts.onDemand &&
     !(await reserveUsage(db, userId, METRIC_NOTE_REQUEST, day, NOTE_REQUESTS_PER_DAY))
@@ -424,14 +478,14 @@ export async function writeNote(
   // Notes are included with any AI plan; counted for cost monitoring.
   await reserveUsage(db, userId, METRIC_NOTE, month, -1);
   const call = toolCall<NoteOutput>(
-    model,
+    meteredModel(deps, userId, month),
     {
       tier: "fast",
       system: NOTE_SYSTEM,
       messages: [
         {
           role: "user",
-          content: `${periodFacts(range.label, report, detection.flags, baseline.length ? reportOf(baseline) : null)}\n\n${recentTradesFacts(inPeriod, timeZone, 25)}`,
+          content: `${periodFacts(range.label, report, detection.flags, baseline.length ? reportOf(baseline) : null)}\n\n${recentTradesFacts(inPeriod, timeZone, 25)}\n\n${edgeFacts(inPeriod, await usesSetups(db, userId))}`,
         },
       ],
       maxTokens: 700,
@@ -504,6 +558,8 @@ export async function coachStatus(deps: CoachDeps, userId: string): Promise<Coac
       reviewsLimit: limits.aiReviewsPerMonth,
       messagesToday: await usageCount(deps.db, userId, METRIC_MESSAGE, period.day),
       messagesLimit: limits.coachMessagesPerDay,
+      aiSpentUsd: (await usageCount(deps.db, userId, AI_COST_METRIC, period.month)) / 1_000_000,
+      aiBudgetUsd: limits.aiBudgetUsd,
     },
   };
 }
@@ -563,6 +619,7 @@ async function chatFacts(deps: CoachDeps, userId: string, timeZone: string): Pro
     ),
     periodFacts(`LAST 30 DAYS from ${from30}`, report(last30), detection.flags, null),
     recentTradesFacts(last30, timeZone, 20),
+    edgeFacts(trades, await usesSetups(deps.db, userId)),
     notes.length
       ? `RECENT COACHING NOTES\n${notes
           .map((n) => {
@@ -589,8 +646,9 @@ export async function chat(
   if (input.conversationId && !conversation) throw new CoachNotFoundError("Conversation not found");
 
   const timeZone = await userTimeZone(db, userId);
-  const { day } = usagePeriod(deps);
+  const { day, month } = usagePeriod(deps);
   const limits = await planLimits(db, userId);
+  if (!(await aiBudgetLeft(db, userId, limits, month))) throw new CoachLimitError("budget");
   if (!(await reserveUsage(db, userId, METRIC_MESSAGE, day, limits.coachMessagesPerDay))) {
     throw new CoachLimitError("messages");
   }
@@ -604,7 +662,7 @@ export async function chat(
         })
       : [];
     const facts = await chatFacts(deps, userId, timeZone);
-    const res = await model.complete({
+    const res = await meteredModel(deps, userId, month).complete({
       tier: "smart",
       system: `${CHAT_SYSTEM}\n\n<facts>\n${facts}\n</facts>`,
       messages: [
@@ -674,3 +732,8 @@ export async function getConversation(
 }
 
 export type { Grade };
+
+/** Whether the trader has ever saved a setup (planned vs unplanned only means something then). */
+async function usesSetups(db: CoachDeps["db"], userId: string): Promise<boolean> {
+  return (await db.setup.count({ where: { userId } })) > 0;
+}

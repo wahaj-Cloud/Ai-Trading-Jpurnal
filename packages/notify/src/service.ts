@@ -41,6 +41,8 @@ export interface NewNotification {
   body: string;
   link?: string | null;
   dedupeKey: string;
+  /** False when the user's plan does not include emails for this kind (in-app only). */
+  allowEmail?: boolean;
 }
 
 type NotificationRow = Prisma.NotificationGetPayload<object>;
@@ -70,7 +72,10 @@ export async function notify(
     where: { userId: n.userId },
     select: { notificationPrefs: true },
   });
-  const wantsEmail = deps.email.enabled && emailWanted(settings?.notificationPrefs, n.kind);
+  const wantsEmail =
+    deps.email.enabled &&
+    n.allowEmail !== false &&
+    emailWanted(settings?.notificationPrefs, n.kind);
   let row: NotificationRow;
   try {
     row = await db.notification.create({

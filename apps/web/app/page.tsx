@@ -12,9 +12,17 @@ export default async function LandingPage() {
     <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-5 sm:px-8">
       <header className="flex h-20 items-center justify-between">
         <Wordmark />
-        <ButtonLink href="/sign-in" variant="ghost" size="sm">
-          Sign in
-        </ButtonLink>
+        <nav aria-label="Main" className="flex items-center gap-2">
+          <Link
+            href="/tools"
+            className="rounded-full px-3 py-1.5 text-sm text-ink-muted hover:text-ink"
+          >
+            Free tools
+          </Link>
+          <ButtonLink href="/sign-in" variant="ghost" size="sm">
+            Sign in
+          </ButtonLink>
+        </nav>
       </header>
 
       <main className="grid flex-1 items-center gap-12 py-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
@@ -23,8 +31,9 @@ export default async function LandingPage() {
             Every futures trade you take, reviewed.
           </h1>
           <p className="mt-5 max-w-[52ch] text-lg leading-relaxed text-ink-muted">
-            Connect Binance, MEXC, KuCoin or BingX with read-only keys, one exchange or all four.
-            Your journal builds itself, and your coach shows you which habits are costing you money.
+            Connect Binance, MEXC, KuCoin, BingX or Exness with read-only access, one account or all
+            of them. Your journal builds itself, and your coach shows you which habits are costing
+            you money.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <ButtonLink href="/sign-up" size="lg">
@@ -37,10 +46,19 @@ export default async function LandingPage() {
           <p className="mt-6 text-sm text-ink-faint">
             Read-only access. We never place trades or move funds.
           </p>
+          <p className="mt-3 text-sm">
+            <Link
+              href="/tools/trade-grader"
+              className="text-coach underline-offset-4 hover:underline"
+            >
+              Try the free trade grader →
+            </Link>
+          </p>
         </div>
         <ExampleReview />
       </main>
       <footer className="flex flex-wrap gap-4 border-t border-rule py-6 text-xs text-ink-faint">
+        <Link href="/tools">Free trading tools</Link>
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
         <Link href="/risk-disclosure">Risk disclosure</Link>

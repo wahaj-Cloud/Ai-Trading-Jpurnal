@@ -1,4 +1,4 @@
-import { EXCHANGE_CATALOG, type TradeDetailDto } from "@atc/shared";
+import { EXCHANGE_CATALOG, PULSE_LINKS, pulseLink, type TradeDetailDto } from "@atc/shared";
 import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -72,6 +72,24 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
           )}
           {t.status === "OPEN" && (
             <span className="rounded border border-coach px-2 py-0.5 text-xs text-coach">Open</span>
+          )}
+          {t.planned && (
+            <Link
+              href="/setups"
+              title="Opened soon after one of your setup alerts"
+              className="rounded bg-coach/15 px-2 py-0.5 text-xs font-medium text-coach"
+            >
+              Planned setup
+            </Link>
+          )}
+          {t.btcCorrAtEntry !== null && (
+            <Link
+              href={`/market/${t.symbol}`}
+              title="24-hour correlation of this coin to BTC when you entered"
+              className="figures rounded bg-hi/10 px-2 py-0.5 text-xs text-ink-muted"
+            >
+              {PULSE_LINKS[pulseLink(t.btcCorrAtEntry)]} ({t.btcCorrAtEntry.toFixed(2)}) at entry
+            </Link>
           )}
         </div>
         <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-ink-muted">

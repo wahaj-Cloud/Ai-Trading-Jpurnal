@@ -39,6 +39,11 @@ const PAGES: PageEntry[] = [
     href: "/news",
     keywords: "news forex factory calendar cpi nfp fomc events high impact",
   },
+  {
+    label: "Trade grader",
+    href: "/calculators",
+    keywords: "grade plan check trade before entry risk score",
+  },
   { label: "Goals and risk limits", href: "/goals", keywords: "target max loss daily limit" },
   {
     label: "Calculators",

@@ -1,6 +1,7 @@
 import type { EconomicEventDto } from "@atc/shared";
 import { describe, expect, it } from "vitest";
 import {
+  formatClock,
   formatUntil,
   groupByDay,
   newsHref,
@@ -25,7 +26,7 @@ describe("news filters", () => {
   it("falls back to defaults and ignores junk", () => {
     expect(parseNewsFilters({})).toEqual({
       range: "upcoming",
-      impact: ["HIGH", "MEDIUM", "LOW"],
+      impact: ["HIGH"],
       currency: [],
       tz: "local",
     });
@@ -42,8 +43,12 @@ describe("news filters", () => {
   it("builds short links and round-trips", () => {
     const f = parseNewsFilters({});
     expect(newsHref(f, {})).toBe("/news");
-    const href = newsHref(f, { range: "this-week", impact: ["HIGH"], currency: ["GBP", "USD"] });
-    expect(href).toBe("/news?range=this-week&impact=HIGH&currency=USD%2CGBP");
+    const href = newsHref(f, {
+      range: "this-week",
+      impact: ["HIGH", "MEDIUM"],
+      currency: ["GBP", "USD"],
+    });
+    expect(href).toBe("/news?range=this-week&impact=HIGH%2CMEDIUM&currency=USD%2CGBP");
     const back = parseNewsFilters(Object.fromEntries(new URL(href, "http://x").searchParams));
     expect(back.currency).toEqual(["USD", "GBP"]);
   });
@@ -88,9 +93,10 @@ describe("grouping", () => {
   });
 
   it("formats countdowns", () => {
-    expect(formatUntil(30_000)).toBe("now");
-    expect(formatUntil(5 * 60_000)).toBe("in 5m");
-    expect(formatUntil(125 * 60_000)).toBe("in 2h 05m");
-    expect(formatUntil((26 * 60 + 3) * 60_000)).toBe("in 1d 2h");
+    expect(formatUntil(500)).toBe("now");
+    expect(formatUntil(5 * 60_000 + 9_000)).toBe("in 5m 09s");
+    expect(formatUntil(125 * 60_000 + 30_000)).toBe("in 2h 05m 30s");
+    expect(formatUntil((26 * 60 + 3) * 60_000)).toBe("in 1d 2h 03m");
+    expect(formatClock(272_000)).toBe("04:32");
   });
 });

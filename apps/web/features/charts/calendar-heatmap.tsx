@@ -1,6 +1,7 @@
 import type { DayDto } from "@atc/shared";
 import Link from "next/link";
-import { formatPnl, formatPnlCompact } from "@/features/trades/format";
+import { FitText } from "@/components/ui/fit-text";
+import { formatPnl, formatPnlCompact, formatSignedTiny } from "@/features/trades/format";
 
 import { cn } from "@/lib/cn";
 
@@ -9,6 +10,23 @@ const cellAmount = (v: string) =>
   Math.abs(Number(v)) >= 1000
     ? formatPnlCompact(v)
     : formatPnl(String(Math.round(Number(v)))).replace(".00", "");
+
+/**
+ * The amount inside a cell: symbol-less and tiny on phones (cells are ~45px wide), with the
+ * currency symbol from the small-tablet width up. Both are clipped to the cell, never spilling.
+ */
+function CellAmount({ value, className }: { value: string; className?: string }) {
+  return (
+    <span className={cn("figures block w-full min-w-0", className)}>
+      <span className="block overflow-hidden text-ellipsis whitespace-nowrap tracking-tighter sm:hidden">
+        {formatSignedTiny(value)}
+      </span>
+      <span className="hidden sm:block">
+        <FitText min={0.65}>{cellAmount(value)}</FitText>
+      </span>
+    </span>
+  );
+}
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const monthName = new Intl.DateTimeFormat("en", {
@@ -46,36 +64,39 @@ function DayCell({
   max,
   today,
   large,
-}: Cell & { max: number; today: string; large: boolean }) {
+  href,
+}: Cell & { max: number; today: string; large: boolean; href?: string }) {
   const pnl = Number(data?.pnl ?? 0);
   const strength = max === 0 || !data ? 0 : Math.sqrt(Math.abs(pnl) / max);
   const tint = pnl > 0 ? "var(--pnl-profit)" : "var(--pnl-loss)";
   const label = data
     ? `${date}: ${formatPnl(data.pnl)}, ${data.trades} trade${data.trades === 1 ? "" : "s"}`
     : `${date}: no trades`;
-  return (
-    <div
-      title={label}
-      aria-label={label}
-      role="img"
-      className={cn(
-        "flex flex-col rounded-lg border",
-        large ? "h-14 p-1.5 sm:h-16 lg:h-[4.5rem]" : "aspect-[6/5] min-h-9 justify-between p-1",
-        data
-          ? "lift border-hi/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(0,0,0,0.25),0_8px_16px_-8px_rgba(0,0,0,0.75)]"
-          : "border-rule/60",
-        date === today && "ring-1 ring-coach",
-      )}
-      style={
-        data && pnl !== 0
-          ? {
-              background: `color-mix(in srgb, ${tint} ${Math.round(12 + strength * 58)}%, var(--color-panel))`,
-            }
-          : data
-            ? { background: "var(--color-raised)" }
-            : undefined
-      }
-    >
+  const props = {
+    title: href ? `${label}. Open this day's trades` : label,
+    "aria-label": href ? `${label}. Open this day's trades` : label,
+    className: cn(
+      href && "cursor-pointer transition-[filter,transform] hover:brightness-125 active:scale-95",
+      "flex min-w-0 flex-col overflow-hidden rounded-lg border",
+      large
+        ? "h-14 px-0.5 py-1 sm:h-16 sm:p-1.5 lg:h-[4.5rem]"
+        : "aspect-[6/5] min-h-9 justify-between p-1",
+      data
+        ? "lift border-hi/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(0,0,0,0.25),0_8px_16px_-8px_rgba(0,0,0,0.75)]"
+        : "border-rule/60",
+      date === today && "ring-1 ring-coach",
+    ),
+    style:
+      data && pnl !== 0
+        ? {
+            background: `color-mix(in srgb, ${tint} ${Math.round(12 + strength * 58)}%, var(--color-panel))`,
+          }
+        : data
+          ? { background: "var(--color-raised)" }
+          : undefined,
+  };
+  const body = (
+    <>
       <span
         className={cn(
           "leading-none",
@@ -87,19 +108,30 @@ function DayCell({
       </span>
       {data &&
         (large ? (
-          <span className="flex flex-1 flex-col items-center justify-center">
-            <span className="figures pop-text truncate text-xs leading-tight font-semibold text-ink sm:text-sm">
-              {cellAmount(data.pnl)}
-            </span>
+          <span className="flex w-full min-w-0 flex-1 flex-col items-center justify-center text-center">
+            <CellAmount
+              value={data.pnl}
+              className="pop-text text-center text-[9px] leading-tight font-semibold text-ink sm:text-xs lg:text-sm"
+            />
             <span className="hidden text-[10px] leading-tight text-ink/70 sm:block">
               {data.trades} {data.trades === 1 ? "trade" : "trades"}
             </span>
           </span>
         ) : (
-          <span className="figures hidden truncate text-right leading-none text-ink sm:block">
-            {cellAmount(data.pnl)}
-          </span>
+          <CellAmount
+            value={data.pnl}
+            className="hidden text-right leading-none text-ink sm:block"
+          />
         ))}
+    </>
+  );
+  return href ? (
+    <Link href={href} {...props}>
+      {body}
+    </Link>
+  ) : (
+    <div role="img" {...props}>
+      {body}
     </div>
   );
 }
@@ -116,6 +148,7 @@ export function CalendarHeatmap({
   weekTotals = false,
   large = false,
   monthHref,
+  linkDays = true,
 }: {
   /** YYYY-MM, in display order. */
   months: string[];
@@ -128,6 +161,8 @@ export function CalendarHeatmap({
   large?: boolean;
   /** Turns each month title into a link, e.g. to its full month page. */
   monthHref?: (month: string) => string;
+  /** Days with trades link to that day's trades (on by default). */
+  linkDays?: boolean;
 }) {
   const byDate = new Map(days.map((d) => [d.date, d]));
   const max = Math.max(...days.map((d) => Math.abs(Number(d.pnl))), 0);
@@ -209,7 +244,14 @@ export function CalendarHeatmap({
                 return [
                   ...week.map((cell, ci) =>
                     cell ? (
-                      <DayCell key={cell.date} {...cell} max={max} today={today} large={large} />
+                      <DayCell
+                        key={cell.date}
+                        {...cell}
+                        max={max}
+                        today={today}
+                        large={large}
+                        href={linkDays && cell.data ? `/trades?day=${cell.date}` : undefined}
+                      />
                     ) : (
                       // biome-ignore lint/suspicious/noArrayIndexKey: empty padding cells
                       <span key={`pad-${wi}-${ci}`} aria-hidden="true" />
@@ -222,23 +264,26 @@ export function CalendarHeatmap({
                       role="img"
                       aria-label={`Week ${wi + 1}: ${formatPnl(String(weekPnl))}, ${weekTrades} trades`}
                       className={cn(
-                        "raised flex flex-col justify-center rounded-lg px-1.5",
+                        "raised flex min-w-0 flex-col justify-center overflow-hidden rounded-lg px-0.5 sm:px-1",
                         large ? "h-14 items-center sm:h-16 lg:h-[4.5rem]" : "min-h-9 items-end",
                       )}
                     >
-                      <span
-                        className={cn(
-                          "figures truncate font-semibold leading-tight",
-                          large && "pop-text text-xs sm:text-sm",
-                          weekPnl > 0
-                            ? "text-profit"
-                            : weekPnl < 0
-                              ? "text-loss"
-                              : "text-ink-faint",
-                        )}
-                      >
-                        {weekTrades ? cellAmount(String(weekPnl)) : "—"}
-                      </span>
+                      {weekTrades ? (
+                        <CellAmount
+                          value={String(weekPnl)}
+                          className={cn(
+                            "font-semibold leading-tight",
+                            large && "pop-text text-center text-[9px] sm:text-xs lg:text-sm",
+                            weekPnl > 0
+                              ? "text-profit"
+                              : weekPnl < 0
+                                ? "text-loss"
+                                : "text-ink-faint",
+                          )}
+                        />
+                      ) : (
+                        <span className="text-ink-faint">—</span>
+                      )}
                       {weekTrades > 0 && (
                         <span className="hidden text-[10px] leading-tight text-ink-faint sm:block">
                           {weekTrades} {large ? (weekTrades === 1 ? "trade" : "trades") : "tr"}

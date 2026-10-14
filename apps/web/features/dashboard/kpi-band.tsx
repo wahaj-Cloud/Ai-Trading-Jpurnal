@@ -1,4 +1,5 @@
 import type { AnalyticsDto } from "@atc/shared";
+import { FitText } from "@/components/ui/fit-text";
 import { formatPercent, formatPnl, formatRatio, pnlTone } from "@/features/trades/format";
 import { cn } from "@/lib/cn";
 
@@ -71,13 +72,13 @@ export function KpiBand({ report }: { report: AnalyticsDto | null }) {
             <dt className="relative text-sm text-ink-muted">{m.label}</dt>
             <dd
               className={cn(
-                "figures pop-text relative mt-1 leading-tight font-semibold whitespace-nowrap",
-                // Long amounts (big balances, or currencies like Rs) step down so they fit the tile.
+                "figures pop-text relative mt-1 leading-tight font-semibold",
+                // Long amounts (big balances, or currencies like Rs) step down, then fit the tile.
                 m.value.length > 12 ? "text-xl" : m.value.length > 9 ? "text-2xl" : "text-[1.7rem]",
                 empty ? "text-ink-faint" : m.tone || "text-ink",
               )}
             >
-              {m.value}
+              <FitText>{m.value}</FitText>
             </dd>
             {m.hint && !empty && (
               <dd className="relative mt-0.5 text-xs text-ink-faint">{m.hint}</dd>

@@ -65,6 +65,7 @@ export interface AdminUserRowDto {
   exchanges: number;
   createdAt: string;
   suspended: boolean;
+  foundingMember: boolean;
 }
 
 export interface AdminUsersPage {
@@ -155,3 +156,76 @@ export interface AnnouncementDto {
   startsAt: string;
   endsAt: string | null;
 }
+
+// ─── Admin: costs and margins ───
+
+export interface AdminPlanCostRow {
+  code: "FREE" | "PRO" | "PREMIUM" | "ENTERPRISE";
+  name: string;
+  /** Monthly list price (US$); null until an admin sets it. */
+  priceUsd: number | null;
+  limits: PlanLimits;
+  users: number;
+  revenueUsd: number;
+  aiCostUsd: number;
+  brokerAccounts: number;
+  metaapiCostUsd: number;
+  paymentFeesUsd: number;
+  /** (revenue − AI − MetaApi − payment fees) ÷ revenue; null without revenue. */
+  marginPct: number | null;
+}
+
+export interface AdminUserCostRow {
+  id: string;
+  email: string;
+  plan: AdminPlanCostRow["code"];
+  foundingMember: boolean;
+  aiCostUsd: number;
+  aiBudgetUsd: number;
+  /** Share of the monthly AI budget used; null when unlimited. */
+  budgetUsedPct: number | null;
+  brokerAccounts: number;
+  marginPct: number | null;
+}
+
+export interface AdminCostsDto {
+  month: string;
+  assumptions: { metaapiUsdPerAccount: number; paymentPct: number; paymentFixedUsd: number };
+  plans: AdminPlanCostRow[];
+  totals: {
+    users: number;
+    revenueUsd: number;
+    aiCostUsd: number;
+    metaapiCostUsd: number;
+    paymentFeesUsd: number;
+    grossProfitUsd: number;
+    marginPct: number | null;
+  };
+  /** Most expensive users this month (AI first). */
+  topUsers: AdminUserCostRow[];
+  /** The margin target the page checks against. */
+  targetMarginPct: number;
+}
+
+const limitInt = z.number().int().min(-1).max(1_000_000);
+export const adminPlanUpdateSchema = z
+  .object({
+    priceUsd: z.number().min(0).max(10_000).nullable(),
+    exchangeAccounts: limitInt,
+    aiReviewsPerMonth: limitInt,
+    historyDays: limitInt,
+    coachMessagesPerDay: limitInt,
+    aiBudgetUsd: z.number().min(-1).max(10_000),
+    brokerAccounts: limitInt,
+    setups: limitInt,
+    setupAlertEmail: z.number().int().min(0).max(1),
+    whatIf: z.number().int().min(0).max(1),
+    backtestRunsPerMonth: limitInt,
+    backtestHistoryMonths: limitInt,
+    marketPulseCoins: limitInt,
+    marketPulseAllWindows: z.number().int().min(0).max(1),
+  })
+  .strict();
+export type AdminPlanUpdate = z.infer<typeof adminPlanUpdateSchema>;
+
+export const adminFoundingSchema = z.object({ foundingMember: z.boolean() }).strict();

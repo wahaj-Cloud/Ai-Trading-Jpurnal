@@ -283,7 +283,8 @@ const erin = await client.user.create({
   data: {
     authProviderId: "u-erin",
     email: "erin@x.io",
-    subscription: { create: { planCode: "PRO" } },
+    // Exness is included with Premium (each account costs a MetaApi terminal).
+    subscription: { create: { planCode: "PREMIUM" } },
     settings: { create: {} },
   },
 });

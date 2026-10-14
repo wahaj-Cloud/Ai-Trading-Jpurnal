@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { tradeRisk } from "@atc/analytics";
-import { historyCutoff } from "@atc/coach";
+import { addDays, startOfLocalDay, tradeRisk } from "@atc/analytics";
+import { historyCutoff, userTimeZone } from "@atc/coach";
 import type { Position, Prisma } from "@atc/db";
 import { canonicalSymbol } from "@atc/exchange-adapters";
 import {
@@ -67,6 +67,13 @@ export class PositionsService {
     // Plan history window: open trades always show; closed ones within the window.
     if (cutoff) and.push({ OR: [{ closedAt: null }, { closedAt: { gte: cutoff } }] });
     if (byClose) and.push({ closedAt: { not: null } });
+    if (q.day) {
+      // The same day boundaries as the calendar: the trader's own midnight to midnight.
+      const tz = await userTimeZone(this.prisma.client, userId);
+      and.push({
+        closedAt: { gte: startOfLocalDay(q.day, tz), lt: startOfLocalDay(addDays(q.day, 1), tz) },
+      });
+    }
     if (cursor) {
       and.push(
         byClose
@@ -327,6 +334,8 @@ export function toDto(p: PositionWithAccount, review?: Review): PositionDto {
     netPnl: s(p.netPnl),
     holdingSeconds: p.holdingSeconds,
     incompleteHistory: p.incompleteHistory,
+    planned: p.setupAlertId !== null,
+    btcCorrAtEntry: p.btcCorrAtEntry ?? null,
     reviewed: review !== undefined,
     rating: review?.rating ?? null,
   };

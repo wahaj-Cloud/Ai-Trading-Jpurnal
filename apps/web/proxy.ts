@@ -7,6 +7,9 @@ const isPublicRoute = createRouteMatcher([
   "/privacy",
   "/terms",
   "/risk-disclosure",
+  "/tools(.*)",
+  "/sitemap.xml",
+  "/robots.txt",
 ]);
 
 // Every route is private unless listed above.

@@ -4,6 +4,9 @@ import {
   type BehaviourFlagDto,
   EMOTIONS,
   MISTAKES,
+  PULSE_LINKS,
+  PULSE_MIN_GROUP,
+  pulseLink,
   USD_SETTLEMENT_ASSETS,
 } from "@atc/shared";
 import type { GradeResult } from "./grade.js";
@@ -121,4 +124,46 @@ export function recentTradesFacts(
         `- ${when.format(t.closedAt)} ${t.symbol} ${t.direction.toLowerCase()} ${amount(t.netPnl, t.settleAsset)} ${t.settleAsset}${t.rMultiple !== null ? ` (${t.rMultiple.toFixed(1)}R)` : ""}, held ${dur(t.holdingSeconds)}${t.journal?.setup ? `, setup ${t.journal.setup}` : ""}${t.journal?.mistakes.length ? `, mistakes: ${t.journal.mistakes.map((m) => label(MISTAKES, m)).join("/")}` : ""}`,
     );
   return `RECENT TRADES (newest first)\n${rows.join("\n") || "- none"}`;
+}
+
+/**
+ * Planned (followed a setup alert) vs unplanned trades, and results by how linked the coin was to
+ * BTC at entry. A group is only described with at least PULSE_MIN_GROUP trades; below that the
+ * model is told there is not enough data, so it never draws conclusions from a handful of trades.
+ */
+export function edgeFacts(trades: readonly CoachTrade[], usesSetups: boolean): string {
+  const usd = trades.filter((t) => USD_ASSETS.has(t.settleAsset));
+  const stats = (list: readonly CoachTrade[]) => {
+    const wins = list.filter((t) => Number(t.netPnl) > 0).length;
+    const losses = list.filter((t) => Number(t.netPnl) < 0).length;
+    const net = list.reduce((a, t) => a + Number(t.netPnl), 0);
+    return `${list.length} trades, win rate ${pct(wins + losses ? wins / (wins + losses) : null)}, net ${net.toFixed(2)}, average ${(net / list.length).toFixed(2)} per trade`;
+  };
+  const line = (name: string, list: readonly CoachTrade[]) =>
+    list.length >= PULSE_MIN_GROUP
+      ? `- ${name}: ${stats(list)}`
+      : `- ${name}: ${list.length} trades (not enough to compare; needs ${PULSE_MIN_GROUP})`;
+  const out: string[] = [];
+  if (usesSetups) {
+    out.push(
+      "PLANNED VS UNPLANNED (planned = opened soon after one of the trader's own setup alerts)",
+      line(
+        "Planned",
+        usd.filter((t) => t.planned),
+      ),
+      line(
+        "No setup",
+        usd.filter((t) => !t.planned),
+      ),
+    );
+  }
+  const linked = usd.filter((t) => t.btcCorr !== null && t.btcCorr !== undefined);
+  if (linked.length) {
+    out.push("BY LINK TO BTC AT ENTRY (24h correlation; context, not a signal)");
+    for (const code of Object.keys(PULSE_LINKS) as Array<keyof typeof PULSE_LINKS>) {
+      const group = linked.filter((t) => pulseLink(t.btcCorr as number) === code);
+      if (group.length) out.push(line(PULSE_LINKS[code], group));
+    }
+  }
+  return out.join("\n");
 }

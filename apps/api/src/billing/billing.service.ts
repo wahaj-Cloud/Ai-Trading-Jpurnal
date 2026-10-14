@@ -1,6 +1,6 @@
 import { planLimits } from "@atc/coach";
 import type { Prisma } from "@atc/db";
-import { type BillingDto, type PlanOfferDto, planLimitsSchema } from "@atc/shared";
+import { type BillingDto, type PlanOfferDto, resolveLimits } from "@atc/shared";
 import {
   BadRequestException,
   Inject,
@@ -58,7 +58,7 @@ export class BillingService {
     const offers: PlanOfferDto[] = plans.map((p) => ({
       code: p.code,
       name: p.name,
-      limits: planLimitsSchema.parse(p.limits),
+      limits: resolveLimits(p.code, p.limits),
       prices: this.env.PADDLE_PRICES.filter((x) => x.plan === p.code).map(
         ({ interval, priceId }) => ({ interval, priceId }),
       ),

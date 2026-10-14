@@ -1,6 +1,7 @@
 import {
   AiRequestError,
   AiUnavailableError,
+  answerHelp,
   behaviourForPeriod,
   type CoachDeps,
   CoachLimitError,
@@ -29,6 +30,8 @@ import type {
   ConversationDto,
   ConversationSummaryDto,
   Grade,
+  HelpAnswerDto,
+  HelpAskInput,
   ReviewedTradeDto,
   StrategyInsightDto,
   TradeContextDto,
@@ -68,6 +71,21 @@ export class CoachService {
     private readonly queue: AiQueueService,
   ) {
     this.deps = { db: prisma.client, model };
+  }
+
+  /** Help-assistant answer; an AI outage falls back to the help page instead of an error. */
+  async help(userId: string, input: HelpAskInput): Promise<HelpAnswerDto> {
+    try {
+      return await answerHelp(this.deps, userId, input);
+    } catch (err) {
+      if (err instanceof AiRequestError || err instanceof AiUnavailableError) {
+        return {
+          answer: "I can't answer right now. Please try again in a minute, or open the Help page.",
+          links: [{ label: "Help", href: "/help" }],
+        };
+      }
+      throw err;
+    }
   }
 
   status(userId: string): Promise<CoachStatusDto> {

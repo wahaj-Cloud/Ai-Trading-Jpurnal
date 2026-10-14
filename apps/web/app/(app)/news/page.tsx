@@ -15,6 +15,7 @@ import { CurrencyFlag } from "@/features/news/currency-flag";
 import { EventTable } from "@/features/news/event-table";
 import { IMPACT_STYLE, ImpactBadge } from "@/features/news/impact";
 import { getCalendar } from "@/features/news/load";
+import { NewsAlert } from "@/features/news/news-alert";
 import { RANGE_PRESETS, rangeFor } from "@/features/news/ranges";
 import { cn } from "@/lib/cn";
 import { getMe } from "@/lib/me";
@@ -118,8 +119,9 @@ export default async function NewsPage({ searchParams }: { searchParams: SearchP
           <h1 className="text-2xl font-semibold tracking-tight">Economic calendar</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
             News that moves markets: interest rate decisions, inflation, jobs and central bank
-            speeches. Crypto often moves hard on red (high impact) USD releases, so plan around
-            them.
+            speeches. Crypto and gold often move hard on red (high impact) USD releases. Each
+            release shows how markets usually react if the number comes in above or below the
+            forecast.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -134,6 +136,8 @@ export default async function NewsPage({ searchParams }: { searchParams: SearchP
           </Chip>
         </div>
       </header>
+
+      <NewsAlert events={events} />
 
       <section
         aria-label="Filters"
@@ -241,7 +245,10 @@ export default async function NewsPage({ searchParams }: { searchParams: SearchP
           >
             {data?.source.name ?? "Forex Factory"}
           </a>
-          . Refreshed every hour. Actual figures appear on the source as each release comes out.
+          . Schedule refreshed every hour.{" "}
+          {data?.live
+            ? "Actual figures for live-covered releases (US CPI, PPI and the jobs report) are pushed here within seconds."
+            : "Live actual figures are not switched on yet."}
         </p>
         {next && (
           <p>

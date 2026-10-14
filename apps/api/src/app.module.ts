@@ -18,10 +18,13 @@ import { EngagementModule } from "./engagement/engagement.module.js";
 import { ExchangeAccountsModule } from "./exchange-accounts/exchange-accounts.module.js";
 import { FxModule } from "./fx/fx.module.js";
 import { HealthController } from "./health/health.controller.js";
+import { LabsModule } from "./labs/labs.module.js";
+import { MarketModule } from "./market/market.controller.js";
 import { OpenPositionsModule } from "./open-positions/open-positions.module.js";
 import { PositionsModule } from "./positions/positions.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 import { ReportsModule } from "./reports/reports.module.js";
+import { SetupsModule } from "./setups/setups.module.js";
 import { SyncModule } from "./sync/sync.module.js";
 import { UsersModule } from "./users/users.module.js";
 import { WebhooksModule } from "./webhooks/webhooks.module.js";
@@ -54,6 +57,9 @@ import { WebhooksModule } from "./webhooks/webhooks.module.js";
     AdminModule,
     FxModule,
     EconomicModule,
+    LabsModule,
+    MarketModule,
+    SetupsModule,
   ],
   controllers: [HealthController],
   providers: [

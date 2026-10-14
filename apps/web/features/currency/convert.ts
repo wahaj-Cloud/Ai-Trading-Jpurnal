@@ -6,11 +6,14 @@ import {
   type OpenPositionsDto,
   type PositionDto,
   type PositionsPage,
+  type PulseMyTradesDto,
   type ReportDto,
   type ReviewedTradeDto,
   type StrategyInsightDto,
   type TradeDetailDto,
   USD_SETTLEMENT_ASSETS,
+  type WhatIfResultDto,
+  type WhatIfTeaserDto,
 } from "@atc/shared";
 
 /**
@@ -177,4 +180,53 @@ export function convertInsights(list: StrategyInsightDto[], d: Display): Strateg
     withCheck: { ...i.withCheck, netPnl: money(i.withCheck.netPnl, d.rate) },
     againstCheck: { ...i.againstCheck, netPnl: money(i.againstCheck.netPnl, d.rate) },
   }));
+}
+
+/** One USD amount in the display currency (null stays null). */
+export function toDisplay(value: string | null, d: Display): string | null {
+  return value === null || isIdentity(d) ? value : money(value, d.rate);
+}
+
+export function convertWhatIf(dto: WhatIfResultDto, d: Display): WhatIfResultDto {
+  if (isIdentity(d)) return dto;
+  const m = (v: string) => money(v, d.rate);
+  const sum = (s: WhatIfResultDto["actual"]) => ({
+    ...s,
+    netPnl: m(s.netPnl),
+    expectancy: s.expectancy === null ? null : m(s.expectancy),
+    maxDrawdown: m(s.maxDrawdown),
+  });
+  return {
+    ...dto,
+    actual: sum(dto.actual),
+    scenario: sum(dto.scenario),
+    difference: {
+      ...dto.difference,
+      netPnl: m(dto.difference.netPnl),
+      maxDrawdown: m(dto.difference.maxDrawdown),
+    },
+    reasons: dto.reasons.map((r) => ({ ...r, pnl: m(r.pnl) })),
+    curve: dto.curve.map((c) => ({ ...c, actual: m(c.actual), scenario: m(c.scenario) })),
+  };
+}
+
+export function convertTeaser(dto: WhatIfTeaserDto, d: Display): WhatIfTeaserDto {
+  return {
+    ...dto,
+    difference: toDisplay(dto.difference, d),
+    drawdownBefore: toDisplay(dto.drawdownBefore, d),
+    drawdownAfter: toDisplay(dto.drawdownAfter, d),
+  };
+}
+
+export function convertPulseMine(dto: PulseMyTradesDto, d: Display): PulseMyTradesDto {
+  if (isIdentity(d)) return dto;
+  return {
+    ...dto,
+    groups: dto.groups.map((g) => ({
+      ...g,
+      netPnl: money(g.netPnl, d.rate),
+      avgPnl: g.avgPnl === null ? null : money(g.avgPnl, d.rate),
+    })),
+  };
 }

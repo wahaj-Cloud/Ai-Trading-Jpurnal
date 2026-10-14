@@ -49,9 +49,12 @@ export class EconomicService {
         actual: r.actual,
         forecast: r.forecast,
         previous: r.previous,
+        actualSource: r.actualSource,
+        actualAt: r.actualAt?.toISOString() ?? null,
       })),
       fetchedAt: latest._max.fetchedAt?.toISOString() ?? null,
       source: { name: "Forex Factory", url: "https://www.forexfactory.com/calendar" },
+      live: this.env.ECON_LIVE_ENABLED,
     };
   }
 
@@ -134,7 +137,8 @@ export class EconomicService {
         await tx.economicEvent.upsert({
           where: { id: e.id },
           create: { id: e.id, ...data },
-          update: data,
+          // This source has no actual figures: never erase one the live stream already saved.
+          update: { ...data, actual: e.actual ?? undefined },
         });
       }
     });

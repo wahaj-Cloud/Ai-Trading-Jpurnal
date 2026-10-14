@@ -8,7 +8,14 @@ const plans = [
     code: "FREE",
     name: "Free",
     sortOrder: 0,
-    limits: { exchangeAccounts: 1, aiReviewsPerMonth: 20, historyDays: 30, coachMessagesPerDay: 5 },
+    limits: {
+      exchangeAccounts: 1,
+      aiReviewsPerMonth: 20,
+      historyDays: 30,
+      coachMessagesPerDay: 5,
+      aiBudgetUsd: 0.3, // US$ of AI per month: keeps free users cheap
+      brokerAccounts: 0,
+    },
   },
   {
     code: "PRO",
@@ -19,6 +26,8 @@ const plans = [
       aiReviewsPerMonth: 300,
       historyDays: 365,
       coachMessagesPerDay: 50,
+      aiBudgetUsd: 3,
+      brokerAccounts: 0, // Exness (MetaApi) is Premium: one terminal costs too much of a Pro price
     },
   },
   {
@@ -30,6 +39,8 @@ const plans = [
       aiReviewsPerMonth: 2000,
       historyDays: -1,
       coachMessagesPerDay: 200,
+      aiBudgetUsd: 7,
+      brokerAccounts: 2,
     },
   },
   {
@@ -42,6 +53,8 @@ const plans = [
       aiReviewsPerMonth: -1,
       historyDays: -1,
       coachMessagesPerDay: -1,
+      aiBudgetUsd: -1,
+      brokerAccounts: -1,
     },
   },
 ] as const;

@@ -13,7 +13,8 @@ export interface NewsFilters {
   tz: "local" | "utc";
 }
 
-export const DEFAULT_IMPACTS: Impact[] = ["HIGH", "MEDIUM", "LOW"];
+/** High impact only by default: the releases that actually move crypto and gold. */
+export const DEFAULT_IMPACTS: Impact[] = ["HIGH"];
 
 const csv = (v: string | string[] | undefined) =>
   (Array.isArray(v) ? v.join(",") : (v ?? ""))
@@ -113,14 +114,22 @@ export function nextEvent(
   );
 }
 
-/** "in 2h 05m", "in 3d 4h", "now". */
+/** "in 2h 05m 09s", "in 4m 09s", "in 1d 2h 05m", "now". */
 export function formatUntil(ms: number): string {
-  if (ms <= 60_000) return "now";
-  const m = Math.floor(ms / 60_000);
-  const d = Math.floor(m / 1440);
-  const h = Math.floor((m % 1440) / 60);
-  const mm = m % 60;
-  if (d > 0) return `in ${d}d ${h}h`;
-  if (h > 0) return `in ${h}h ${String(mm).padStart(2, "0")}m`;
-  return `in ${mm}m`;
+  if (ms <= 1_000) return "now";
+  const total = Math.floor(ms / 1000);
+  const d = Math.floor(total / 86_400);
+  const h = Math.floor((total % 86_400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  const two = (n: number) => String(n).padStart(2, "0");
+  if (d > 0) return `in ${d}d ${h}h ${two(m)}m`;
+  if (h > 0) return `in ${h}h ${two(m)}m ${two(sec)}s`;
+  return `in ${m}m ${two(sec)}s`;
+}
+
+/** "04:32" for the last minutes before a release. */
+export function formatClock(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }

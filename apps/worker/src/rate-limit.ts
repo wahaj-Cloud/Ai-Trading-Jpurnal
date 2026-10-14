@@ -1,6 +1,12 @@
 import type { ExchangeId } from "@atc/shared";
 import type { Redis } from "ioredis";
 
+/** Binance prices candle requests by how many candles they ask for. */
+function klinesWeight(u: URL): number {
+  const limit = Number(u.searchParams.get("limit") ?? 500);
+  return limit < 100 ? 1 : limit < 500 ? 2 : limit <= 1000 ? 5 : 10;
+}
+
 interface Policy {
   /** Weight allowed per window, shared by every worker process (the limit is per server IP). */
   capacity: number;
@@ -21,10 +27,12 @@ export const POLICIES: Record<ExchangeId, Policy> = {
       u.pathname === "/fapi/v1/income"
         ? 30
         : u.pathname === "/fapi/v1/klines"
-          ? 10 // up to 1,500 candles
-          : u.pathname === "/fapi/v1/userTrades" || u.pathname === "/fapi/v3/positionRisk"
-            ? 5
-            : 1,
+          ? klinesWeight(u)
+          : u.pathname === "/fapi/v1/ticker/24hr"
+            ? 40 // all symbols
+            : u.pathname === "/fapi/v1/userTrades" || u.pathname === "/fapi/v3/positionRisk"
+              ? 5
+              : 1,
   },
   // MEXC futures private endpoints: 20 requests / 2 s.
   MEXC: { capacity: 8, windowMs: 1_000, weight: () => 1 },

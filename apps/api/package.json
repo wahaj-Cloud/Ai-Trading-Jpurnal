@@ -19,6 +19,7 @@
     "@atc/exchange-adapters": "workspace:*",
     "@atc/notify": "workspace:*",
     "@atc/shared": "workspace:*",
+    "@atc/ta": "workspace:*",
     "@atc/trade-engine": "workspace:*",
     "@clerk/backend": "3.20.1",
     "@nestjs/common": "12.1.0",

@@ -112,6 +112,31 @@ export function formatPnlCompact(value: string | number | null, asset?: string |
   return minus(currencyFormat(currentCode(asset), "compact").format(n));
 }
 
+const tinyCompact3 = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumSignificantDigits: 3,
+});
+const tinyCompact2 = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumSignificantDigits: 2,
+});
+
+/**
+ * Signed amount without a currency symbol, at most 5 characters ("+473K", "−1.2M", "+85"), for
+ * very small spaces such as calendar cells on phones. The surrounding view names the currency.
+ */
+export function formatSignedTiny(value: string | number | null): string {
+  if (value === null) return "—";
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return "0";
+  const abs = Math.abs(n);
+  const body =
+    abs < 1000
+      ? String(Math.round(abs))
+      : (abs >= 1_000_000 ? tinyCompact2 : tinyCompact3).format(abs);
+  return `${n > 0 ? "+" : "−"}${body}`;
+}
+
 /** Unsigned money with its currency symbol: fees, averages, drawdown. */
 export function formatMoney(value: string | null, asset?: string | null): string {
   if (value === null) return "—";

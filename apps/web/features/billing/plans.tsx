@@ -40,6 +40,28 @@ function features(o: PlanOfferDto): string[] {
     o.limits.historyDays === -1
       ? "Full history"
       : `${o.limits.historyDays} days of analytics history`,
+    ...(o.limits.brokerAccounts === 0
+      ? []
+      : [
+          limit(
+            o.limits.brokerAccounts,
+            o.limits.brokerAccounts === 1
+              ? "Exness (MetaTrader) account"
+              : "Exness (MetaTrader) accounts",
+          ),
+        ]),
+    `${limit(o.limits.setups, o.limits.setups === 1 ? "setup alert" : "setup alerts")}${o.limits.setupAlertEmail === 1 ? " (in-app + email)" : " (in-app)"}`,
+    o.limits.whatIf === 1
+      ? "What-If Lab: replay your trades with your rules"
+      : "What-If Lab preview",
+    ...(o.limits.backtestRunsPerMonth === 0
+      ? []
+      : [
+          `Strategy Lab: ${limit(o.limits.backtestRunsPerMonth, "backtests a month")}${o.limits.backtestHistoryMonths > 0 ? `, ${o.limits.backtestHistoryMonths} months of history` : ""}`,
+        ]),
+    o.limits.marketPulseCoins === -1
+      ? "Market Pulse: every coin, 24h / 7d / 30d"
+      : `Market Pulse: top ${o.limits.marketPulseCoins} coins, 24h`,
   ];
 }
 

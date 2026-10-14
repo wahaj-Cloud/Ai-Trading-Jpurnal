@@ -22,12 +22,12 @@ const fmtNum = (n: number, d = 4) =>
 const fmtPct = (n: number, d = 1) => `${n.toFixed(d)}%`;
 
 /** A numeric input whose value lives as text so the user can type freely ("0.", "-"). */
-function useNum(initial: string) {
+export function useNum(initial: string) {
   const [text, setText] = useState(initial);
   return { text, setText, value: text.trim() === "" ? Number.NaN : Number(text) };
 }
 
-function NumField({
+export function NumField({
   label,
   hint,
   state,
@@ -112,7 +112,7 @@ function Card({ title, blurb, children }: { title: string; blurb: string; childr
 
 const twoCols = "grid gap-3 sm:grid-cols-2";
 
-function PositionSizeCalc() {
+export function PositionSizeCalc() {
   const balance = useNum("10000");
   const risk = useNum("1");
   const entry = useNum("60000");
@@ -145,7 +145,7 @@ function PositionSizeCalc() {
   );
 }
 
-function RiskRewardCalc() {
+export function RiskRewardCalc() {
   const entry = useNum("100");
   const stop = useNum("95");
   const target = useNum("112.5");
@@ -174,7 +174,7 @@ function RiskRewardCalc() {
   );
 }
 
-function ProfitCalc() {
+export function ProfitCalc() {
   const [side, setSide] = useState<"LONG" | "SHORT">("LONG");
   const entry = useNum("100");
   const exit = useNum("108");
@@ -214,7 +214,7 @@ function ProfitCalc() {
   );
 }
 
-function DrawdownCalc() {
+export function DrawdownCalc() {
   const dd = useNum("25");
   const r = recoveryNeeded(dd.value);
   return (
@@ -231,7 +231,7 @@ function DrawdownCalc() {
   );
 }
 
-function ExpectancyCalc() {
+export function ExpectancyCalc() {
   const wr = useNum("45");
   const win = useNum("150");
   const loss = useNum("100");
@@ -260,7 +260,7 @@ function ExpectancyCalc() {
   );
 }
 
-function WinRateCalc() {
+export function WinRateCalc() {
   const rr = useNum("2");
   const r = requiredWinRate(rr.value);
   return (
@@ -279,7 +279,7 @@ function WinRateCalc() {
   );
 }
 
-function KellyCalc() {
+export function KellyCalc() {
   const wr = useNum("50");
   const rr = useNum("2");
   const k = kelly(wr.value, rr.value);
@@ -309,7 +309,7 @@ function KellyCalc() {
   );
 }
 
-function RuinCalc() {
+export function RuinCalc() {
   const wr = useNum("50");
   const rr = useNum("1.5");
   const risk = useNum("2");
@@ -348,7 +348,7 @@ function RuinCalc() {
   );
 }
 
-function MonteCarloCalc() {
+export function MonteCarloCalc() {
   const balance = useNum("10000");
   const wr = useNum("50");
   const rr = useNum("1.5");

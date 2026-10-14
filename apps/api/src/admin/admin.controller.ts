@@ -1,14 +1,18 @@
 import {
   type AdminAuditRowDto,
+  type AdminCostsDto,
   type AdminLogsPage,
   type AdminOverviewDto,
   type AdminPlanChange,
+  type AdminPlanUpdate,
   type AdminSyncRowDto,
   type AdminUserDetailDto,
   type AdminUsersPage,
   type AnnouncementDto,
   type AnnouncementInput,
+  adminFoundingSchema,
   adminPlanChangeSchema,
+  adminPlanUpdateSchema,
   adminSuspendSchema,
   announcementInputSchema,
 } from "@atc/shared";
@@ -38,6 +42,15 @@ const usersQuery = z
 const auditQuery = z
   .object({ action: z.string().trim().max(60).optional(), cursor: z.uuid().optional() })
   .strict();
+const costsQuery = z
+  .object({
+    month: z
+      .string()
+      .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+      .optional(),
+  })
+  .strict();
+const planCode = z.enum(["FREE", "PRO", "PREMIUM", "ENTERPRISE"]);
 const syncQuery = z
   .object({ failed: z.enum(["true", "false"]).optional(), cursor: z.uuid().optional() })
   .strict();
@@ -50,6 +63,32 @@ export class AdminController {
   @Get("overview")
   overview(): Promise<AdminOverviewDto> {
     return this.admin.overview();
+  }
+
+  @Get("costs")
+  costs(
+    @Query(new ZodValidationPipe(costsQuery)) q: z.infer<typeof costsQuery>,
+  ): Promise<AdminCostsDto> {
+    return this.admin.costs(q.month ?? new Date().toISOString().slice(0, 7));
+  }
+
+  @Put("plans/:code")
+  @HttpCode(204)
+  async updatePlan(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param("code", new ZodValidationPipe(planCode)) code: z.infer<typeof planCode>,
+    @Body(new ZodValidationPipe(adminPlanUpdateSchema)) body: AdminPlanUpdate,
+  ): Promise<void> {
+    await this.admin.updatePlan(actor.id, code, body);
+  }
+
+  @Put("users/:id/founding")
+  founding(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(adminFoundingSchema)) body: z.infer<typeof adminFoundingSchema>,
+  ): Promise<AdminUserDetailDto> {
+    return this.admin.setFoundingMember(actor.id, id, body.foundingMember);
   }
 
   @Get("users")

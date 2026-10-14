@@ -12,3 +12,7 @@ packages/db/generated
 next-env.d.ts
 *.tsbuildinfo
 dump.rdb
+
+# Local preview harness (never committed)
+apps/web-preview
+apps/api/preview-*.mjs

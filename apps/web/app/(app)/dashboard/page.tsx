@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { getAnalytics, getOpenPositions } from "@/features/analytics/load";
 import { Panel } from "@/features/analytics/metric";
 import { OpenPositionsTable } from "@/features/analytics/open-positions-table";
+import { FoundingBadge } from "@/features/billing/founding-badge";
 import { CalendarHeatmap } from "@/features/charts/calendar-heatmap";
 import { PnlColumns } from "@/features/charts/pnl-columns";
 import { TimeSeriesChart } from "@/features/charts/time-series-chart";
@@ -38,6 +39,7 @@ import { GoalRow, RiskBanner } from "@/features/goals/views";
 import { MONTH_RE, shiftMonth } from "@/features/months/month-stats";
 import { MonthSummary } from "@/features/months/month-summary";
 import { getCalendar } from "@/features/news/load";
+import { NewsAlert } from "@/features/news/news-alert";
 import { UpcomingNews } from "@/features/news/upcoming-news";
 import { getPositions } from "@/features/trades/load";
 import { TradesTable } from "@/features/trades/trades-table";
@@ -350,8 +352,9 @@ export default async function DashboardPage({
     <div className="mx-auto grid max-w-7xl gap-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
             {firstName ? `Welcome, ${firstName}` : "Welcome"}
+            {me.foundingMember && <FoundingBadge />}
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
             Times and daily totals use {me.timezone}.
@@ -380,6 +383,7 @@ export default async function DashboardPage({
       </header>
       {!onboarded && <SetupRunway onboarding={me.onboarding} />}
       <RiskBanner status={risk} />
+      <NewsAlert events={news?.events ?? []} />
 
       <div className="grid grid-flow-row-dense grid-cols-12 gap-6">
         {me.settings.dashboardLayout

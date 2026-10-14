@@ -3,11 +3,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ExchangePicker } from "@/features/exchanges/exchange-picker";
 import { getExchangeAccounts } from "@/features/exchanges/load";
+import { getMe } from "@/lib/me";
 
 export const metadata = { title: "Connect exchanges" };
 
 export default async function ConnectPickerPage() {
-  const { accounts, limit } = await getExchangeAccounts();
+  const [{ accounts, limit }, me] = await Promise.all([getExchangeAccounts(), getMe()]);
   const slotsLeft = limit.max === -1 ? -1 : Math.max(limit.max - limit.used, 0);
   if (slotsLeft === 0) redirect("/exchanges");
 
@@ -30,7 +31,15 @@ export default async function ConnectPickerPage() {
         on to the next. You can connect more than one account on the same exchange later.
       </p>
       <div className="mt-8">
-        <ExchangePicker connectedCounts={connectedCounts} slotsLeft={slotsLeft} />
+        <ExchangePicker
+          connectedCounts={connectedCounts}
+          slotsLeft={slotsLeft}
+          brokerSlotsLeft={
+            me.plan.limits.brokerAccounts === -1
+              ? -1
+              : Math.max(me.plan.limits.brokerAccounts - (connectedCounts.EXNESS ?? 0), 0)
+          }
+        />
       </div>
     </div>
   );

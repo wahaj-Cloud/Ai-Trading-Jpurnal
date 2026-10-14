@@ -108,6 +108,7 @@ export const NOTIFICATION_KINDS = {
   GOAL_UPDATE: "Goal updates",
   COACH_NOTE: "Coaching notes",
   ACCOUNT: "Account and exchange alerts",
+  SETUP_ALERT: "My setup alerts",
 } as const;
 export type NotificationKind = keyof typeof NOTIFICATION_KINDS;
 export const NOTIFICATION_KIND_CODES = Object.keys(NOTIFICATION_KINDS) as NotificationKind[];
@@ -155,6 +156,7 @@ export const DEFAULT_EMAIL_PREFS: Record<NotificationKind, boolean> = {
   GOAL_UPDATE: false,
   COACH_NOTE: false,
   ACCOUNT: true,
+  SETUP_ALERT: true,
 };
 
 export function emailWanted(prefs: unknown, kind: NotificationKind): boolean {

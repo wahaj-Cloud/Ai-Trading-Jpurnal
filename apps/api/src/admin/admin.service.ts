@@ -1,19 +1,27 @@
 import { localParts } from "@atc/analytics";
 import type { Prisma } from "@atc/db";
-import type {
-  AdminAuditRowDto,
-  AdminLogsPage,
-  AdminOverviewDto,
-  AdminPlanChange,
-  AdminSyncRowDto,
-  AdminUserDetailDto,
-  AdminUserRowDto,
-  AdminUsersPage,
-  AnnouncementDto,
-  AnnouncementInput,
+import {
+  type AdminAuditRowDto,
+  type AdminCostsDto,
+  type AdminLogsPage,
+  type AdminOverviewDto,
+  type AdminPlanChange,
+  type AdminPlanCostRow,
+  type AdminPlanUpdate,
+  type AdminSyncRowDto,
+  type AdminUserCostRow,
+  type AdminUserDetailDto,
+  type AdminUserRowDto,
+  type AdminUsersPage,
+  AI_COST_METRIC,
+  type AnnouncementDto,
+  type AnnouncementInput,
+  resolveLimits,
+  UNLIMITED,
 } from "@atc/shared";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { AuditService } from "../audit/audit.service.js";
+import { ENV, type Env } from "../config/env.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 const PAGE = 50;
@@ -35,8 +43,17 @@ function row(u: UserWithSub): AdminUserRowDto {
     exchanges: u._count.exchangeAccounts,
     createdAt: u.createdAt.toISOString(),
     suspended: u.suspendedAt !== null,
+    foundingMember: u.foundingMember,
   };
 }
+
+/** Paddle's standard fee, used to estimate payment costs in the margin view. */
+const PAYMENT_PCT = 0.05;
+const PAYMENT_FIXED_USD = 0.5;
+/** Gross-margin target the plans are sized for. */
+const TARGET_MARGIN = 0.75;
+const LIVE_STATUSES = new Set(["ACTIVE", "TRIALING", "PAST_DUE"]);
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const announcementDto = (a: Prisma.AnnouncementGetPayload<object>): AnnouncementDto => ({
   id: a.id,
@@ -52,7 +69,174 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
+
+  /**
+   * What each plan and the most expensive users cost this month against what they pay: AI spend
+   * (tracked per call), MetaApi terminals for Exness accounts, and payment fees. Revenue uses
+   * each plan's list price, so it is an estimate (discounts and yearly billing are not applied).
+   */
+  async costs(month: string): Promise<AdminCostsDto> {
+    const db = this.prisma.client;
+    const [plans, users, spend, brokers] = await Promise.all([
+      db.plan.findMany({ orderBy: { sortOrder: "asc" } }),
+      db.user.findMany({
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          email: true,
+          foundingMember: true,
+          subscription: { select: { planCode: true, status: true } },
+        },
+      }),
+      db.usageCounter.findMany({
+        where: { metric: AI_COST_METRIC, period: month },
+        select: { userId: true, count: true },
+      }),
+      db.exchangeAccount.groupBy({
+        by: ["userId"],
+        where: { exchange: "EXNESS", status: { not: "DISCONNECTED" } },
+        _count: { _all: true },
+      }),
+    ]);
+    const perAccount = this.env.METAAPI_ACCOUNT_USD;
+    const spendOf = new Map(spend.map((r) => [r.userId, r.count / 1_000_000]));
+    const brokersOf = new Map(brokers.map((b) => [b.userId, b._count._all]));
+    const planOf = new Map(plans.map((p) => [p.code, p]));
+    const priceOf = (code: string) => {
+      const v = planOf.get(code as AdminPlanCostRow["code"])?.priceUsd;
+      return v === null || v === undefined ? null : Number(v);
+    };
+    const fee = (price: number | null) => (price ? price * PAYMENT_PCT + PAYMENT_FIXED_USD : 0);
+    const margin = (revenue: number, cost: number) =>
+      revenue > 0 ? round2(((revenue - cost) / revenue) * 10_000) / 10_000 : null;
+
+    const rows: AdminUserCostRow[] = users.map((u) => {
+      const code = (
+        u.subscription && LIVE_STATUSES.has(u.subscription.status)
+          ? u.subscription.planCode
+          : "FREE"
+      ) as AdminPlanCostRow["code"];
+      const limits = resolveLimits(code, planOf.get(code)?.limits);
+      const ai = spendOf.get(u.id) ?? 0;
+      const b = brokersOf.get(u.id) ?? 0;
+      const price = priceOf(code);
+      return {
+        id: u.id,
+        email: u.email,
+        plan: code,
+        foundingMember: u.foundingMember,
+        aiCostUsd: round2(ai * 100) / 100,
+        aiBudgetUsd: limits.aiBudgetUsd,
+        budgetUsedPct:
+          limits.aiBudgetUsd === UNLIMITED
+            ? null
+            : limits.aiBudgetUsd > 0
+              ? ai / limits.aiBudgetUsd
+              : ai > 0
+                ? 1
+                : 0,
+        brokerAccounts: b,
+        marginPct: margin(price ?? 0, ai + b * perAccount + fee(price)),
+      };
+    });
+
+    const planRows: AdminPlanCostRow[] = plans.map((p) => {
+      const mine = rows.filter((r) => r.plan === p.code);
+      const price = priceOf(p.code);
+      const aiCost = mine.reduce((s, r) => s + (spendOf.get(r.id) ?? 0), 0);
+      const brokerAccounts = mine.reduce((s, r) => s + r.brokerAccounts, 0);
+      const revenue = (price ?? 0) * mine.length;
+      const fees = mine.length * fee(price);
+      const metaapi = brokerAccounts * perAccount;
+      return {
+        code: p.code,
+        name: p.name,
+        priceUsd: price,
+        limits: resolveLimits(p.code, p.limits),
+        users: mine.length,
+        revenueUsd: round2(revenue),
+        aiCostUsd: round2(aiCost),
+        brokerAccounts,
+        metaapiCostUsd: round2(metaapi),
+        paymentFeesUsd: round2(fees),
+        marginPct: margin(revenue, aiCost + metaapi + fees),
+      };
+    });
+    const sum = (k: keyof AdminPlanCostRow) => planRows.reduce((s, r) => s + (r[k] as number), 0);
+    const revenue = sum("revenueUsd");
+    const costs = sum("aiCostUsd") + sum("metaapiCostUsd") + sum("paymentFeesUsd");
+    return {
+      month,
+      assumptions: {
+        metaapiUsdPerAccount: perAccount,
+        paymentPct: PAYMENT_PCT,
+        paymentFixedUsd: PAYMENT_FIXED_USD,
+      },
+      plans: planRows,
+      totals: {
+        users: rows.length,
+        revenueUsd: round2(revenue),
+        aiCostUsd: round2(sum("aiCostUsd")),
+        metaapiCostUsd: round2(sum("metaapiCostUsd")),
+        paymentFeesUsd: round2(sum("paymentFeesUsd")),
+        grossProfitUsd: round2(revenue - costs),
+        marginPct: margin(revenue, costs),
+      },
+      topUsers: rows
+        .filter((r) => r.aiCostUsd > 0 || r.brokerAccounts > 0)
+        .sort(
+          (a, b) =>
+            b.aiCostUsd +
+            b.brokerAccounts * perAccount -
+            (a.aiCostUsd + a.brokerAccounts * perAccount),
+        )
+        .slice(0, 25),
+      targetMarginPct: TARGET_MARGIN,
+    };
+  }
+
+  /** Price and limits of one plan. Takes effect for every user on it immediately. */
+  async updatePlan(actorId: string, code: AdminPlanCostRow["code"], input: AdminPlanUpdate) {
+    const plan = await this.prisma.client.plan.findUnique({ where: { code } });
+    if (!plan) throw new NotFoundException("Plan not found");
+    const { priceUsd, ...limits } = input;
+    await this.prisma.client.plan.update({
+      where: { code },
+      data: { priceUsd, limits },
+    });
+    await this.audit.record({
+      actorId,
+      action: "admin.plan_updated",
+      entity: "plan",
+      entityId: null,
+      metadata: {
+        code,
+        before: { priceUsd: plan.priceUsd?.toString() ?? null, limits: plan.limits },
+        after: input,
+      },
+    });
+  }
+
+  async setFoundingMember(
+    actorId: string,
+    userId: string,
+    foundingMember: boolean,
+  ): Promise<AdminUserDetailDto> {
+    const res = await this.prisma.client.user.updateMany({
+      where: { id: userId, deletedAt: null },
+      data: { foundingMember },
+    });
+    if (res.count === 0) throw new NotFoundException("User not found");
+    await this.audit.record({
+      actorId,
+      action: foundingMember ? "admin.founding_member_added" : "admin.founding_member_removed",
+      entity: "user",
+      entityId: userId,
+    });
+    return this.user(userId);
+  }
 
   async overview(now = new Date()): Promise<AdminOverviewDto> {
     const db = this.prisma.client;

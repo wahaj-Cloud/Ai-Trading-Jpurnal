@@ -1,6 +1,11 @@
 "use server";
 
-import { adminPlanChangeSchema, adminSuspendSchema, announcementInputSchema } from "@atc/shared";
+import {
+  adminPlanChangeSchema,
+  adminPlanUpdateSchema,
+  adminSuspendSchema,
+  announcementInputSchema,
+} from "@atc/shared";
 import { revalidatePath } from "next/cache";
 import { ApiError, apiFetch } from "@/lib/api";
 
@@ -94,4 +99,66 @@ export async function endAnnouncementAction(id: string): Promise<void> {
   await apiFetch(`/v1/admin/announcements/${id}`, { method: "DELETE" }).catch(() => undefined);
   revalidatePath("/admin/announcements");
   revalidatePath("/", "layout");
+}
+
+const PLAN_CODES = new Set(["FREE", "PRO", "PREMIUM", "ENTERPRISE"]);
+const num = (v: FormDataEntryValue | null) => (v === null || v === "" ? Number.NaN : Number(v));
+
+/** Saves a plan's list price and limits (affects every user on the plan at once). */
+export async function updatePlanAction(
+  code: string,
+  _p: AdminFormState,
+  form: FormData,
+): Promise<AdminFormState> {
+  if (!PLAN_CODES.has(code)) return { status: "error", message: "Unknown plan" };
+  const price = form.get("priceUsd");
+  const parsed = adminPlanUpdateSchema.safeParse({
+    priceUsd: price === null || price === "" ? null : Number(price),
+    exchangeAccounts: num(form.get("exchangeAccounts")),
+    aiReviewsPerMonth: num(form.get("aiReviewsPerMonth")),
+    historyDays: num(form.get("historyDays")),
+    coachMessagesPerDay: num(form.get("coachMessagesPerDay")),
+    aiBudgetUsd: num(form.get("aiBudgetUsd")),
+    brokerAccounts: num(form.get("brokerAccounts")),
+    setups: num(form.get("setups")),
+    setupAlertEmail: num(form.get("setupAlertEmail")),
+    whatIf: num(form.get("whatIf")),
+    backtestRunsPerMonth: num(form.get("backtestRunsPerMonth")),
+    backtestHistoryMonths: num(form.get("backtestHistoryMonths")),
+    marketPulseCoins: num(form.get("marketPulseCoins")),
+    marketPulseAllWindows: num(form.get("marketPulseAllWindows")),
+  });
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return { status: "error", message: `${issue?.path.join(".")}: ${issue?.message}` };
+  }
+  try {
+    await apiFetch(`/v1/admin/plans/${code}`, { method: "PUT", body: JSON.stringify(parsed.data) });
+  } catch (err) {
+    return fail(err, "Could not save the plan.");
+  }
+  revalidatePath("/admin/costs");
+  return { status: "saved", message: "Saved. Applies to everyone on this plan now." };
+}
+
+export async function foundingMemberAction(
+  userId: string,
+  _p: AdminFormState,
+  form: FormData,
+): Promise<AdminFormState> {
+  if (!UUID.test(userId)) return { status: "error", message: "Unknown user" };
+  const foundingMember = form.get("foundingMember") === "true";
+  try {
+    await apiFetch(`/v1/admin/users/${userId}/founding`, {
+      method: "PUT",
+      body: JSON.stringify({ foundingMember }),
+    });
+  } catch (err) {
+    return fail(err, "Could not update the founding-member badge.");
+  }
+  revalidatePath(`/admin/users/${userId}`);
+  return {
+    status: "saved",
+    message: foundingMember ? "Marked as a founding member." : "Founding-member badge removed.",
+  };
 }

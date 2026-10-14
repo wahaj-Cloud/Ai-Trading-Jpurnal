@@ -40,9 +40,9 @@ describe("calendar ranges", () => {
     ]);
   });
 
-  it("looks a week ahead for upcoming", () => {
+  it("looks a week ahead for upcoming, keeping the last hour", () => {
     const r = rangeFor("upcoming", "UTC", now);
-    expect(r.from).toEqual(now);
-    expect(r.to.getTime() - r.from.getTime()).toBe(7 * 86_400_000);
+    expect(now.getTime() - r.from.getTime()).toBe(3_600_000);
+    expect(r.to.getTime() - now.getTime()).toBe(7 * 86_400_000);
   });
 });

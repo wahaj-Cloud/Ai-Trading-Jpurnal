@@ -72,7 +72,12 @@ export function BucketTable({
                         style={{ width: `${share}%` }}
                       />
                     </div>
-                    <span className={cn("w-24 text-right", TONE[pnlTone(b.pnl)])}>
+                    <span
+                      className={cn(
+                        "min-w-24 shrink-0 text-right whitespace-nowrap",
+                        TONE[pnlTone(b.pnl)],
+                      )}
+                    >
                       {formatPnl(b.pnl)}
                     </span>
                   </div>

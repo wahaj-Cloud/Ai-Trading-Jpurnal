@@ -96,7 +96,8 @@ export default async function AnalyticsPage({
   };
 
   const s = report.summary;
-  const months = [...new Set(report.daily.map((d) => d.date.slice(0, 7)))].reverse().slice(0, 6);
+  // Last six months with trades, oldest first (reads like a calendar: Jan, Feb, Mar…).
+  const months = [...new Set(report.daily.map((d) => d.date.slice(0, 7)))].sort().slice(-6);
   const hasJournal = report.bySetup.length + report.byMistake.length + report.byEmotion.length > 0;
 
   return (

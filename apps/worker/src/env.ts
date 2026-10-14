@@ -37,6 +37,24 @@ const envSchema = z.object({
   METAAPI_TOKEN: z.string().min(20).optional(),
   /** Test or self-hosted override of MetaApi's provisioning host. */
   METAAPI_PROVISIONING_URL: z.url().optional(),
+  /**
+   * Live economic results (Trading Economics streaming, "key:secret"). With it, released figures
+   * such as CPI reach users within seconds; without it the calendar shows schedules only.
+   */
+  TE_STREAM_KEY: z.string().min(3).optional(),
+  TE_STREAM_URL: z.url().default("wss://stream.tradingeconomics.com/"),
+  /**
+   * Free US Bureau of Labor Statistics API key (data.bls.gov/registrationEngine): live CPI, PPI and
+   * jobs-report figures straight from the publisher.
+   */
+  BLS_API_KEY: z.string().min(10).optional(),
+  /** Market Pulse (hourly BTC correlations from public Binance data). */
+  MARKET_PULSE_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  /** Strategy Lab backtests run at once by one worker process (CPU-heavy: keep low). */
+  BACKTEST_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;

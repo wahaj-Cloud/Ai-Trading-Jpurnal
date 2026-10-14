@@ -1,4 +1,5 @@
 import { Calculators } from "@/features/calculators/calculators";
+import { TradeGrader } from "@/features/tools/trade-grader";
 
 export const metadata = { title: "Calculators" };
 
@@ -12,6 +13,12 @@ export default function CalculatorsPage() {
           update as you type; nothing is saved.
         </p>
       </header>
+      <section aria-labelledby="grader-h" className="grid gap-3">
+        <h2 id="grader-h" className="font-semibold">
+          Grade a trade before you take it
+        </h2>
+        <TradeGrader />
+      </section>
       <Calculators />
     </div>
   );

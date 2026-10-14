@@ -7,6 +7,7 @@ export * from "./history/types.js";
 export { KucoinAdapter } from "./kucoin/adapter.js";
 export { KucoinClient, type KucoinClientOptions } from "./kucoin/client.js";
 export { nanosToMs } from "./kucoin/history.js";
+export * from "./market/binance-public.js";
 export * from "./market/candles.js";
 export { MetatraderAdapter } from "./metatrader/adapter.js";
 export { classifyMetaApi, MetatraderHistorySource } from "./metatrader/history.js";

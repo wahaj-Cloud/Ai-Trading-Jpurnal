@@ -136,6 +136,9 @@ export interface CoachStatusDto {
     reviewsLimit: number;
     messagesToday: number;
     messagesLimit: number;
+    /** AI spend this calendar month (US$) and the plan's monthly AI budget (-1 = unlimited). */
+    aiSpentUsd: number;
+    aiBudgetUsd: number;
   };
 }
 

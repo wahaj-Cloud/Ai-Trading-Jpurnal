@@ -2,7 +2,7 @@ import { Prisma } from "@atc/db";
 import {
   type MeResponse,
   normalizeLayout,
-  planLimitsSchema,
+  resolveLimits,
   type UpdateProfileInput,
 } from "@atc/shared";
 import type { ClerkClient } from "@clerk/backend";
@@ -242,6 +242,7 @@ export class UsersService {
       baseCurrency: user.baseCurrency,
       displayCurrency: user.displayCurrency,
       role: user.role,
+      foundingMember: user.foundingMember,
       settings: {
         pnlColorScheme: user.settings?.pnlColorScheme === "colorblind" ? "colorblind" : "standard",
         dashboardLayout: normalizeLayout(user.settings?.dashboardLayout ?? null),
@@ -249,7 +250,7 @@ export class UsersService {
       plan: {
         code: plan.code,
         name: plan.name,
-        limits: planLimitsSchema.parse(plan.limits),
+        limits: resolveLimits(plan.code, plan.limits),
         status: user.subscription.status,
       },
       onboarding: {

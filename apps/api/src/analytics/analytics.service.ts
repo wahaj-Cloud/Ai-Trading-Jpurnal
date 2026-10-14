@@ -1,11 +1,11 @@
 import {
-  type AnalyticsTrade,
   computeAnalytics,
   isValidTimeZone,
   localParts,
   resolveRange,
   startOfLocalDay,
   tradeRisk,
+  type WhatIfTrade,
 } from "@atc/analytics";
 import { historyCutoff } from "@atc/coach";
 import type { Prisma } from "@atc/db";
@@ -36,7 +36,7 @@ export class AnalyticsService {
     const range = limited ? { ...resolved, from: cutoff } : resolved;
 
     const filter = { exchange: q.exchange, accountId: q.accountId };
-    const report = computeAnalytics(await this.trades(userId, range, filter), {
+    const report = computeAnalytics(await this.loadTrades(userId, range, filter), {
       timeZone,
       now,
       range: { from: range.fromDay, to: range.toDay, timezone: timeZone },
@@ -47,7 +47,7 @@ export class AnalyticsService {
     const coversMonth = (!range.from || range.from <= monthStart) && !range.to;
     if (!coversMonth) {
       const current = computeAnalytics(
-        await this.trades(userId, { from: monthStart, to: null }, filter),
+        await this.loadTrades(userId, { from: monthStart, to: null }, filter),
         { timeZone, now, range: report.range },
       );
       report.today = current.today;
@@ -56,11 +56,12 @@ export class AnalyticsService {
     return { ...report, historyLimitedFrom: limited && cutoff ? cutoff.toISOString() : null };
   }
 
-  private async trades(
+  /** Closed trades with journal tags and risk (shared with What-If Lab). */
+  async loadTrades(
     userId: string,
     range: { from: Date | null; to: Date | null },
-    q: { exchange?: AnalyticsQuery["exchange"]; accountId?: string },
-  ): Promise<AnalyticsTrade[]> {
+    q: { exchange?: AnalyticsQuery["exchange"]; accountId?: string } = {},
+  ): Promise<WhatIfTrade[]> {
     const positions = await this.prisma.client.position.findMany({
       where: {
         userId,
@@ -89,6 +90,7 @@ export class AnalyticsService {
         holdingSeconds: true,
         quoteAsset: true,
         settleAsset: true,
+        setupAlertId: true,
       },
     });
 
@@ -136,6 +138,7 @@ export class AnalyticsService {
         tags: j?.tags ?? [],
         mistakes: j?.mistakes ?? [],
         emotions: j?.emotions ?? [],
+        planned: p.setupAlertId !== null,
       };
     });
   }

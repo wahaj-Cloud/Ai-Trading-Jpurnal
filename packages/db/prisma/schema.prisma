@@ -53,6 +53,8 @@ model User {
   emailVerified  Boolean   @default(false) @map("email_verified")
   /// Identity provider's last-modified time of the profile we stored: older webhook events are ignored.
   providerUpdatedAt DateTime? @map("provider_updated_at") @db.Timestamptz(3)
+  /// Early supporter (founding-member offer); shown as a badge.
+  foundingMember Boolean   @default(false) @map("founding_member")
 
   settings         UserSettings?
   subscription     Subscription?
@@ -69,6 +71,10 @@ model User {
   riskLimit        RiskLimit?
   goals            Goal[]
   notifications    Notification[]
+  setups           Setup[]
+  setupAlerts      SetupAlert[]
+  whatIfScenarios  WhatIfScenario[]
+  backtestRuns     BacktestRun[]
 
   @@index([deletedAt])
   @@map("users")
@@ -94,6 +100,8 @@ model Plan {
   name          String
   limits        Json // { exchangeAccounts, aiReviewsPerMonth, historyDays, coachMessagesPerDay }
   paddlePriceId String?  @unique @map("paddle_price_id")
+  /// Monthly list price (US$), used for the admin margin view. Billing amounts come from Paddle.
+  priceUsd      Decimal? @map("price_usd") @db.Decimal(10, 2)
   isPublic      Boolean  @default(true) @map("is_public")
   sortOrder     Int      @default(0) @map("sort_order")
 
@@ -364,12 +372,18 @@ model Position {
   holdingSeconds    Int?              @map("holding_seconds")
   /// The position opened before the history we could download.
   incompleteHistory Boolean           @default(false) @map("incomplete_history")
+  /// The setup alert this trade followed ("planned"), matched after sync.
+  setupAlertId      String?           @map("setup_alert_id") @db.Uuid
+  /// How closely the coin moved with BTC (24h) when the trade opened (Market Pulse).
+  btcCorrAtEntry    Float?            @map("btc_corr_at_entry") @db.Real
+  btcBetaAtEntry    Float?            @map("btc_beta_at_entry") @db.Real
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account ExchangeAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  fills   PositionFill[]
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account    ExchangeAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  setupAlert SetupAlert?      @relation(fields: [setupAlertId], references: [id], onDelete: SetNull)
+  fills      PositionFill[]
 
   @@unique([userId, sourceKey])
   @@index([userId, closedAt(sort: Desc)])
@@ -816,9 +830,194 @@ model EconomicEvent {
   actual    String?
   forecast  String?
   previous  String?
+  /// Which source delivered the actual figure first (bls, tradingeconomics), and when.
+  actualSource String?   @map("actual_source") @db.VarChar(32)
+  actualAt     DateTime? @map("actual_at") @db.Timestamptz(3)
   source    String   @db.VarChar(32)
   fetchedAt DateTime @map("fetched_at") @db.Timestamptz(3)
 
   @@index([startsAt])
   @@map("economic_events")
+}
+
+// ─── My Setup Alerts ───
+
+/// A trader's own setup: a validated JSON rule (data, never code) watched on candle close.
+model Setup {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  name            String    @db.VarChar(60)
+  exchange        Exchange
+  symbols         String[]
+  timeframe       String    @db.VarChar(4)
+  rule            Json
+  ruleVersion     Int       @map("rule_version") @db.SmallInt
+  cooldownMinutes Int       @default(60) @map("cooldown_minutes")
+  isActive        Boolean   @default(true) @map("is_active")
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alerts    SetupAlert[]
+  backtests BacktestRun[]
+
+  @@index([userId, createdAt])
+  /// The scanner groups active setups by exchange and timeframe.
+  @@index([isActive, exchange, timeframe])
+  @@map("setups")
+}
+
+model SetupAlert {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  setupId       String    @map("setup_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  symbol        String    @db.VarChar(30)
+  timeframe     String    @db.VarChar(4)
+  /// long | short
+  direction     String    @db.VarChar(5)
+  candleCloseAt DateTime  @map("candle_close_at") @db.Timestamptz(3)
+  /// Plain-language conditions that matched.
+  matched       Json
+  channels      String[]
+  dismissedAt   DateTime? @map("dismissed_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  setup     Setup      @relation(fields: [setupId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positions Position[]
+
+  /// At most one alert per setup, symbol and candle, even when two scanners race.
+  @@unique([setupId, symbol, candleCloseAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, symbol, candleCloseAt])
+  @@map("setup_alerts")
+}
+
+// ─── Labs ───
+
+model WhatIfScenario {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(60)
+  filters   Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("what_if_scenarios")
+}
+
+model BacktestRun {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  setupId    String?   @map("setup_id") @db.Uuid
+  /// Copied at start, so later edits or deletion of the setup never change old results.
+  setupName  String    @map("setup_name") @db.VarChar(60)
+  rule       Json
+  exchange   Exchange
+  timeframe  String    @db.VarChar(4)
+  symbols    String[]
+  exitModel  Json      @map("exit_model")
+  fromDay    DateTime  @map("from_day") @db.Date
+  toDay      DateTime  @map("to_day") @db.Date
+  /// QUEUED | RUNNING | DONE | FAILED
+  status     String    @default("QUEUED") @db.VarChar(10)
+  progress   Float     @default(0) @db.Real
+  summary    Json?
+  error      String?
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  startedAt  DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setup  Setup?          @relation(fields: [setupId], references: [id], onDelete: SetNull)
+  trades BacktestTrade[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("backtest_runs")
+}
+
+/// Simulated trades (market data, not money owed: floating point is fine here).
+model BacktestTrade {
+  id         String            @id @default(uuid(7)) @db.Uuid
+  runId      String            @map("run_id") @db.Uuid
+  symbol     String            @db.VarChar(30)
+  side       PositionDirection
+  entryAt    DateTime          @map("entry_at") @db.Timestamptz(3)
+  entryPrice Float             @map("entry_price")
+  exitAt     DateTime          @map("exit_at") @db.Timestamptz(3)
+  exitPrice  Float             @map("exit_price")
+  /// STOP | TARGET | TIME | END
+  exitReason String            @map("exit_reason") @db.VarChar(8)
+  rMultiple  Float             @map("r_multiple")
+  pnl        Float
+  fees       Float
+  funding    Float
+  flags      String[]
+
+  run BacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, entryAt])
+  @@map("backtest_trades")
+}
+
+// ─── Market data (public exchange data, shared by every user) ───
+
+model MarketCandle {
+  exchange  Exchange
+  symbol    String   @db.VarChar(30)
+  timeframe String   @db.VarChar(4)
+  openTime  DateTime @map("open_time") @db.Timestamptz(3)
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  volume    Float
+
+  @@id([exchange, symbol, timeframe, openTime])
+  @@map("market_candles")
+}
+
+model FundingRate {
+  exchange    Exchange
+  symbol      String   @db.VarChar(30)
+  fundingTime DateTime @map("funding_time") @db.Timestamptz(3)
+  rate        Float
+
+  @@id([exchange, symbol, fundingTime])
+  @@map("funding_rates")
+}
+
+/// Market Pulse: latest correlation and beta to BTC per coin and window.
+model MarketCorrelation {
+  symbol      String   @db.VarChar(30)
+  window      String   @db.VarChar(4)
+  rank        Int
+  quoteVolume Decimal  @map("quote_volume") @db.Decimal(24, 2)
+  corr        Float
+  beta        Float
+  relStrength Float    @map("rel_strength")
+  coinReturn  Float    @map("coin_return")
+  btcReturn   Float    @map("btc_return")
+  points      Int
+  computedAt  DateTime @map("computed_at") @db.Timestamptz(3)
+
+  @@id([symbol, window])
+  @@index([window, rank])
+  @@map("market_correlation_latest")
+}
+
+/// Hourly 24h correlation per coin (kept 120 days): history charts and correlation at trade entry.
+model MarketCorrelationHourly {
+  symbol String   @db.VarChar(30)
+  hour   DateTime @db.Timestamptz(3)
+  corr   Float
+  beta   Float
+
+  @@id([symbol, hour])
+  @@index([hour])
+  @@map("market_correlation_hourly")
 }

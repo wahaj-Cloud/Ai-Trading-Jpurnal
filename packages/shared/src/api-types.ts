@@ -14,6 +14,8 @@ export interface MeResponse {
   /** ISO code every amount is shown in (converted from USD at the latest daily rate). */
   displayCurrency: string;
   role: "USER" | "ADMIN";
+  /** Early supporter (founding-member offer). */
+  foundingMember: boolean;
   settings: {
     pnlColorScheme: "standard" | "colorblind";
     /** Complete, normalised: every widget appears exactly once. */

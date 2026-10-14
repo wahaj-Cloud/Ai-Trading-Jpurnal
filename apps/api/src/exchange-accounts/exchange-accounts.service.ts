@@ -127,6 +127,7 @@ export class ExchangeAccountsService {
       );
     }
     await this.assertBelowLimit(userId);
+    await this.assertBrokerAllowed(userId);
     const externalAccountId = metatraderAccountId(input);
     const existing = await this.prisma.client.exchangeAccount.findUnique({
       where: {
@@ -341,7 +342,10 @@ export class ExchangeAccountsService {
       );
     }
     const updated = await this.prisma.client.$transaction(async (tx) => {
-      if (account.status === "DISCONNECTED") await this.lockAndCheckLimit(tx, userId);
+      if (account.status === "DISCONNECTED") {
+        await this.lockAndCheckLimit(tx, userId);
+        await this.assertBrokerAllowed(userId, tx);
+      }
       const row = await tx.exchangeAccount.update({
         where: { id: account.id },
         data: connectingFields(input, account.metadata),
@@ -476,6 +480,29 @@ export class ExchangeAccountsService {
   private async lockAndCheckLimit(tx: Prisma.TransactionClient, userId: string): Promise<void> {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`exchange-accounts:${userId}`}, 0))`;
     await this.assertBelowLimit(userId, tx);
+  }
+
+  /**
+   * MetaTrader (Exness) connections have their own cap: each one runs a paid cloud terminal at
+   * MetaApi, so they are limited by plan (none on Free and Pro by default).
+   */
+  private async assertBrokerAllowed(
+    userId: string,
+    db: Prisma.TransactionClient = this.prisma.client,
+  ): Promise<void> {
+    const [limits, used] = await Promise.all([
+      planLimits(this.prisma.client, userId),
+      db.exchangeAccount.count({
+        where: { userId, exchange: "EXNESS", status: { not: "DISCONNECTED" } },
+      }),
+    ]);
+    const max = limits.brokerAccounts;
+    if (max === UNLIMITED || used < max) return;
+    throw new ForbiddenException(
+      max === 0
+        ? "Exness (MetaTrader) accounts are included with the Premium plan. Upgrade to connect one."
+        : `Your plan allows ${max} Exness (MetaTrader) account${max === 1 ? "" : "s"}. Disconnect one or upgrade your plan.`,
+    );
   }
 
   private async assertBelowLimit(

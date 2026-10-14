@@ -1,7 +1,7 @@
 import type { AdminUserDetailDto } from "@atc/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PlanForm, SuspendForm } from "@/features/admin/forms";
+import { FoundingMemberForm, PlanForm, SuspendForm } from "@/features/admin/forms";
 import { Panel } from "@/features/analytics/metric";
 import { ApiError, apiFetch } from "@/lib/api";
 
@@ -42,6 +42,9 @@ export default async function AdminUser({ params }: { params: Promise<{ id: stri
             keys are removed.
           </p>
           <SuspendForm userId={u.id} suspended={u.suspended} />
+        </Panel>
+        <Panel title="Founding member">
+          <FoundingMemberForm userId={u.id} founding={u.foundingMember} />
         </Panel>
       </div>
       <Panel title="Exchange connections">

@@ -36,7 +36,7 @@ const LABELS: Record<Kind, string> = {
  * Reads a theme colour and normalises it to the browser's computed `rgb()/rgba()` form, which the
  * chart library always parses (it mis-reads 8-digit hex and modern colour syntaxes as black).
  */
-function cssVar(el: HTMLElement, name: string, fallback: string): string {
+export function cssVar(el: HTMLElement, name: string, fallback: string): string {
   const probe = document.createElement("span");
   probe.style.display = "none";
   probe.style.color = `var(${name}, ${fallback})`;
@@ -47,7 +47,7 @@ function cssVar(el: HTMLElement, name: string, fallback: string): string {
 }
 
 /** Same colour with its opacity multiplied by `a` (expects the rgb()/rgba() form from cssVar). */
-function alpha(color: string, a: number): string {
+export function alpha(color: string, a: number): string {
   const m = color.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/);
   if (!m) return color;
   const base = m[4] === undefined ? 1 : Number(m[4]);
@@ -60,6 +60,14 @@ const dayLabel = new Intl.DateTimeFormat("en", {
   year: "numeric",
   timeZone: "UTC",
 });
+const axisCompact = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+const axisPlain = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const axisPrice = (p: number) =>
+  (Math.abs(p) >= 10_000 ? axisCompact : axisPlain).format(p).replace("-", "−");
+
 const formatDay = (date: string) => dayLabel.format(new Date(`${date}T00:00:00Z`));
 
 /**
@@ -114,6 +122,8 @@ export function TimeSeriesChart({
         vertLines: { visible: false },
         horzLines: { color: alpha(rule, 0.6), style: LineStyle.Solid },
       },
+      // Big totals (e.g. in rupees) read as 14.9M on the axis instead of 14927529.
+      localization: { priceFormatter: axisPrice },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.08 } },
       timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true },
       crosshair: {

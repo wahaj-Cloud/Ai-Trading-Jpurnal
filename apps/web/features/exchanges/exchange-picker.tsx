@@ -1,7 +1,8 @@
 "use client";
 
 import { EXCHANGE_CATALOG, EXCHANGE_IDS, type ExchangeId } from "@atc/shared";
-import { Check } from "lucide-react";
+import { Check, Lock } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -14,10 +15,13 @@ import { ExchangeMark } from "./exchange-mark";
 export function ExchangePicker({
   connectedCounts,
   slotsLeft,
+  brokerSlotsLeft = -1,
 }: {
   connectedCounts: Partial<Record<ExchangeId, number>>;
   /** -1 means unlimited. */
   slotsLeft: number;
+  /** MetaTrader (Exness) connections the plan still allows; -1 means unlimited. */
+  brokerSlotsLeft?: number;
 }) {
   const [picked, setPicked] = useState<ExchangeId[]>([]);
   const full = slotsLeft !== -1 && picked.length >= slotsLeft;
@@ -32,7 +36,8 @@ export function ExchangePicker({
         {EXCHANGE_IDS.map((id) => {
           const info = EXCHANGE_CATALOG[id];
           const checked = picked.includes(id);
-          const disabled = !checked && full;
+          const locked = info.kind === "METATRADER" && brokerSlotsLeft === 0;
+          const disabled = (!checked && full) || locked;
           const count = connectedCounts[id] ?? 0;
           return (
             <label
@@ -59,6 +64,12 @@ export function ExchangePicker({
                   {info.product}
                   {count > 0 ? `, ${count} connected` : ""}
                 </span>
+                {locked && (
+                  <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-coach/15 px-2 py-0.5 text-xs font-medium text-coach">
+                    <Lock className="h-3 w-3" aria-hidden="true" />
+                    Premium plan
+                  </span>
+                )}
               </span>
               <span
                 aria-hidden="true"
@@ -74,6 +85,16 @@ export function ExchangePicker({
           );
         })}
       </fieldset>
+
+      {brokerSlotsLeft === 0 && (
+        <p className="text-sm text-ink-muted">
+          Exness (MetaTrader) syncing runs a dedicated cloud terminal for your account, so it is
+          part of the Premium plan.{" "}
+          <Link href="/billing" className="text-coach underline-offset-4 hover:underline">
+            See plans
+          </Link>
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-4">
         <Button type="submit" disabled={picked.length === 0}>

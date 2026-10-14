@@ -26,3 +26,7 @@ export const SYNC_JOB_OPTIONS = {
 export const MAINTENANCE_QUEUE = "maintenance";
 /** Reminders, reports and coaching-note scheduling (every 15 minutes), separate from sync scheduling. */
 export const ENGAGEMENT_QUEUE = "engagement";
+
+/** Market Pulse (hourly BTC correlations) and My Setup Alerts (candle-close scans). */
+export const MARKET_QUEUE = "market-data";
+export const SETUP_SCAN_QUEUE = "setup-scan";

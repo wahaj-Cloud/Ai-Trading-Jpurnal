@@ -49,11 +49,21 @@ export default async function CoachPage({
   }
   const { usage } = status;
   const limitReached = usage.messagesLimit !== -1 && usage.messagesToday >= usage.messagesLimit;
+  // Share of this month's AI allowance used (null when the plan is unlimited).
+  const allowanceUsed =
+    usage.aiBudgetUsd === -1
+      ? null
+      : usage.aiBudgetUsd <= 0
+        ? 1
+        : Math.min(1, usage.aiSpentUsd / usage.aiBudgetUsd);
+  const budgetReached = allowanceUsed !== null && allowanceUsed >= 1;
   const disabledReason = !status.aiEnabled
     ? "The AI coach is not switched on for this app yet."
-    : limitReached
-      ? "You have used today's coach messages on your plan. They reset tomorrow."
-      : null;
+    : budgetReached
+      ? "You have used this month's AI allowance on your plan. It resets on the 1st, or upgrade for more."
+      : limitReached
+        ? "You have used today's coach messages on your plan. They reset tomorrow."
+        : null;
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: me.timezone }).format(new Date());
 
   return (
@@ -66,6 +76,34 @@ export default async function CoachPage({
               ? "Unlimited questions on your plan."
               : `${Math.max(0, usage.messagesLimit - usage.messagesToday)} of ${usage.messagesLimit} questions left today.`}
           </p>
+          {allowanceUsed !== null && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-ink-muted">
+              <span>AI allowance this month</span>
+              <span
+                className="h-1.5 w-28 overflow-hidden rounded-full bg-hi/10"
+                role="img"
+                aria-label={`${Math.round(allowanceUsed * 100)}% used`}
+              >
+                <span
+                  className={cn(
+                    "block h-full rounded-full",
+                    allowanceUsed >= 0.9
+                      ? "bg-loss"
+                      : allowanceUsed >= 0.7
+                        ? "bg-[#f59e0b]"
+                        : "bg-coach",
+                  )}
+                  style={{ width: `${Math.max(2, allowanceUsed * 100)}%` }}
+                />
+              </span>
+              <span className="figures">{Math.round(allowanceUsed * 100)}% used</span>
+              {allowanceUsed >= 0.7 && (
+                <Link href="/billing" className="text-coach underline-offset-4 hover:underline">
+                  Upgrade
+                </Link>
+              )}
+            </div>
+          )}
         </div>
         {status.aiEnabled && <CoachDayButton date={today} />}
       </header>

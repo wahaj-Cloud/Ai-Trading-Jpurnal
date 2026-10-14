@@ -6,6 +6,7 @@ import { getMe } from "@/lib/me";
 const TABS = [
   ["Overview", "/admin"],
   ["Users", "/admin/users"],
+  ["Costs & margins", "/admin/costs"],
   ["Logs", "/admin/logs"],
   ["Announcements", "/admin/announcements"],
 ] as const;

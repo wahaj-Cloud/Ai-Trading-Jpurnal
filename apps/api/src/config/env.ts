@@ -35,6 +35,13 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  /** Live economic results are streamed by the worker (set when it has TE_STREAM_KEY). */
+  ECON_LIVE_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** What one MetaApi (Exness) account costs per month (US$), for the admin margin view. */
+  METAAPI_ACCOUNT_USD: z.coerce.number().min(0).default(8),
   /** Static outbound IPs shown to users for exchange IP whitelisting. */
   EXCHANGE_EGRESS_IPS: z
     .string()

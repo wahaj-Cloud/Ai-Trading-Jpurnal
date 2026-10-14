@@ -3,6 +3,7 @@ export * from "./context.js";
 export * from "./data.js";
 export * from "./facts.js";
 export * from "./grade.js";
+export * from "./help.js";
 export * from "./model.js";
 export * from "./prompts.js";
 export * from "./service.js";

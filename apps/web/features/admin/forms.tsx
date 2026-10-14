@@ -1,5 +1,6 @@
 "use client";
 
+import type { AdminPlanCostRow } from "@atc/shared";
 import { useActionState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -8,7 +9,9 @@ import {
   changePlanAction,
   createAnnouncementAction,
   endAnnouncementAction,
+  foundingMemberAction,
   suspendAction,
+  updatePlanAction,
 } from "./actions";
 
 const initial: AdminFormState = { status: "idle" };
@@ -121,5 +124,92 @@ export function EndAnnouncementButton({ id }: { id: string }) {
     >
       {pending ? "Ending…" : "End now"}
     </Button>
+  );
+}
+
+export function FoundingMemberForm({ userId, founding }: { userId: string; founding: boolean }) {
+  const [state, action, pending] = useActionState(foundingMemberAction.bind(null, userId), initial);
+  return (
+    <form action={action} className="grid gap-3">
+      <input type="hidden" name="foundingMember" value={founding ? "false" : "true"} />
+      <p className="text-sm text-ink-muted">
+        {founding
+          ? "This user has the Founding Member badge."
+          : "Give early supporters a Founding Member badge (shown on their profile)."}
+      </p>
+      <div>
+        <Button
+          type="submit"
+          size="sm"
+          variant={founding ? "secondary" : "primary"}
+          disabled={pending}
+        >
+          {founding ? "Remove badge" : "Mark as founding member"}
+        </Button>
+      </div>
+      <Msg s={state} />
+    </form>
+  );
+}
+
+const LIMIT_FIELDS: Array<{
+  name: keyof AdminPlanCostRow["limits"];
+  label: string;
+  step?: string;
+}> = [
+  { name: "aiBudgetUsd", label: "AI budget $/month", step: "0.01" },
+  { name: "coachMessagesPerDay", label: "Coach questions/day" },
+  { name: "aiReviewsPerMonth", label: "AI reviews/month" },
+  { name: "exchangeAccounts", label: "Exchange connections" },
+  { name: "brokerAccounts", label: "Exness accounts" },
+  { name: "historyDays", label: "History days" },
+  { name: "setups", label: "Saved setups" },
+  { name: "setupAlertEmail", label: "Alert emails (0/1)" },
+  { name: "whatIf", label: "What-If Lab (0/1)" },
+  { name: "backtestRunsPerMonth", label: "Backtests/month" },
+  { name: "backtestHistoryMonths", label: "Backtest months" },
+  { name: "marketPulseCoins", label: "Pulse coins" },
+  { name: "marketPulseAllWindows", label: "Pulse 7d/30d (0/1)" },
+];
+
+/** One plan's price and limits; -1 means unlimited. */
+export function PlanLimitsForm({ plan }: { plan: AdminPlanCostRow }) {
+  const [state, action, pending] = useActionState(updatePlanAction.bind(null, plan.code), initial);
+  return (
+    <form action={action} className="grid gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        <Field label="Price $/month" htmlFor={`${plan.code}-price`}>
+          <Input
+            id={`${plan.code}-price`}
+            name="priceUsd"
+            type="number"
+            min={0}
+            step="0.01"
+            defaultValue={plan.priceUsd ?? ""}
+            placeholder="not set"
+          />
+        </Field>
+        {LIMIT_FIELDS.map((f) => (
+          <Field key={f.name} label={f.label} htmlFor={`${plan.code}-${f.name}`}>
+            <Input
+              id={`${plan.code}-${f.name}`}
+              name={f.name}
+              type="number"
+              min={-1}
+              step={f.step ?? "1"}
+              required
+              defaultValue={plan.limits[f.name]}
+            />
+          </Field>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" size="sm" disabled={pending}>
+          Save {plan.name}
+        </Button>
+        <span className="text-xs text-ink-faint">-1 = unlimited</span>
+        <Msg s={state} />
+      </div>
+    </form>
   );
 }

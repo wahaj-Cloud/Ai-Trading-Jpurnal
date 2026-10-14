@@ -1,4 +1,5 @@
 import type { DayDto } from "@atc/shared";
+import { FitText } from "@/components/ui/fit-text";
 import { formatPercent, formatPnl } from "@/features/trades/format";
 import { cn } from "@/lib/cn";
 import { monthStats } from "./month-stats";
@@ -60,10 +61,10 @@ export function MonthSummary({
       )}
     >
       {chips.map((c) => (
-        <div key={c.label} className="raised rounded-[var(--radius-control)] px-3 py-2.5">
+        <div key={c.label} className="raised min-w-0 rounded-[var(--radius-control)] px-3 py-2.5">
           <dt className="text-[11px] text-ink-muted">{c.label}</dt>
           <dd className={cn("figures pop-text mt-0.5 text-base font-semibold", c.tone)}>
-            {c.value}
+            <FitText>{c.value}</FitText>
           </dd>
           {c.hint && <dd className="text-[11px] text-ink-faint">{c.hint}</dd>}
         </div>

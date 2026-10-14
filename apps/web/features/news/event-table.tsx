@@ -4,6 +4,12 @@ import type { EventDay } from "./calendar-view";
 import { Countdown } from "./countdown";
 import { CurrencyFlag } from "./currency-flag";
 import { ImpactBadge } from "./impact";
+import { LiveActual } from "./live-news";
+import { ReactionHint } from "./reaction-view";
+
+/** Releases worth a "what usually happens" line. */
+const explain = (e: EconomicEventDto) =>
+  (e.impact === "HIGH" || e.impact === "MEDIUM") && !/holiday/i.test(e.title);
 
 const timeLabel = (e: EconomicEventDto, fmt: Intl.DateTimeFormat) =>
   e.tentative
@@ -107,6 +113,7 @@ export function EventTable({
                       className={cn(
                         "border-t border-rule/60 transition-colors hover:bg-hi/[0.04]",
                         past(e) && "opacity-55",
+                        e.impact === "HIGH" && "shadow-[inset_3px_0_0_#ef4444]",
                         isNext && "bg-coach/[0.08] shadow-[inset_3px_0_0_var(--color-coach)]",
                       )}
                     >
@@ -128,9 +135,12 @@ export function EventTable({
                             </span>
                           )}
                         </span>
+                        {explain(e) && !past(e) && (
+                          <ReactionHint event={e} className="mt-1 font-normal" />
+                        )}
                       </th>
                       <td className="px-3 py-2.5 text-right">
-                        <Value v={e.actual} strong />
+                        <LiveActual event={e} />
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         <Value v={e.forecast} />
@@ -154,6 +164,7 @@ export function EventTable({
                   key={e.id}
                   className={cn(
                     "raised rounded-[var(--radius-control)] p-3",
+                    e.impact === "HIGH" && "shadow-[inset_3px_0_0_#ef4444]",
                     past(e) && "opacity-55",
                     isNext && "ring-1 ring-coach",
                   )}
@@ -171,6 +182,7 @@ export function EventTable({
                       Next · <Countdown to={e.startsAt} />
                     </p>
                   )}
+                  {explain(e) && !past(e) && <ReactionHint event={e} className="mt-1.5" />}
                   <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
                     {(
                       [
@@ -182,7 +194,11 @@ export function EventTable({
                       <div key={label}>
                         <dt className="text-ink-faint">{label}</dt>
                         <dd>
-                          <Value v={v} strong={strong} />
+                          {label === "Actual" ? (
+                            <LiveActual event={e} />
+                          ) : (
+                            <Value v={v} strong={strong} />
+                          )}
                         </dd>
                       </div>
                     ))}

@@ -4,6 +4,7 @@ import { nextEvent } from "./calendar-view";
 import { Countdown } from "./countdown";
 import { CurrencyFlag } from "./currency-flag";
 import { ImpactBadge } from "./impact";
+import { ReactionHint } from "./reaction-view";
 
 /** Dashboard card: the next few market-moving releases with a countdown to each. */
 export function UpcomingNews({
@@ -41,7 +42,8 @@ export function UpcomingNews({
         <li
           key={e.id}
           className={cn(
-            "raised grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5",
+            "raised grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 rounded-[var(--radius-control)] px-3 py-2.5",
+            e.impact === "HIGH" && "shadow-[inset_3px_0_0_#ef4444]",
             e.id === nextId && "ring-1 ring-coach/70",
           )}
         >
@@ -67,6 +69,7 @@ export function UpcomingNews({
               />
             )}
           </span>
+          {e.impact === "HIGH" && <ReactionHint event={e} className="col-span-3" />}
         </li>
       ))}
     </ul>

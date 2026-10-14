@@ -8,6 +8,8 @@
  */
 @theme {
   --color-canvas: rgba(4, 7, 24, 0.55);
+  /* Opaque sheet for floating panels that sit over content (help assistant). */
+  --color-sheet: #0b1026;
   --color-panel: rgba(255, 255, 255, 0.06);
   --color-raised: rgba(255, 255, 255, 0.09);
   --color-rule: rgba(255, 255, 255, 0.12);
@@ -67,6 +69,7 @@
 html[data-mode="light"] {
   color-scheme: light;
   --color-canvas: rgba(255, 255, 255, 0.8);
+  --color-sheet: #ffffff;
   --color-panel: rgba(255, 255, 255, 0.55);
   --color-raised: rgba(15, 23, 60, 0.05);
   --color-rule: rgba(15, 23, 60, 0.12);
