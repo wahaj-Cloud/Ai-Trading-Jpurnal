@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { groupOf, isActivePath } from "./nav-config";
+import { groupOf, isActiveItem } from "./nav-config";
 
 /**
  * The tabs of the current folder (for example Markets: Live Charts, Trade Check, Market Desk,
@@ -16,8 +16,9 @@ export function SectionTabs({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <nav aria-label={group.label} className="mx-auto mb-5 max-w-7xl">
       <ul className="-mx-3 flex gap-1 overflow-x-auto border-b border-rule px-3 [scrollbar-width:none] sm:mx-0 sm:px-0">
-        {group.items.map(({ label, href, icon: Icon }) => {
-          const active = isActivePath(pathname, href);
+        {group.items.map((item) => {
+          const { label, href, icon: Icon } = item;
+          const active = isActiveItem(pathname, item);
           return (
             <li key={href} className="shrink-0">
               <Link

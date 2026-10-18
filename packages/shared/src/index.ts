@@ -11,6 +11,7 @@ export * from "./economic.js";
 export * from "./exchanges.js";
 export * from "./flow.js";
 export * from "./goals.js";
+export * from "./headlines.js";
 export * from "./help.js";
 export * from "./jobs.js";
 export * from "./journal.js";

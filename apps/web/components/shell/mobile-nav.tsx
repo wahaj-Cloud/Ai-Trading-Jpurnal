@@ -6,7 +6,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
-import { isActivePath as isActive, NAV_HOME, NAV_ITEMS, navGroups } from "./nav-config";
+import { isActiveItem, NAV_HOME, NAV_ITEMS, type NavItem, navGroups } from "./nav-config";
+
+const isActive = (pathname: string, href: string) =>
+  isActiveItem(pathname, NAV_ITEMS.find((i) => i.href === href) ?? ({ href } as NavItem));
 
 /**
  * Phone navigation: the four most used pages in the bar, and "More" opening a sheet with every

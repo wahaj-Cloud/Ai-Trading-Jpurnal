@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Wordmark } from "@/components/brand/logo";
 import { cn } from "@/lib/cn";
-import { isActivePath, NAV_HOME, type NavItem, navGroups } from "./nav-config";
+import { isActiveItem, NAV_HOME, type NavItem, navGroups } from "./nav-config";
 
 const COLLAPSED_KEY = "wm-nav-collapsed";
 
@@ -29,7 +29,7 @@ function NavLink({
   nested?: boolean;
 }) {
   const { label, href, icon: Icon } = item;
-  const active = isActivePath(pathname, href);
+  const active = isActiveItem(pathname, item);
   return (
     <Link
       href={href}
@@ -87,7 +87,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
         <NavLink item={NAV_HOME} pathname={pathname} />
         <ul className="mt-2 grid gap-1">
           {groups.map((g) => {
-            const hasActive = g.items.some((i) => isActivePath(pathname, i.href));
+            const hasActive = g.items.some((i) => isActiveItem(pathname, i));
             const open = hasActive || !collapsed.includes(g.id);
             const listId = `nav-${g.id}`;
             return (

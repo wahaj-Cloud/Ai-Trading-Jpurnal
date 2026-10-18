@@ -261,10 +261,19 @@ export const HELP_TOPICS: HelpTopic[] = [
     href: "/flow",
   },
   {
+    id: "world-news",
+    question: "Where do I see breaking world news, FOMC and other market-moving headlines?",
+    answer:
+      "The News folder keeps each kind of news separate. Top stories lists every high-impact headline from all folders. World & geopolitics covers wars, attacks, pandemics, disasters, sanctions, tariffs and political crises (the kind of news that crashed markets in March 2020). Central banks & FOMC shows official Federal Reserve and ECB releases, newsroom coverage and the upcoming rate decisions. Economic calendar lists scheduled releases such as CPI and the jobs report, with economy headlines below. Crypto news covers ETFs, regulation, exchanges and hacks, and Markets & companies the rest. Every headline is rated High, Medium or Low by fixed rules (war, pandemic, rate decision, bank collapse or exchange hack = High) with a line on why it matters. High-impact headlines also appear on the dashboard and pop up on every page the moment they arrive, usually within 15 to 30 seconds. For High stories the app records how Bitcoin and gold moved in the 15 and 60 minutes after: a record, not a forecast. Reports of the same story from several newsrooms are shown once.",
+    keywords:
+      "news world breaking war pandemic covid fomc fed central bank ecb geopolitics headlines alerts crisis tariffs sanctions crypto news top stories",
+    href: "/news/top",
+  },
+  {
     id: "menu-folders",
     question: "How is the menu organised?",
     answer:
-      "Dashboard stands on its own. Everything else sits in four folders: Journal (Trades, Journal, Analytics, Reports, Goals), Coach and tools (AI Coach, Strategy Lab, Setup Alerts, Calculators), Markets (Live Charts, Trade Check, Market Desk, Market Flow, Market Pulse, News) and Account (Exchanges, Settings, Help). Every page inside a folder shows the folder's tabs at the top, so related pages are one click apart. On a computer you can close folders you rarely use; the folder of the page you are on always stays open. On a phone, “More” lists every page by folder.",
+      "Dashboard stands on its own. Everything else sits in five folders: Journal (Trades, Journal, Analytics, Reports, Goals), Coach and tools (AI Coach, Strategy Lab, Setup Alerts, Calculators), Markets (Live Charts, Trade Check, Market Desk, Market Flow, Market Pulse), News (Top stories, World & geopolitics, Central banks & FOMC, Economic calendar, Crypto news, Markets & companies) and Account (Exchanges, Settings, Help). Every page inside a folder shows the folder's tabs at the top, so related pages are one click apart. On a computer you can close folders you rarely use; the folder of the page you are on always stays open. On a phone, “More” lists every page by folder.",
     keywords:
       "menu folders navigation sidebar tabs where is find page markets journal coach account",
     href: "/dashboard",

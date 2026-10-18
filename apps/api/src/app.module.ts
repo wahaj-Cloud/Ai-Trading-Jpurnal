@@ -20,6 +20,7 @@ import { FxModule } from "./fx/fx.module.js";
 import { HealthController } from "./health/health.controller.js";
 import { LabsModule } from "./labs/labs.module.js";
 import { MarketModule } from "./market/market.controller.js";
+import { NewsModule } from "./news/news.controller.js";
 import { OpenPositionsModule } from "./open-positions/open-positions.module.js";
 import { PositionsModule } from "./positions/positions.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
@@ -59,6 +60,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module.js";
     EconomicModule,
     LabsModule,
     MarketModule,
+    NewsModule,
     SetupsModule,
   ],
   controllers: [HealthController],

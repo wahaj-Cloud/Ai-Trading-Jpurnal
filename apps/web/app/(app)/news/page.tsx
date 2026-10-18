@@ -1,4 +1,9 @@
-import { CALENDAR_CURRENCIES, type EconomicCalendarDto, IMPACTS } from "@atc/shared";
+import {
+  CALENDAR_CURRENCIES,
+  type EconomicCalendarDto,
+  IMPACTS,
+  type NewsPageDto,
+} from "@atc/shared";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Panel } from "@/features/analytics/metric";
@@ -13,10 +18,12 @@ import {
 import { Countdown } from "@/features/news/countdown";
 import { CurrencyFlag } from "@/features/news/currency-flag";
 import { EventTable } from "@/features/news/event-table";
+import { HeadlineFeed } from "@/features/news/headlines";
 import { IMPACT_STYLE, ImpactBadge } from "@/features/news/impact";
 import { getCalendar } from "@/features/news/load";
 import { NewsAlert } from "@/features/news/news-alert";
 import { RANGE_PRESETS, rangeFor } from "@/features/news/ranges";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { getMe } from "@/lib/me";
 
@@ -89,12 +96,15 @@ export default async function NewsPage({ searchParams }: { searchParams: SearchP
   const timeZone = f.tz === "utc" ? "UTC" : me.timezone;
   const now = new Date();
   const { from, to } = rangeFor(f.range, timeZone, now);
-  const data: EconomicCalendarDto | null = await getCalendar({
-    from,
-    to,
-    impact: f.impact,
-    currency: f.currency,
-  }).catch(() => null);
+  const [data, economyNews] = await Promise.all([
+    getCalendar({
+      from,
+      to,
+      impact: f.impact,
+      currency: f.currency,
+    }).catch((): EconomicCalendarDto | null => null),
+    apiFetch<NewsPageDto>("/v1/news?folder=economy&impact=MEDIUM&limit=15").catch(() => null),
+  ]);
 
   const events = data?.events ?? [];
   const days = groupByDay(events, timeZone, now);
@@ -230,6 +240,23 @@ export default async function NewsPage({ searchParams }: { searchParams: SearchP
             nextId={next?.id ?? null}
             now={now.getTime()}
           />
+        )}
+      </Panel>
+
+      <Panel
+        title="Economy headlines"
+        action={<span className="text-xs text-ink-faint">Medium and high impact, live</span>}
+      >
+        {economyNews ? (
+          <HeadlineFeed
+            folder="economy"
+            impact="MEDIUM"
+            initial={economyNews.items}
+            nextCursor={economyNews.nextCursor}
+            compact
+          />
+        ) : (
+          <p className="text-sm text-ink-muted">Headlines could not be loaded.</p>
         )}
       </Panel>
 

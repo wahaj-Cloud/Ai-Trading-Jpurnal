@@ -44,6 +44,7 @@ import { runLiquidationMaps } from "./market/liq-map.js";
 import { runMarketOverview } from "./market/overview.js";
 import { runMarketPulse } from "./market/pulse.js";
 import { initMonitoring } from "./monitoring.js";
+import { HeadlineCollector } from "./news/headlines.js";
 import { startLiveNews } from "./news/live.js";
 import { startOfficialWatcher } from "./news/official.js";
 import { ExchangeRateLimiter } from "./rate-limit.js";
@@ -429,9 +430,26 @@ async function main(): Promise<void> {
   maintenance.on("error", onError("maintenance queue"));
   engagement.on("error", onError("engagement queue"));
 
+  // Market-moving headlines from every source (one collector at a time, via a Redis lock).
+  const headlines = env.NEWS_HEADLINES_ENABLED
+    ? new HeadlineCollector({
+        db,
+        redis,
+        finnhubKey: env.FINNHUB_API_KEY,
+        binance: adapterConfig.binance,
+      })
+    : null;
+  const headlineRun = headlines?.start() ?? null;
+
   // Live economic results: one stream per deployment (run a single worker replica).
   const liveNews = env.TE_STREAM_KEY
-    ? startLiveNews({ url: env.TE_STREAM_URL, key: env.TE_STREAM_KEY, db, redis })
+    ? startLiveNews({
+        url: env.TE_STREAM_URL,
+        key: env.TE_STREAM_KEY,
+        db,
+        redis,
+        onHeadline: headlines ? (h) => headlines.ingest([h]) : undefined,
+      })
     : null;
   // Free live US figures (CPI, PPI, jobs report) straight from the Bureau of Labor Statistics.
   const official = env.BLS_API_KEY
@@ -442,6 +460,7 @@ async function main(): Promise<void> {
 
   log.info("worker started", {
     marketFlow: flow ? "on" : "off",
+    headlines: headlines ? (env.FINNHUB_API_KEY ? "on" : "on, no Finnhub key") : "off",
     liveNews: liveNews ? "on" : "off",
     officialNews: official ? "on" : "off",
     marketPulse: env.MARKET_PULSE_ENABLED ? "on" : "off",
@@ -463,6 +482,7 @@ async function main(): Promise<void> {
     liveNews?.stop();
     official?.stop();
     await flow?.stop();
+    await headlineRun?.stop();
     // Let running syncs finish their current step; cursors make any unfinished work resumable.
     await Promise.allSettled([
       syncWorker.close(),

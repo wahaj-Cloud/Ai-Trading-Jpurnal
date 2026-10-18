@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@atc/db";
+import { parseTradingEconomicsNews, type RawHeadline } from "@atc/exchange-adapters";
 import { ECON_LIVE_CHANNEL, type EconomicLiveUpdate, type Impact } from "@atc/shared";
 import type { Redis } from "ioredis";
 import { log } from "../logger.js";
@@ -93,6 +94,8 @@ export interface LiveNewsOptions {
   key: string;
   db: PrismaClient;
   redis: Pick<Redis, "publish">;
+  /** Headlines from the same stream (plans that include news), if wanted. */
+  onHeadline?: (h: RawHeadline) => Promise<unknown>;
 }
 
 /**
@@ -125,6 +128,7 @@ export function startLiveNews(opts: LiveNewsOptions): { stop: () => void } {
       attempt = 0;
       bump();
       ws?.send(JSON.stringify({ topic: "subscribe", to: "calendar" }));
+      if (opts.onHeadline) ws?.send(JSON.stringify({ topic: "subscribe", to: "news" }));
       log.info("live news stream connected");
     });
     ws.addEventListener("message", async (ev) => {
@@ -136,7 +140,13 @@ export function startLiveNews(opts: LiveNewsOptions): { stop: () => void } {
             : ev.data instanceof ArrayBuffer
               ? new TextDecoder().decode(ev.data)
               : await (ev.data as Blob).text();
-        const release = parseProviderMessage(JSON.parse(raw));
+        const parsed = JSON.parse(raw);
+        const headline = opts.onHeadline ? parseTradingEconomicsNews(parsed) : null;
+        if (headline) {
+          await opts.onHeadline?.(headline);
+          return;
+        }
+        const release = parseProviderMessage(parsed);
         if (!release) return;
         const update = await applyRelease(opts.db, opts.redis, release, "tradingeconomics");
         if (update) {

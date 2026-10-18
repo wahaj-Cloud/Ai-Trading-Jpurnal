@@ -169,3 +169,27 @@ export async function fetchBinanceMarketNow(
     nextFundingTime: num(premium?.nextFundingTime),
   };
 }
+
+/** One-minute candles from `from` (ms, any time inside the first minute), oldest first. */
+export async function fetchBinanceMinuteCandles(
+  o: BinanceClientOptions,
+  symbol: string,
+  from: number,
+  count: number,
+): Promise<MarketCandle[]> {
+  const start = Math.floor(from / 60_000) * 60_000;
+  const rows = (await getJson(
+    o,
+    `${base(o)}/fapi/v1/klines?symbol=${encodeURIComponent(symbol)}&interval=1m&startTime=${start}&limit=${Math.min(1500, count)}`,
+  )) as unknown[][];
+  return (rows ?? [])
+    .map((r) => ({
+      t: Number(r[0]),
+      o: Number(r[1]),
+      h: Number(r[2]),
+      l: Number(r[3]),
+      c: Number(r[4]),
+      v: Number(r[5]),
+    }))
+    .filter((c) => Number.isFinite(c.t) && Number.isFinite(c.o) && Number.isFinite(c.c));
+}

@@ -5,6 +5,7 @@ import {
   GoalDto,
   type MarketBiasDto,
   type MarketOverviewDto,
+  type NewsPageDto,
   OpenPositionsDto,
   PositionsPage,
   RiskStatusDto,
@@ -46,6 +47,7 @@ import { MONTH_RE, shiftMonth } from "@/features/months/month-stats";
 import { MonthSummary } from "@/features/months/month-summary";
 import { getCalendar } from "@/features/news/load";
 import { NewsAlert } from "@/features/news/news-alert";
+import { HighImpactNewsWidget } from "@/features/news/news-widget";
 import { UpcomingNews } from "@/features/news/upcoming-news";
 import { getPositions } from "@/features/trades/load";
 import { TradesTable } from "@/features/trades/trades-table";
@@ -135,7 +137,7 @@ export default async function DashboardPage({
   const [me, display] = await Promise.all([getMe(), getDisplay()]);
   const firstName = me.name?.split(" ")[0];
   const newsFrom = new Date();
-  const [report, open, recent, notes, habits, risk, goals, news, overview, psychology, flow] =
+  const [report, open, recent, notes, habits, risk, goals, news, overview, psychology, flow, top] =
     await Promise.all([
       orNull<AnalyticsDto>(getAnalytics("all")),
       orNull<OpenPositionsDto>(getOpenPositions()),
@@ -155,6 +157,7 @@ export default async function DashboardPage({
       orNull(apiFetch<MarketOverviewDto>("/v1/market/overview")),
       orNull(getPsychology(30)),
       orNull(apiFetch<MarketBiasDto>("/v1/market/bias")),
+      orNull(apiFetch<NewsPageDto>("/v1/news?folder=top&limit=6")),
     ]);
   const tradeCheck = await orNull(loadTradeCheck(recent?.items[0]?.symbol));
   const onboarded = Object.values(me.onboarding).every(Boolean);
@@ -183,6 +186,16 @@ export default async function DashboardPage({
       ) : null,
     "market-flow": flow && flow.items.length > 0 ? <MarketFlowWidget data={flow} /> : null,
     "trade-check": tradeCheck ? <TradeCheckWidget check={tradeCheck} /> : null,
+    "high-impact-news": (
+      <HighImpactNewsWidget
+        headlines={(top?.items ?? []).filter(
+          (h) => Date.now() - Date.parse(h.publishedAt) <= 48 * 3_600_000,
+        )}
+        upcoming={(news?.events ?? []).filter(
+          (e) => e.impact === "HIGH" && Date.parse(e.startsAt) > Date.now(),
+        )}
+      />
+    ),
     "market-sessions": (
       <Panel title="Market sessions">
         <SessionClock timeZone={me.timezone} />

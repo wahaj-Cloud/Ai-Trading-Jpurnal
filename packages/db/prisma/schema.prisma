@@ -816,6 +816,37 @@ model FundingRateHistory {
   @@map("funding_rate_history")
 }
 
+/// A market-moving headline (world, central banks, economy, crypto, markets), kept 30 days.
+/// Reports of the same story from other sources point to the first one through cluster_id.
+model NewsItem {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  /// FINNHUB | TRADINGECONOMICS | FED | ECB | GDELT
+  source      String   @db.VarChar(20)
+  sourceId    String   @map("source_id") @db.VarChar(200)
+  title       String   @db.VarChar(500)
+  summary     String?  @db.VarChar(2000)
+  url         String?  @db.VarChar(1000)
+  publisher   String   @db.VarChar(120)
+  publishedAt DateTime @map("published_at") @db.Timestamptz(3)
+  receivedAt  DateTime @map("received_at") @db.Timestamptz(3)
+  /// world | central-banks | economy | crypto | markets
+  category    String   @db.VarChar(20)
+  /// HIGH | MEDIUM | LOW
+  impact      String   @db.VarChar(6)
+  tags        String[]
+  why         String?  @db.VarChar(400)
+  clusterId   String?  @map("cluster_id") @db.Uuid
+  /// Price moves after a high-impact headline: { btc15m, btc60m, gold15m, gold60m } in %.
+  reaction    Json?
+
+  @@unique([source, sourceId])
+  @@index([category, publishedAt(sort: Desc)])
+  @@index([impact, publishedAt(sort: Desc)])
+  @@index([clusterId])
+  @@index([publishedAt])
+  @@map("news_items")
+}
+
 /// A real forced close (liquidation) reported by an exchange's public feed.
 model LiquidationEvent {
   id       BigInt   @id @default(autoincrement())

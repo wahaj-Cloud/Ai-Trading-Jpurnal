@@ -1,7 +1,12 @@
 "use client";
 
-import type { EconomicEventDto, EconomicLiveUpdate } from "@atc/shared";
-import { Radio, X } from "lucide-react";
+import type {
+  EconomicEventDto,
+  EconomicLiveUpdate,
+  NewsItemDto,
+  NewsLiveUpdate,
+} from "@atc/shared";
+import { Newspaper, Radio, X } from "lucide-react";
 import Link from "next/link";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
@@ -9,10 +14,21 @@ import { CurrencyFlag } from "./currency-flag";
 import { marketReaction } from "./reaction";
 
 type LiveMap = Record<string, EconomicEventDto>;
-const LiveContext = createContext<{ live: LiveMap; connected: boolean }>({
+const LiveContext = createContext<{
+  live: LiveMap;
+  connected: boolean;
+  /** Headlines that arrived live since the page loaded, newest first. */
+  headlines: NewsItemDto[];
+}>({
   live: {},
   connected: false,
+  headlines: [],
 });
+
+/** Live headlines, newest first (Medium and High; the stream never carries Low ones). */
+export function useLiveHeadlines(): NewsItemDto[] {
+  return useContext(LiveContext).headlines;
+}
 
 /** An event with any figure that arrived live since the page loaded. */
 export function useLiveEvent<T extends EconomicEventDto>(e: T): T {
@@ -52,10 +68,7 @@ export function useLiveNews() {
   return useContext(LiveContext);
 }
 
-interface Toast {
-  key: string;
-  event: EconomicEventDto;
-}
+type Toast = { key: string; event: EconomicEventDto } | { key: string; headline: NewsItemDto };
 
 /**
  * Keeps one live connection (server-sent events) to the API for the whole app. Released figures
@@ -71,6 +84,7 @@ export function LiveNewsProvider({
   const [live, setLive] = useState<LiveMap>({});
   const [connected, setConnected] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [headlines, setHeadlines] = useState<NewsItemDto[]>([]);
 
   const dismiss = useCallback(
     (key: string) => setToasts((t) => t.filter((x) => x.key !== key)),
@@ -95,20 +109,70 @@ export function LiveNewsProvider({
         // ignore malformed messages
       }
     });
+    es.addEventListener("headline", (msg) => {
+      try {
+        const h = JSON.parse((msg as MessageEvent<string>).data) as NewsLiveUpdate;
+        const item = h.item;
+        setHeadlines((list) => [item, ...list.filter((x) => x.id !== item.id)].slice(0, 100));
+        if (item.impact === "HIGH") {
+          const key = `h:${item.id}`;
+          setToasts((t) => [...t.filter((x) => x.key !== key), { key, headline: item }].slice(-3));
+          setTimeout(() => setToasts((t) => t.filter((x) => x.key !== key)), 60_000);
+        }
+      } catch {
+        // ignore malformed messages
+      }
+    });
     return () => es.close();
   }, [apiUrl]);
 
   return (
-    <LiveContext.Provider value={{ live, connected }}>
+    <LiveContext.Provider value={{ live, connected, headlines }}>
       {children}
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed inset-x-3 top-20 z-50 grid justify-items-end gap-2 sm:right-6 sm:left-auto">
-          {toasts.map((t) => (
-            <ReleaseToast key={t.key} event={t.event} onClose={() => dismiss(t.key)} />
-          ))}
+          {toasts.map((t) =>
+            "headline" in t ? (
+              <HeadlineToast key={t.key} item={t.headline} onClose={() => dismiss(t.key)} />
+            ) : (
+              <ReleaseToast key={t.key} event={t.event} onClose={() => dismiss(t.key)} />
+            ),
+          )}
         </div>
       )}
     </LiveContext.Provider>
+  );
+}
+
+function HeadlineToast({ item, onClose }: { item: NewsItemDto; onClose: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="pointer-events-auto w-full max-w-sm rounded-2xl border border-loss/50 bg-sheet p-4 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.9)]"
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-loss text-white">
+          <Newspaper className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold tracking-wide text-loss uppercase">
+            High-impact news · {item.publisher}
+          </p>
+          <p className="mt-0.5 font-semibold">{item.title}</p>
+          {item.why && <p className="mt-1 text-xs text-ink-muted">{item.why}</p>}
+          <Link
+            href="/news/top"
+            className="mt-1 inline-block text-xs text-coach underline-offset-4 hover:underline"
+          >
+            Top stories
+          </Link>
+        </div>
+        <button type="button" onClick={onClose} className="text-ink-faint hover:text-ink">
+          <X className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">Dismiss</span>
+        </button>
+      </div>
+    </div>
   );
 }
 

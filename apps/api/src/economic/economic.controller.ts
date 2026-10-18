@@ -27,7 +27,8 @@ export class EconomicController {
   }
 
   /**
-   * Server-sent events: each released figure the moment it arrives, plus a heartbeat so proxies
+   * Server-sent events: each released figure and each breaking Medium or High headline the moment
+   * it arrives, plus a heartbeat so proxies
    * keep the line open. Public market data only (no user data), so no sign-in is needed.
    */
   @Public()
@@ -38,6 +39,7 @@ export class EconomicController {
   stream(): Observable<MessageEvent> {
     return merge(
       this.live.updates$.pipe(map((u) => ({ type: "release", data: u }) as MessageEvent)),
+      this.live.headlines$.pipe(map((h) => ({ type: "headline", data: h }) as MessageEvent)),
       interval(20_000).pipe(map(() => ({ type: "ping", data: "" }) as MessageEvent)),
     );
   }

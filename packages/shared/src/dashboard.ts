@@ -43,6 +43,15 @@ export const DASHBOARD_WIDGETS = [
     description: "Net P&L, win rate, profit factor, expectancy, drawdown and fees.",
   },
   {
+    id: "high-impact-news",
+    label: "High-impact news",
+    size: "full",
+    group: "markets",
+    description:
+      "Every high-impact headline (wars, central banks, crises, crypto shocks) and the next big release, live.",
+    home: { href: "/news/top", label: "Top stories" },
+  },
+  {
     id: "equity",
     label: "Equity curve",
     size: "wide",

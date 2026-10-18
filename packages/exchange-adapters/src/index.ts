@@ -16,6 +16,7 @@ export * from "./market/coinmarketcap.js";
 export * from "./market/context-sources.js";
 export * from "./market/flow-streams.js";
 export * from "./market/liquidation-map.js";
+export * from "./market/news-sources.js";
 export * from "./market/open-interest.js";
 export { MetatraderAdapter } from "./metatrader/adapter.js";
 export { classifyMetaApi, MetatraderHistorySource } from "./metatrader/history.js";

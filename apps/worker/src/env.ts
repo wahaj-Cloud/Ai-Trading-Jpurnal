@@ -51,6 +51,16 @@ const envSchema = z.object({
    * jobs-report figures straight from the publisher.
    */
   BLS_API_KEY: z.string().min(10).optional(),
+  /**
+   * Market-moving headlines (world events, central banks, crypto, economy) from Finnhub, the Fed,
+   * the ECB, GDELT and the Trading Economics stream.
+   */
+  NEWS_HEADLINES_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  /** Free Finnhub key (finnhub.io/register): Reuters, CNBC and MarketWatch headlines every 15 s. */
+  FINNHUB_API_KEY: z.string().min(10).optional(),
   /** Market Pulse (hourly BTC correlations from public Binance data). */
   MARKET_PULSE_ENABLED: z
     .enum(["true", "false"])

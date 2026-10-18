@@ -9,7 +9,7 @@
     "dev": "concurrently -k -n tsc,api \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --env-file-if-exists=.env --watch dist/main.js\"",
     "start": "node dist/main.js",
     "test": "vitest run",
-    "test:integration": "node test/exchange-accounts.itest.mjs && node test/journal-analytics.itest.mjs && node test/coach.itest.mjs && node test/strategy.itest.mjs && node test/engagement.itest.mjs && node test/reports.itest.mjs && node test/billing-admin.itest.mjs && node test/market-desk.itest.mjs && node test/crypto-billing.itest.mjs && node test/market-flow.itest.mjs && node test/trade-check.itest.mjs && node test/throttle.itest.mjs"
+    "test:integration": "node test/exchange-accounts.itest.mjs && node test/journal-analytics.itest.mjs && node test/coach.itest.mjs && node test/strategy.itest.mjs && node test/engagement.itest.mjs && node test/reports.itest.mjs && node test/billing-admin.itest.mjs && node test/market-desk.itest.mjs && node test/crypto-billing.itest.mjs && node test/market-flow.itest.mjs && node test/trade-check.itest.mjs && node test/news.itest.mjs && node test/throttle.itest.mjs"
   },
   "dependencies": {
     "@atc/analytics": "workspace:*",

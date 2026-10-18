@@ -2,14 +2,18 @@ import {
   Activity,
   BarChart3,
   BellRing,
+  Bitcoin,
   BookOpenText,
   Calculator,
+  CalendarDays,
   CandlestickChart,
   CircleHelp,
   ClipboardCheck,
   Compass,
   FileText,
   FlaskConical,
+  Globe,
+  Landmark,
   LayoutDashboard,
   type LucideIcon,
   MessageSquareText,
@@ -18,6 +22,7 @@ import {
   Radio,
   Settings,
   ShieldCheck,
+  Siren,
   Target,
   Waves,
 } from "lucide-react";
@@ -25,6 +30,8 @@ import {
 export interface NavItem {
   label: string;
   href: string;
+  /** Active only on this exact address (a folder's main page with sub-pages below it). */
+  exact?: boolean;
   icon: LucideIcon;
   /** Roadmap phase that ships this screen; items not yet built render disabled. */
   available: boolean;
@@ -92,7 +99,30 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Market Desk", href: "/desk", icon: Compass, available: true },
       { label: "Market Flow", href: "/flow", icon: Waves, available: true },
       { label: "Market Pulse", href: "/market", icon: Activity, available: true },
-      { label: "News", href: "/news", icon: Newspaper, available: true },
+    ],
+  },
+  {
+    id: "news",
+    label: "News",
+    icon: Newspaper,
+    items: [
+      { label: "Top stories", href: "/news/top", icon: Siren, available: true },
+      { label: "World & geopolitics", href: "/news/world", icon: Globe, available: true },
+      {
+        label: "Central banks & FOMC",
+        href: "/news/central-banks",
+        icon: Landmark,
+        available: true,
+      },
+      {
+        label: "Economic calendar",
+        href: "/news",
+        icon: CalendarDays,
+        available: true,
+        exact: true,
+      },
+      { label: "Crypto news", href: "/news/crypto", icon: Bitcoin, available: true },
+      { label: "Markets & companies", href: "/news/markets", icon: Newspaper, available: true },
     ],
   },
   {
@@ -117,8 +147,11 @@ export function navGroups(isAdmin: boolean): NavGroup[] {
 /** Every page, flat, in menu order. */
 export const NAV_ITEMS: NavItem[] = [NAV_HOME, ...NAV_GROUPS.flatMap((g) => g.items)];
 
-export const isActivePath = (pathname: string, href: string) =>
-  pathname === href || pathname.startsWith(`${href}/`);
+export const isActivePath = (pathname: string, href: string, exact = false) =>
+  pathname === href || (!exact && pathname.startsWith(`${href}/`));
+
+export const isActiveItem = (pathname: string, item: NavItem) =>
+  isActivePath(pathname, item.href, item.exact);
 
 /** The folder holding the current page, if any. */
 export function groupOf(pathname: string, isAdmin = false): NavGroup | null {
