@@ -123,7 +123,7 @@ export class TradeCheckService {
         where: { symbol_window: { symbol: q.symbol, window: "24h" } },
         select: { data: true, computedAt: true },
       }),
-      this.market.nextEvent(),
+      this.market.nextEvent(at),
     ]);
     const by = new Map(snaps.map((s) => [s.key, s.data as unknown]));
     const desk = (by.get(deskKey(q.symbol)) as MarketDeskDto | undefined) ?? null;

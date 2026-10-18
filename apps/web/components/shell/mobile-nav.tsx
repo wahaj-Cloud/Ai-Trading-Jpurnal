@@ -6,21 +6,20 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
-import { ADMIN_ITEM, NAV_ITEMS, type NavItem } from "./nav-config";
-
-const isActive = (pathname: string, href: string) =>
-  pathname === href || pathname.startsWith(`${href}/`);
+import { isActivePath as isActive, NAV_HOME, NAV_ITEMS, navGroups } from "./nav-config";
 
 /**
  * Phone navigation: the four most used pages in the bar, and "More" opening a sheet with every
- * other page (journal, reports, news, goals, calculators, exchanges, settings, help, admin).
+ * page, folder by folder (Journal, Coach and tools, Markets, Account).
  */
 export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const bar = NAV_ITEMS.filter((i) => i.mobile);
-  const more: NavItem[] = [...NAV_ITEMS.filter((i) => !i.mobile), ...(isAdmin ? [ADMIN_ITEM] : [])];
-  const moreActive = more.some((i) => isActive(pathname, i.href));
+  const groups = navGroups(isAdmin);
+  const moreActive = groups.some((g) =>
+    g.items.some((i) => !i.mobile && isActive(pathname, i.href)),
+  );
 
   // Close the sheet after navigating.
   // biome-ignore lint/correctness/useExhaustiveDependencies: run on route change only
@@ -108,28 +107,37 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
                   <span className="sr-only">Close</span>
                 </button>
               </div>
-              <ul className="grid grid-cols-3 gap-2">
-                {[...bar, ...more].map(({ label, href, icon: Icon }) => {
-                  const active = isActive(pathname, href);
-                  return (
-                    <li key={href}>
-                      <Link
-                        href={href}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "flex h-20 flex-col items-center justify-center gap-1.5 rounded-2xl border text-xs",
-                          active
-                            ? "border-coach/60 bg-coach/15 text-ink"
-                            : "border-rule bg-hi/[0.03] text-ink-muted active:bg-hi/[0.08]",
-                        )}
-                      >
-                        <Icon className="h-5 w-5" aria-hidden="true" />
-                        {label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="grid max-h-[65dvh] gap-4 overflow-y-auto pr-1">
+                {[{ id: "home", label: "Home", items: [NAV_HOME] }, ...groups].map((g) => (
+                  <section key={g.id} aria-label={g.label}>
+                    <h3 className="mb-2 px-1 text-[11px] font-semibold tracking-wider text-ink-faint uppercase">
+                      {g.label}
+                    </h3>
+                    <ul className="grid grid-cols-3 gap-2">
+                      {g.items.map(({ label, href, icon: Icon }) => {
+                        const active = isActive(pathname, href);
+                        return (
+                          <li key={href}>
+                            <Link
+                              href={href}
+                              aria-current={active ? "page" : undefined}
+                              className={cn(
+                                "flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border px-1 text-center text-xs",
+                                active
+                                  ? "border-coach/60 bg-coach/15 text-ink"
+                                  : "border-rule bg-hi/[0.03] text-ink-muted active:bg-hi/[0.08]",
+                              )}
+                            >
+                              <Icon className="h-5 w-5" aria-hidden="true" />
+                              {label}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                ))}
+              </div>
             </div>
           </div>,
           document.body,

@@ -1,14 +1,14 @@
 import {
   type AnalyticsDto,
-  DASHBOARD_WIDGETS,
   type DashboardWidgetId,
-  type DashboardWidgetSize,
+  deskSymbolOf,
   GoalDto,
   type MarketBiasDto,
   type MarketOverviewDto,
   OpenPositionsDto,
   PositionsPage,
   RiskStatusDto,
+  type TradeCheckResponse,
 } from "@atc/shared";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -19,13 +19,14 @@ import { FoundingBadge } from "@/features/billing/founding-badge";
 import { CalendarHeatmap } from "@/features/charts/calendar-heatmap";
 import { PnlColumns } from "@/features/charts/pnl-columns";
 import { TimeSeriesChart } from "@/features/charts/time-series-chart";
+import { TradeCheckWidget } from "@/features/check/widget";
 import { getBehaviour, getNotes, getPsychology } from "@/features/coach/load";
 import { buildRecommendations, MIN_TRADES_FOR_ADVICE } from "@/features/coach/recommendations";
 import { RecommendationsList } from "@/features/coach/recommendations-card";
 import { CoinBars, DirectionSplit, WinLossPanel } from "@/features/dashboard/balance-panels";
 import { BestSession } from "@/features/dashboard/best-session";
+import { DashboardBoard } from "@/features/dashboard/board";
 import { CoachPanel } from "@/features/dashboard/coach-panel";
-import { CustomizeDashboard } from "@/features/dashboard/customize";
 import {
   DailyWinCard,
   HourlyWinsLosses,
@@ -49,7 +50,6 @@ import { UpcomingNews } from "@/features/news/upcoming-news";
 import { getPositions } from "@/features/trades/load";
 import { TradesTable } from "@/features/trades/trades-table";
 import { apiFetch } from "@/lib/api";
-import { cn } from "@/lib/cn";
 import { getDisplay } from "@/lib/display";
 import { getMe } from "@/lib/me";
 
@@ -58,15 +58,20 @@ export const metadata = { title: "Dashboard" };
 /** A panel failing to load should not take the whole dashboard down. */
 const orNull = <T,>(p: Promise<T>) => p.catch(() => null);
 
-const SIZE: Record<DashboardWidgetSize, string> = {
-  full: "col-span-12",
-  wide: "col-span-12 xl:col-span-8",
-  narrow: "col-span-12 xl:col-span-4",
-  third: "col-span-12 lg:col-span-4",
-};
-const WIDGET_SIZE = new Map<DashboardWidgetId, DashboardWidgetSize>(
-  DASHBOARD_WIDGETS.map((w) => [w.id, w.size]),
-);
+/**
+ * Trade Check for the market the trader last traded (Bitcoin when none, or when the plan does not
+ * include that market).
+ */
+async function loadTradeCheck(lastSymbol: string | undefined) {
+  const preferred = (lastSymbol && deskSymbolOf(lastSymbol)) || "BTCUSDT";
+  const res = await apiFetch<TradeCheckResponse>(`/v1/market/check?symbol=${preferred}`);
+  if (res.status === "ok") return res.check;
+  if (res.status === "locked" && preferred !== "BTCUSDT") {
+    const btc = await apiFetch<TradeCheckResponse>("/v1/market/check?symbol=BTCUSDT");
+    return btc.status === "ok" ? btc.check : null;
+  }
+  return null;
+}
 
 const PanelLink = ({ href, children }: { href: string; children: string }) => (
   <Link
@@ -151,6 +156,7 @@ export default async function DashboardPage({
       orNull(getPsychology(30)),
       orNull(apiFetch<MarketBiasDto>("/v1/market/bias")),
     ]);
+  const tradeCheck = await orNull(loadTradeCheck(recent?.items[0]?.symbol));
   const onboarded = Object.values(me.onboarding).every(Boolean);
   const hasTrades = (report?.summary.trades ?? 0) > 0;
   const today = report?.range.to ?? new Date().toISOString().slice(0, 10);
@@ -176,6 +182,7 @@ export default async function DashboardPage({
         <MarketOverview initial={overview} />
       ) : null,
     "market-flow": flow && flow.items.length > 0 ? <MarketFlowWidget data={flow} /> : null,
+    "trade-check": tradeCheck ? <TradeCheckWidget check={tradeCheck} /> : null,
     "market-sessions": (
       <Panel title="Market sessions">
         <SessionClock timeZone={me.timezone} />
@@ -365,53 +372,47 @@ export default async function DashboardPage({
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
-            {firstName ? `Welcome, ${firstName}` : "Welcome"}
-            {me.foundingMember && <FoundingBadge />}
-          </h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Times and daily totals use {me.timezone}.
-            {display.code !== "USD" && (
-              <>
-                {" "}
-                Amounts in {display.code} at today's rate (1 USD ={" "}
-                {display.rate.toLocaleString("en", { maximumFractionDigits: 2 })} {display.code}).
-              </>
-            )}
-            {display.unavailable && (
-              <> No rate for {display.unavailable} yet, so amounts show in USD.</>
-            )}
-            {me.timezone === "UTC" && (
-              <>
-                {" "}
-                <Link href="/settings" className="text-coach underline-offset-4 hover:underline">
-                  Set your own timezone
-                </Link>{" "}
-                so sessions and days match your clock.
-              </>
-            )}
-          </p>
-        </div>
-        <CustomizeDashboard layout={me.settings.dashboardLayout} />
-      </header>
-      {!onboarded && <SetupRunway onboarding={me.onboarding} />}
-      <RiskBanner status={risk} />
-      <NewsAlert events={news?.events ?? []} />
-
-      <div className="grid grid-flow-row-dense grid-cols-12 gap-6">
-        {me.settings.dashboardLayout
-          .filter((slot) => !slot.hidden && widgets[slot.id])
-          .map((slot) => (
-            <div
-              key={slot.id}
-              className={cn(SIZE[WIDGET_SIZE.get(slot.id) ?? "full"], "[&>*]:h-full")}
-            >
-              {widgets[slot.id]}
-            </div>
-          ))}
-      </div>
+      <DashboardBoard
+        layout={me.settings.dashboardLayout}
+        widgets={widgets}
+        header={
+          <div>
+            <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
+              {firstName ? `Welcome, ${firstName}` : "Welcome"}
+              {me.foundingMember && <FoundingBadge />}
+            </h1>
+            <p className="mt-1 text-sm text-ink-muted">
+              Times and daily totals use {me.timezone}.
+              {display.code !== "USD" && (
+                <>
+                  {" "}
+                  Amounts in {display.code} at today's rate (1 USD ={" "}
+                  {display.rate.toLocaleString("en", { maximumFractionDigits: 2 })} {display.code}).
+                </>
+              )}
+              {display.unavailable && (
+                <> No rate for {display.unavailable} yet, so amounts show in USD.</>
+              )}
+              {me.timezone === "UTC" && (
+                <>
+                  {" "}
+                  <Link href="/settings" className="text-coach underline-offset-4 hover:underline">
+                    Set your own timezone
+                  </Link>{" "}
+                  so sessions and days match your clock.
+                </>
+              )}
+            </p>
+          </div>
+        }
+        notices={
+          <>
+            {!onboarded && <SetupRunway onboarding={me.onboarding} />}
+            <RiskBanner status={risk} />
+            <NewsAlert events={news?.events ?? []} />
+          </>
+        }
+      />
     </div>
   );
 }

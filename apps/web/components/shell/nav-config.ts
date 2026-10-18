@@ -39,24 +39,90 @@ export const ADMIN_ITEM: NavItem = {
   available: true,
 };
 
-export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, available: true, mobile: true },
-  { label: "Trades", href: "/trades", icon: CandlestickChart, available: true, mobile: true },
-  { label: "Journal", href: "/journal", icon: BookOpenText, available: true },
-  { label: "AI Coach", href: "/coach", icon: MessageSquareText, available: true, mobile: true },
-  { label: "Analytics", href: "/analytics", icon: BarChart3, available: true, mobile: true },
-  { label: "Lab", href: "/lab", icon: FlaskConical, available: true },
-  { label: "Setup Alerts", href: "/setups", icon: BellRing, available: true },
-  { label: "Live Markets", href: "/live", icon: Radio, available: true },
-  { label: "Trade Check", href: "/check", icon: ClipboardCheck, available: true },
-  { label: "Market Desk", href: "/desk", icon: Compass, available: true },
-  { label: "Market Flow", href: "/flow", icon: Waves, available: true },
-  { label: "Market Pulse", href: "/market", icon: Activity, available: true },
-  { label: "Reports", href: "/reports", icon: FileText, available: true },
-  { label: "News", href: "/news", icon: Newspaper, available: true },
-  { label: "Goals", href: "/goals", icon: Target, available: true },
-  { label: "Calculators", href: "/calculators", icon: Calculator, available: true },
-  { label: "Exchanges", href: "/exchanges", icon: PlugZap, available: true },
-  { label: "Settings", href: "/settings", icon: Settings, available: true },
-  { label: "Help", href: "/help", icon: CircleHelp, available: true },
+export interface NavGroup {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  items: NavItem[];
+}
+
+/**
+ * The app's folders. Dashboard stands alone; every other page sits in the folder it belongs to.
+ * Pages inside a folder show the folder's tabs at the top, so related pages are one click apart.
+ */
+export const NAV_HOME: NavItem = {
+  label: "Dashboard",
+  href: "/dashboard",
+  icon: LayoutDashboard,
+  available: true,
+  mobile: true,
+};
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "journal",
+    label: "Journal",
+    icon: BookOpenText,
+    items: [
+      { label: "Trades", href: "/trades", icon: CandlestickChart, available: true, mobile: true },
+      { label: "Journal", href: "/journal", icon: BookOpenText, available: true },
+      { label: "Analytics", href: "/analytics", icon: BarChart3, available: true, mobile: true },
+      { label: "Reports", href: "/reports", icon: FileText, available: true },
+      { label: "Goals", href: "/goals", icon: Target, available: true },
+    ],
+  },
+  {
+    id: "coach",
+    label: "Coach and tools",
+    icon: MessageSquareText,
+    items: [
+      { label: "AI Coach", href: "/coach", icon: MessageSquareText, available: true, mobile: true },
+      { label: "Strategy Lab", href: "/lab", icon: FlaskConical, available: true },
+      { label: "Setup Alerts", href: "/setups", icon: BellRing, available: true },
+      { label: "Calculators", href: "/calculators", icon: Calculator, available: true },
+    ],
+  },
+  {
+    id: "markets",
+    label: "Markets",
+    icon: Radio,
+    items: [
+      { label: "Live Charts", href: "/live", icon: Radio, available: true },
+      { label: "Trade Check", href: "/check", icon: ClipboardCheck, available: true },
+      { label: "Market Desk", href: "/desk", icon: Compass, available: true },
+      { label: "Market Flow", href: "/flow", icon: Waves, available: true },
+      { label: "Market Pulse", href: "/market", icon: Activity, available: true },
+      { label: "News", href: "/news", icon: Newspaper, available: true },
+    ],
+  },
+  {
+    id: "account",
+    label: "Account",
+    icon: Settings,
+    items: [
+      { label: "Exchanges", href: "/exchanges", icon: PlugZap, available: true },
+      { label: "Settings", href: "/settings", icon: Settings, available: true },
+      { label: "Help", href: "/help", icon: CircleHelp, available: true },
+    ],
+  },
 ];
+
+/** The folders for this user (admins also see Admin under Account). */
+export function navGroups(isAdmin: boolean): NavGroup[] {
+  return NAV_GROUPS.map((g) =>
+    g.id === "account" && isAdmin ? { ...g, items: [...g.items, ADMIN_ITEM] } : g,
+  );
+}
+
+/** Every page, flat, in menu order. */
+export const NAV_ITEMS: NavItem[] = [NAV_HOME, ...NAV_GROUPS.flatMap((g) => g.items)];
+
+export const isActivePath = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
+/** The folder holding the current page, if any. */
+export function groupOf(pathname: string, isAdmin = false): NavGroup | null {
+  return (
+    navGroups(isAdmin).find((g) => g.items.some((i) => isActivePath(pathname, i.href))) ?? null
+  );
+}

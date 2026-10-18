@@ -123,7 +123,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     id: "dashboard",
     question: "Can I customize the dashboard?",
     answer:
-      "Yes. Click “Customize” at the top of the Dashboard to show, hide or reorder cards. Hidden cards can be added back at any time.",
+      "Yes. Click “Customize” at the top of the Dashboard. Drag any widget by its handle to a new place (on a phone, press and hold the handle), choose its width, or hide it. “Add widgets” opens the library, sorted into Performance, Coach and discipline, Trading and Markets, where hidden widgets can be added back. Market widgets are short summaries; each links to its full page under Markets. Click “Save layout” and the same layout appears on every device.",
     keywords: "dashboard customize widgets cards hide show move rearrange layout",
     href: "/dashboard",
   },
@@ -259,6 +259,15 @@ export const HELP_TOPICS: HelpTopic[] = [
     keywords:
       "whale trades whales big orders liquidations liquidated longs shorts flow bias trend daily 4 hour 1 hour timeframe 1d 4h 1h bullish bearish",
     href: "/flow",
+  },
+  {
+    id: "menu-folders",
+    question: "How is the menu organised?",
+    answer:
+      "Dashboard stands on its own. Everything else sits in four folders: Journal (Trades, Journal, Analytics, Reports, Goals), Coach and tools (AI Coach, Strategy Lab, Setup Alerts, Calculators), Markets (Live Charts, Trade Check, Market Desk, Market Flow, Market Pulse, News) and Account (Exchanges, Settings, Help). Every page inside a folder shows the folder's tabs at the top, so related pages are one click apart. On a computer you can close folders you rarely use; the folder of the page you are on always stays open. On a phone, “More” lists every page by folder.",
+    keywords:
+      "menu folders navigation sidebar tabs where is find page markets journal coach account",
+    href: "/dashboard",
   },
   {
     id: "trade-check",

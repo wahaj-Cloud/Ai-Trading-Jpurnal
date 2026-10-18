@@ -288,9 +288,9 @@ export class MarketService {
   }
 
   /** The next high-impact US (or global) release, read live so a countdown never shows a past one. */
-  async nextEvent(): Promise<DeskEventDto | null> {
+  async nextEvent(now = new Date()): Promise<DeskEventDto | null> {
     const e = await this.prisma.client.economicEvent.findFirst({
-      where: { impact: "HIGH", currency: { in: ["USD", "ALL"] }, startsAt: { gt: new Date() } },
+      where: { impact: "HIGH", currency: { in: ["USD", "ALL"] }, startsAt: { gt: now } },
       orderBy: { startsAt: "asc" },
     });
     return e
