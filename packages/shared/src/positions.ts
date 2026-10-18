@@ -21,6 +21,8 @@ export interface PositionDto {
   entryPrice: string | null;
   exitPrice: string | null;
   quantity: string | null;
+  /** MetaTrader (Exness) size in lots, as MT4/MT5 shows it; null for crypto exchanges. */
+  lots: string | null;
   leverage: string | null;
   grossPnl: string | null;
   fees: string | null;
@@ -78,6 +80,8 @@ export interface OpenPositionDto {
   direction: "LONG" | "SHORT";
   /** Null when the exchange's contract size is unknown. */
   quantity: string | null;
+  /** MetaTrader (Exness) size in lots, as MT4/MT5 shows it; null for crypto exchanges. */
+  lots: string | null;
   entryPrice: string | null;
   markPrice: string | null;
   unrealizedPnl: string | null;

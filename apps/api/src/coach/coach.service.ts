@@ -15,6 +15,7 @@ import {
   markReviewPending,
   noteDto,
   planLimits,
+  psychologyForPeriod,
   reserveUsage,
   reviewDto,
   storedContext,
@@ -32,6 +33,7 @@ import type {
   Grade,
   HelpAnswerDto,
   HelpAskInput,
+  PsychologyReportDto,
   ReviewedTradeDto,
   StrategyInsightDto,
   TradeContextDto,
@@ -100,6 +102,10 @@ export class CoachService {
 
   async behaviour(userId: string, days: number): Promise<BehaviourSummaryDto> {
     return behaviourForPeriod(this.prisma.client, userId, await this.allowedDays(userId, days));
+  }
+
+  async psychology(userId: string, days: number): Promise<PsychologyReportDto> {
+    return psychologyForPeriod(this.prisma.client, userId, await this.allowedDays(userId, days));
   }
 
   /** Rules-based grade plus any stored AI review; null for trades that are not closed. */

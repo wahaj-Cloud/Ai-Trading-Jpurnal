@@ -327,6 +327,7 @@ export function toDto(p: PositionWithAccount, review?: Review): PositionDto {
     entryPrice: s(p.entryPrice),
     exitPrice: s(p.exitPrice),
     quantity: s(p.quantity),
+    lots: s(p.lots),
     leverage: s(p.leverage),
     grossPnl: s(p.grossPnl),
     fees: s(p.fees),

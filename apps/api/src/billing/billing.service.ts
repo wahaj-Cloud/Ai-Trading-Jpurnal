@@ -1,6 +1,12 @@
 import { planLimits } from "@atc/coach";
 import type { Prisma } from "@atc/db";
-import { type BillingDto, type PlanOfferDto, type PublicPlanDto, resolveLimits } from "@atc/shared";
+import {
+  type BillingDto,
+  type PlanOfferDto,
+  type PublicPlanDto,
+  resolveLimits,
+  subscriptionInForce,
+} from "@atc/shared";
 import {
   BadRequestException,
   Inject,
@@ -10,7 +16,13 @@ import {
 } from "@nestjs/common";
 import { ENV, type Env } from "../config/env.js";
 import { PrismaService } from "../prisma/prisma.service.js";
-import { PaddleApi, type PaddleEvent, type PaddleSubscription, STATUS } from "./paddle.js";
+import {
+  CheckoutClaims,
+  PaddleApi,
+  type PaddleEvent,
+  type PaddleSubscription,
+  STATUS,
+} from "./paddle.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LIVE = new Set(["ACTIVE", "TRIALING", "PAST_DUE"]);
@@ -29,6 +41,7 @@ export type EventOutcome =
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
   readonly paddle: PaddleApi | null;
+  private readonly claims: CheckoutClaims;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -37,6 +50,7 @@ export class BillingService {
     this.paddle = env.PADDLE_API_KEY
       ? new PaddleApi(env.PADDLE_API_KEY, env.PADDLE_ENVIRONMENT)
       : null;
+    this.claims = new CheckoutClaims(env.PADDLE_WEBHOOK_SECRET);
   }
 
   private planForPrice(priceId: string | undefined): "PRO" | "PREMIUM" | null {
@@ -57,7 +71,7 @@ export class BillingService {
     }));
   }
 
-  async billing(userId: string): Promise<BillingDto> {
+  async billing(userId: string): Promise<Omit<BillingDto, "crypto">> {
     const db = this.prisma.client;
     const [user, plans] = await Promise.all([
       db.user.findUniqueOrThrow({
@@ -67,7 +81,7 @@ export class BillingService {
       db.plan.findMany({ where: { isPublic: true }, orderBy: { sortOrder: "asc" } }),
     ]);
     const sub = user.subscription;
-    const live = sub && LIVE.has(sub.status);
+    const live = sub && subscriptionInForce(sub);
     const effective = live ? sub.plan : (plans.find((p) => p.code === "FREE") ?? sub?.plan);
     const offers: PlanOfferDto[] = plans.map((p) => ({
       code: p.code,
@@ -90,6 +104,7 @@ export class BillingService {
       checkoutEnabled: this.env.PADDLE_PRICES.length > 0,
       email: user.email,
       userId: user.id,
+      checkoutClaim: this.claims.sign(user.id),
     };
   }
 
@@ -120,7 +135,7 @@ export class BillingService {
     const s = event.data as PaddleSubscription;
     // Network lookup before the transaction: only needed to link a subscription we do not know yet.
     let customerEmail: string | null = null;
-    if (isSubscription && this.paddle && s?.id) {
+    if (isSubscription && this.paddle && s?.id && !this.signedClaim(s)) {
       const linked = await db.subscription.findUnique({
         where: { paddleSubscriptionId: s.id },
         select: { id: true },
@@ -151,7 +166,7 @@ export class BillingService {
               event.event_type,
               customerEmail,
             )
-          : { outcome: "IGNORED_TYPE" as const, userId: null };
+          : { outcome: "IGNORED_TYPE" as const, userId: await this.payerOf(tx, event.data) };
         await tx.billingEvent.update({
           where: { eventId: event.event_id },
           data: { outcome, userId },
@@ -165,6 +180,32 @@ export class BillingService {
     );
   }
 
+  /** The account a transaction belongs to (for the admin payments list); null when unknown. */
+  private async payerOf(tx: Prisma.TransactionClient, data: unknown): Promise<string | null> {
+    const t = data as {
+      subscription_id?: string | null;
+      custom_data?: { userId?: string; claim?: string } | null;
+    } | null;
+    if (t?.subscription_id) {
+      const row = await tx.subscription.findUnique({
+        where: { paddleSubscriptionId: t.subscription_id },
+        select: { userId: true },
+      });
+      if (row) return row.userId;
+    }
+    const id = t?.custom_data?.userId;
+    if (id && UUID.test(id) && this.claims.verify(id, t?.custom_data?.claim)) {
+      const user = await tx.user.findUnique({ where: { id }, select: { id: true } });
+      return user?.id ?? null;
+    }
+    return null;
+  }
+
+  private signedClaim(s: PaddleSubscription): boolean {
+    const id = s?.custom_data?.userId;
+    return Boolean(id && UUID.test(id) && this.claims.verify(id, s.custom_data?.claim));
+  }
+
   private async applySubscription(
     tx: Prisma.TransactionClient,
     s: PaddleSubscription,
@@ -174,6 +215,9 @@ export class BillingService {
   ): Promise<{ outcome: EventOutcome; userId: string | null }> {
     const claimed =
       s.custom_data?.userId && UUID.test(s.custom_data.userId) ? s.custom_data.userId : null;
+    // Signed by our server when the checkout was opened: proves which account is paying, so the
+    // customer may use any email at checkout.
+    const signed = claimed !== null && this.claims.verify(claimed, s.custom_data?.claim);
     const byId = await tx.subscription.findUnique({
       where: { paddleSubscriptionId: s.id },
       select: { userId: true },
@@ -212,8 +256,8 @@ export class BillingService {
       if (current.paddle_subscription_id && LIVE.has(current.status)) {
         return { outcome: "IGNORED_CONFLICT", userId };
       }
-      // Linking: the paying customer's email must be this user's.
-      if (this.paddle && customerEmail !== current.email.toLowerCase()) {
+      // Linking: the checkout must carry our signed claim, or the paying email must be this user's.
+      if (!signed && this.paddle && customerEmail !== current.email.toLowerCase()) {
         return { outcome: "IGNORED_CONFLICT", userId };
       }
       // Events of a subscription that is not (or no longer) linked cannot revive it once canceled.
@@ -241,6 +285,8 @@ export class BillingService {
             : null,
         cancelAtPeriodEnd: !canceled && s.scheduled_change?.action === "cancel",
         paddleEventAt: occurredAt,
+        // A card subscription replaces any crypto-prepaid period.
+        ...(canceled ? {} : { cryptoPaidUntil: null }),
       },
     });
     await tx.auditLog.create({

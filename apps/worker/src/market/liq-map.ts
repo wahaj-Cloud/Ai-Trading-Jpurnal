@@ -1,19 +1,10 @@
-import { buildLiquidationMap, type MapOiPoint } from "@atc/analytics";
 import type { Prisma, PrismaClient } from "@atc/db";
+import { type AdapterConfig, computeLiquidationMap } from "@atc/exchange-adapters";
 import {
-  type AdapterConfig,
-  fetchBinanceFlowCandles,
-  fetchBinanceOpenInterest,
-  fetchBybitOpenInterest,
-  fetchOkxOpenInterest,
-} from "@atc/exchange-adapters";
-import {
-  LIQ_MAP_SOURCES,
+  LIQ_MAP_STATUS_KEY,
   LIQ_MAP_SYMBOLS,
-  LIQ_MAP_WINDOW_SPEC,
-  type LiqMapSource,
+  type LiqMapRunStatus,
   type LiqMapWindow,
-  type LiquidationMapDto,
 } from "@atc/shared";
 import { log } from "../logger.js";
 
@@ -25,75 +16,6 @@ export interface LiqMapDeps {
   db: PrismaClient;
   config: AdapterConfig;
   now?: () => number;
-}
-
-const okxInstrument = (symbol: string) => `${symbol.replace(/USDT$/, "")}-USDT-SWAP`;
-
-/** Open interest from every exchange that lists the market; a missing one is skipped, not fatal. */
-async function openInterest(
-  config: AdapterConfig,
-  symbol: string,
-  window: LiqMapWindow,
-  from: number,
-  to: number,
-): Promise<{ series: Record<string, MapOiPoint[]>; sources: LiquidationMapDto["sources"] }> {
-  const { period } = LIQ_MAP_WINDOW_SPEC[window];
-  const fetchers: Record<LiqMapSource, () => Promise<MapOiPoint[]>> = {
-    BINANCE: () => fetchBinanceOpenInterest(symbol, period, from, to, config.binance),
-    BYBIT: () => fetchBybitOpenInterest(symbol, period, from, to, config.bybit),
-    OKX: () => fetchOkxOpenInterest(okxInstrument(symbol), period, from, to, config.okx),
-  };
-  const results = await Promise.all(
-    LIQ_MAP_SOURCES.map(async (exchange) => {
-      try {
-        const points = await fetchers[exchange]();
-        return { exchange, points, ok: points.length >= 2 };
-      } catch (err) {
-        log.warn("liquidation map: open interest unavailable", {
-          exchange,
-          symbol,
-          err: err instanceof Error ? err.message : String(err),
-        });
-        return { exchange, points: [] as MapOiPoint[], ok: false };
-      }
-    }),
-  );
-  return {
-    series: Object.fromEntries(results.filter((r) => r.ok).map((r) => [r.exchange, r.points])),
-    sources: results.map((r) => ({ exchange: r.exchange, ok: r.ok })),
-  };
-}
-
-export async function computeLiquidationMap(
-  config: AdapterConfig,
-  symbol: string,
-  window: LiqMapWindow,
-  now: number,
-): Promise<Omit<LiquidationMapDto, "symbol" | "window" | "computedAt"> | null> {
-  const spec = LIQ_MAP_WINDOW_SPEC[window];
-  const to = Math.floor(now / spec.bucketMs) * spec.bucketMs + spec.bucketMs - 1;
-  const from = to + 1 - spec.spanMs;
-  const [candles, oi] = await Promise.all([
-    fetchBinanceFlowCandles(symbol, spec.period, from, to, config.binance),
-    openInterest(config, symbol, window, from, to),
-  ]);
-  if (Object.keys(oi.series).length === 0) return null;
-  const map = buildLiquidationMap({ candles, oi: oi.series, bucketMs: spec.bucketMs });
-  if (!map) return null;
-  return {
-    start: map.start,
-    bucketMs: map.bucketMs,
-    count: map.count,
-    priceMin: map.priceMin,
-    priceMax: map.priceMax,
-    bins: map.bins,
-    cells: Buffer.from(map.cells).toString("base64"),
-    maxCellUsd: map.maxCellUsd,
-    clusters: map.clusters,
-    totalLongUsd: map.totalLongUsd,
-    totalShortUsd: map.totalShortUsd,
-    sources: oi.sources,
-  };
 }
 
 /**
@@ -123,6 +45,7 @@ export async function runLiquidationMaps(
   let maps = 0;
   let failed = 0;
   let next = 0;
+  const errors: LiqMapRunStatus["errors"] = [];
   await Promise.all(
     Array.from({ length: CONCURRENCY }, async () => {
       for (;;) {
@@ -130,10 +53,6 @@ export async function runLiquidationMaps(
         if (!job) return;
         try {
           const data = await computeLiquidationMap(deps.config, job.symbol, job.window, now);
-          if (!data) {
-            failed++;
-            continue;
-          }
           const computedAt = new Date(now);
           const json = data as unknown as Prisma.InputJsonValue;
           await deps.db.liquidationMap.upsert({
@@ -144,13 +63,28 @@ export async function runLiquidationMaps(
           maps++;
         } catch (err) {
           failed++;
-          log.warn("liquidation map failed", {
-            ...job,
-            err: err instanceof Error ? err.message : String(err),
-          });
+          const error = err instanceof Error ? err.message : String(err);
+          errors.push({ ...job, error: error.slice(0, 300) });
+          log.warn("liquidation map failed", { ...job, err: error });
         }
       }
     }),
   );
+  // The last run's outcome, so the app can say why a map is missing instead of waiting forever.
+  const status: LiqMapRunStatus = {
+    at: new Date(now).toISOString(),
+    maps,
+    failed,
+    errors: errors.slice(0, 30),
+  };
+  await deps.db.liquidationMap.upsert({
+    where: { symbol_window: LIQ_MAP_STATUS_KEY },
+    create: {
+      ...LIQ_MAP_STATUS_KEY,
+      data: status as unknown as Prisma.InputJsonValue,
+      computedAt: new Date(now),
+    },
+    update: { data: status as unknown as Prisma.InputJsonValue, computedAt: new Date(now) },
+  });
   return { maps, failed, ms: Date.now() - started };
 }

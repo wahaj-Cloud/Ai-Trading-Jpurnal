@@ -113,6 +113,7 @@ export class MetatraderHistorySource implements HistorySource {
         symbol: canonicalSymbol("EXNESS", p.symbol).symbol,
         direction: p.type === "POSITION_TYPE_SELL" ? "SHORT" : "LONG",
         quantity: size ? str(dec(p.volume).times(size)) : null,
+        lots: str(dec(p.volume)),
         entryPrice: p.openPrice > 0 ? str(dec(p.openPrice)) : null,
         markPrice: p.currentPrice && p.currentPrice > 0 ? str(dec(p.currentPrice)) : null,
         unrealizedPnl:
@@ -220,6 +221,7 @@ export function toRecord(positionId: string, list: DealRaw[]): ExchangePositionR
     entryPrice: vwap(ins),
     exitPrice: vwap(outs),
     quantity: contractSize ? str(lots.times(contractSize)) : null,
+    lots: str(lots),
     leverage: first.leverage ? String(first.leverage) : null,
     grossPnl: str(gross),
     fees: str(commission.neg()),

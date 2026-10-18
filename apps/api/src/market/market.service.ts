@@ -1,11 +1,32 @@
 import { planLimits } from "@atc/coach";
 import type { Prisma } from "@atc/db";
 import {
+  type AdapterConfig,
+  computeLiquidationMap,
+  type LiquidationMapData,
+} from "@atc/exchange-adapters";
+import {
+  alignmentNote,
+  DESK_FREE_SYMBOL,
+  DESK_NAMES,
+  DESK_SYMBOLS,
+  type DeskAlignmentDto,
+  type DeskEventDto,
+  type DeskQuery,
+  type DeskSymbol,
+  deskKey,
+  deskSymbolOf,
   LIQ_MAP_FREE_SYMBOL,
+  LIQ_MAP_STATUS_KEY,
   LIQ_MAP_SYMBOLS,
+  type LiqMapRunStatus,
+  type LiqMapWindow,
   type LiquidationMapDto,
   type LiquidationMapQuery,
   type LiquidationMapResponse,
+  type MarketDeskDto,
+  type MarketDeskResponse,
+  type MarketOverviewDto,
   type MarketPulseDto,
   type MarketPulseQuery,
   PULSE_LINKS,
@@ -19,8 +40,12 @@ import {
   UNLIMITED,
   USD_SETTLEMENT_ASSETS,
 } from "@atc/shared";
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ENV, type Env } from "../config/env.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+
+/** A map older than this means the worker has stopped updating it: rebuild on request. */
+const LIQ_MAP_STALE_MS = 20 * 60_000;
 
 type Row = Prisma.MarketCorrelationGetPayload<object>;
 const LINK_CODES = Object.keys(PULSE_LINKS) as PulseLink[];
@@ -42,7 +67,21 @@ function rowDto(r: Row, corr30d: number | undefined): PulseRowDto {
 /** Market Pulse: read-only views of the hourly table the worker writes. */
 @Injectable()
 export class MarketService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly log = new Logger(MarketService.name);
+  /** One on-demand build per market and window at a time; later requests share it. */
+  private readonly building = new Map<string, Promise<LiquidationMapData>>();
+  private readonly adapterConfig: AdapterConfig;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(ENV) env: Env,
+  ) {
+    this.adapterConfig = {
+      binance: { futuresBaseUrl: env.BINANCE_FUTURES_BASE_URL },
+      bybit: { baseUrl: env.BYBIT_BASE_URL },
+      okx: { baseUrl: env.OKX_BASE_URL },
+    };
+  }
 
   async pulse(userId: string, q: MarketPulseQuery): Promise<MarketPulseDto> {
     const limits = await planLimits(this.prisma.client, userId);
@@ -185,16 +224,183 @@ export class MarketService {
     const row = await this.prisma.client.liquidationMap.findUnique({
       where: { symbol_window: { symbol: q.symbol, window: q.window } },
     });
-    if (!row) return { status: "unavailable", reason: "pending" };
-    const data = row.data as unknown as Omit<LiquidationMapDto, "symbol" | "window" | "computedAt">;
+    const fresh = row && Date.now() - row.computedAt.getTime() < LIQ_MAP_STALE_MS;
+    if (row && fresh) return this.mapResponse(q.symbol, q.window, row.data, row.computedAt);
+
+    // No recent map from the worker: build it now, save it for everyone, and say why if we cannot.
+    try {
+      const data = await this.buildLiquidationMap(q.symbol, q.window);
+      return this.mapResponse(q.symbol, q.window, data, new Date());
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      this.log.warn(`liquidation map ${q.symbol} ${q.window} failed: ${detail}`);
+      // An older map is better than none.
+      if (row) return this.mapResponse(q.symbol, q.window, row.data, row.computedAt);
+      const status = await this.prisma.client.liquidationMap.findUnique({
+        where: { symbol_window: LIQ_MAP_STATUS_KEY },
+      });
+      const run = status?.data as unknown as LiqMapRunStatus | undefined;
+      return {
+        status: "unavailable",
+        reason: "failed",
+        detail: run
+          ? `${detail}. Background updates last ran ${run.at} (${run.maps} built, ${run.failed} failed).`
+          : `${detail}. Background updates have not run yet.`,
+      };
+    }
+  }
+
+  private buildLiquidationMap(symbol: string, window: LiqMapWindow): Promise<LiquidationMapData> {
+    const key = `${symbol}:${window}`;
+    const pending = this.building.get(key);
+    if (pending) return pending;
+    const job = (async () => {
+      const now = Date.now();
+      const data = await computeLiquidationMap(this.adapterConfig, symbol, window, now);
+      const json = data as unknown as Prisma.InputJsonValue;
+      const computedAt = new Date(now);
+      await this.prisma.client.liquidationMap.upsert({
+        where: { symbol_window: { symbol, window } },
+        create: { symbol, window, data: json, computedAt },
+        update: { data: json, computedAt },
+      });
+      return data;
+    })().finally(() => this.building.delete(key));
+    this.building.set(key, job);
+    return job;
+  }
+
+  private mapResponse(
+    symbol: string,
+    window: LiqMapWindow,
+    data: unknown,
+    computedAt: Date,
+  ): LiquidationMapResponse {
     return {
       status: "ok",
       map: {
-        ...data,
-        symbol: row.symbol,
-        window: q.window,
-        computedAt: row.computedAt.toISOString(),
+        ...(data as LiquidationMapData),
+        symbol,
+        window,
+        computedAt: computedAt.toISOString(),
       },
+    };
+  }
+
+  /** The next high-impact US (or global) release, read live so a countdown never shows a past one. */
+  async nextEvent(): Promise<DeskEventDto | null> {
+    const e = await this.prisma.client.economicEvent.findFirst({
+      where: { impact: "HIGH", currency: { in: ["USD", "ALL"] }, startsAt: { gt: new Date() } },
+      orderBy: { startsAt: "asc" },
+    });
+    return e
+      ? {
+          title: e.title,
+          currency: e.currency,
+          impact: "HIGH",
+          startsAt: e.startsAt.toISOString(),
+          actual: e.actual,
+          forecast: e.forecast,
+          previous: e.previous,
+        }
+      : null;
+  }
+
+  /**
+   * Market Context Desk for one market, plus how the trader's open positions on desk markets line
+   * up with their market's drivers. Free plans see Bitcoin; Pro and Premium every desk market.
+   */
+  async desk(userId: string, q: DeskQuery): Promise<MarketDeskResponse> {
+    const limits = await planLimits(this.prisma.client, userId);
+    const allowed: DeskSymbol[] = limits.marketDesk === 1 ? [...DESK_SYMBOLS] : [DESK_FREE_SYMBOL];
+    if (!allowed.includes(q.symbol)) return { status: "locked", allowed };
+    const [snaps, open, next] = await Promise.all([
+      this.prisma.client.marketSnapshot.findMany({ where: { key: { in: allowed.map(deskKey) } } }),
+      this.prisma.client.openPosition.findMany({
+        where: { userId },
+        select: { symbol: true, direction: true },
+        orderBy: { symbol: "asc" },
+        take: 50,
+      }),
+      this.nextEvent(),
+    ]);
+    const by = new Map(snaps.map((s) => [s.key, s.data as unknown as MarketDeskDto]));
+    const found = by.get(deskKey(q.symbol));
+    if (!found) return { status: "unavailable", reason: "pending", allowed };
+    const desk: MarketDeskDto = { ...found, nextEvent: next };
+    const now = Date.now();
+    const alignment: DeskAlignmentDto[] = [];
+    for (const p of open) {
+      const symbol = deskSymbolOf(p.symbol);
+      const d = symbol ? by.get(deskKey(symbol)) : undefined;
+      if (!symbol || !d) continue;
+      const mine = p.direction === "LONG" ? "up" : "down";
+      const counts = {
+        with: d.drivers.filter((x) => x.lean === mine).length,
+        against: d.drivers.filter((x) => x.lean !== mine && x.lean !== "neutral").length,
+        neutral: d.drivers.filter((x) => x.lean === "neutral").length,
+      };
+      const base = { symbol, positionSymbol: p.symbol, direction: p.direction, ...counts };
+      alignment.push({ ...base, note: alignmentNote(base, DESK_NAMES[symbol], next, now) });
+    }
+    return { status: "ok", desk, alignment, allowed };
+  }
+
+  /** Dashboard market overview (CoinMarketCap), as last saved by the worker. Same for everyone. */
+  async overview(): Promise<MarketOverviewDto> {
+    const since = new Date(Date.now() - 7 * 86_400_000);
+    const [snaps, points] = await Promise.all([
+      this.prisma.client.marketSnapshot.findMany({
+        where: { key: { in: ["global", "fear_greed", "altcoin_season"] } },
+      }),
+      this.prisma.client.marketCapPoint.findMany({
+        where: { ts: { gte: since } },
+        orderBy: { ts: "asc" },
+      }),
+    ]);
+    const by = new Map(snaps.map((s) => [s.key, s.data as Record<string, unknown>]));
+    const g = by.get("global") as
+      | {
+          totalMarketCapUsd: number;
+          totalVolume24hUsd: number | null;
+          btcDominance: number | null;
+          change24hPct: number | null;
+          updatedAt: string;
+        }
+      | undefined;
+    const fg = by.get("fear_greed") as
+      | { value: number; label: string; updatedAt: string }
+      | undefined;
+    const alt = by.get("altcoin_season") as { value: number; updatedAt: string } | undefined;
+
+    // One point per hour keeps the mini chart light; the newest reading is always included.
+    const hourly = new Map<number, { t: number; usd: number }>();
+    for (const p of points) {
+      const t = p.ts.getTime();
+      hourly.set(Math.floor(t / 3_600_000), { t, usd: Number(p.totalMarketCap) });
+    }
+    const sparkline = [...hourly.values()];
+    let change = g?.change24hPct ?? null;
+    if (change === null && g && sparkline.length > 0) {
+      const dayAgo = Date.now() - 86_400_000;
+      const ref = sparkline.find((p) => p.t >= dayAgo - 3_600_000);
+      if (ref && ref.t <= dayAgo + 3_600_000 && ref.usd > 0) {
+        change = (g.totalMarketCapUsd / ref.usd - 1) * 100;
+      }
+    }
+    return {
+      marketCap: g
+        ? {
+            usd: g.totalMarketCapUsd,
+            change24hPct: change,
+            volume24hUsd: g.totalVolume24hUsd,
+            btcDominance: g.btcDominance,
+            sparkline,
+            updatedAt: g.updatedAt,
+          }
+        : null,
+      fearGreed: fg ?? null,
+      altcoinSeason: alt ?? null,
     };
   }
 }

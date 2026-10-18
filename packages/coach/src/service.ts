@@ -10,6 +10,7 @@ import {
   type ConversationDto,
   type Grade,
   type PlanLimits,
+  type PsychologyReportDto,
   type TradeReviewDto,
   UNLIMITED,
 } from "@atc/shared";
@@ -26,6 +27,7 @@ import {
   usageCount,
   userTimeZone,
 } from "./data.js";
+import { weekStart } from "./dates.js";
 import { edgeFacts, periodFacts, recentTradesFacts, tradeFacts } from "./facts.js";
 import { type GradeResult, gradeTrade } from "./grade.js";
 import { AiRequestError, AiUnavailableError, type CoachModel } from "./model.js";
@@ -40,6 +42,7 @@ import {
   type TradeReviewOutput,
   tradeReviewOutput,
 } from "./prompts.js";
+import { psychologyFact, psychologyReport } from "./psychology.js";
 import type { CoachTrade } from "./types.js";
 
 export interface CoachDeps {
@@ -400,13 +403,6 @@ function noteRange(kind: "DAILY" | "WEEKLY", period: string, timeZone: string) {
   };
 }
 
-/** Monday of the week containing `day` (YYYY-MM-DD). */
-export function weekStart(day: string): string {
-  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
-  const weekday = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
-  return addDays(day, -weekday);
-}
-
 type NoteRow = Prisma.CoachNoteGetPayload<object>;
 
 export function noteDto(row: NoteRow): CoachNoteDto {
@@ -546,6 +542,36 @@ export async function behaviourForPeriod(
   return behaviourSummary(detection, trades, { from: fromDay, to: today });
 }
 
+/**
+ * Psychology report for the last `days` days. Detection runs once over the 8-week trend plus the
+ * period (whichever is longer), with the usual baseline before it.
+ */
+export async function psychologyForPeriod(
+  db: PrismaClient,
+  userId: string,
+  days: number,
+  now = new Date(),
+): Promise<PsychologyReportDto> {
+  const timeZone = await userTimeZone(db, userId);
+  const today = localParts(now, timeZone).date;
+  const fromDay = addDays(today, 1 - days);
+  const trendStart = addDays(weekStart(today), -7 * 7);
+  const detectFromDay = fromDay < trendStart ? fromDay : trendStart;
+  const detectFrom = startOfLocalDay(detectFromDay, timeZone);
+  const to = startOfLocalDay(addDays(today, 1), timeZone);
+  const trades = await loadCoachTrades(db, userId, {
+    from: new Date(detectFrom.getTime() - BASELINE_DAYS * DAY_MS),
+  });
+  const detection = detectBehaviours(trades, { timeZone, from: detectFrom, to });
+  return psychologyReport(trades, detection, {
+    timeZone,
+    from: startOfLocalDay(fromDay, timeZone),
+    to,
+    fromDay,
+    toDay: today,
+  });
+}
+
 // ─── Chat ───
 
 export async function coachStatus(deps: CoachDeps, userId: string): Promise<CoachStatusDto> {
@@ -618,6 +644,15 @@ async function chatFacts(deps: CoachDeps, userId: string, timeZone: string): Pro
       null,
     ),
     periodFacts(`LAST 30 DAYS from ${from30}`, report(last30), detection.flags, null),
+    psychologyFact(
+      psychologyReport(trades, detection, {
+        timeZone,
+        from: startOfLocalDay(from30, timeZone),
+        to: startOfLocalDay(tomorrow, timeZone),
+        fromDay: from30,
+        toDay: today,
+      }),
+    ) ?? "",
     recentTradesFacts(last30, timeZone, 20),
     edgeFacts(trades, await usesSetups(deps.db, userId)),
     notes.length
@@ -732,6 +767,7 @@ export async function getConversation(
 }
 
 export type { Grade };
+export { weekStart };
 
 /** Whether the trader has ever saved a setup (planned vs unplanned only means something then). */
 async function usesSetups(db: CoachDeps["db"], userId: string): Promise<boolean> {

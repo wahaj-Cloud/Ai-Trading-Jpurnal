@@ -43,3 +43,18 @@ describe("analytics formatting", () => {
     expect([formatR(2), formatR(-1.5), formatR(0)]).toEqual(["+2.0R", "−1.5R", "0.0R"]);
   });
 });
+
+describe("formatSize", () => {
+  it("shows lots for MetaTrader positions and units otherwise", async () => {
+    const { formatSize } = await import("./format");
+    expect(formatSize({ quantity: "10", lots: "0.1", sizeAsset: "XAU" })).toEqual({
+      value: "0.10",
+      unit: "lots",
+    });
+    expect(formatSize({ quantity: "100", lots: "1", sizeAsset: "XAU" })).toEqual({
+      value: "1.00",
+      unit: "lot",
+    });
+    expect(formatSize({ quantity: "0.25", lots: null, sizeAsset: "BTC" }).unit).toBe("BTC");
+  });
+});

@@ -114,9 +114,11 @@ const pos = (openedMsAgo, holdMin, netPnl, qty = "0.01") => {
   });
 };
 // Yesterday: a loss, then a double-size re-entry 3 minutes later.
+// Anchored to yesterday 12:00 UTC so the test passes at any time of day.
 const DAY = 86_400_000;
-const loss = await pos(DAY + 60 * MIN, 30, "-50");
-const revenge = await pos(DAY + 27 * MIN, 20, "-80", "0.02");
+const yNoon = Math.floor((now - DAY) / DAY) * DAY + 12 * 3_600_000;
+const loss = await pos(now - yNoon, 30, "-50");
+const revenge = await pos(now - (yNoon + 33 * MIN), 20, "-80", "0.02");
 
 // 1. Rules-based grade and flags, available without any AI call.
 let review = await coach.tradeReview(alice.id, revenge.id);
@@ -290,6 +292,15 @@ assert.equal((await offline.tradeReview(alice.id, loss.id)).status, "UNAVAILABLE
 const behaviour = await offline.behaviour(alice.id, 30);
 assert.ok(behaviour.costByBehaviour.some((c) => c.code === "REVENGE"));
 console.log("✓ AI switched off: clear 'unavailable', behaviour insights still computed");
+
+// 10. Psychology report: the revenge trade is taxed and the chat sees the score.
+const psych = await offline.psychology(alice.id, 30);
+assert.ok(psych.trades >= 2);
+assert.ok(psych.tax && Number(psych.tax.netPnl) < 0, "flagged trades lost money");
+assert.ok(psych.byHabit.some((h) => h.code === "REVENGE"));
+assert.equal(psych.trend.length, 8);
+assert.match(system, /Psychology|Discipline score|Psychological tax/);
+console.log("✓ psychology report: tax from flagged trades, habits, 8-week trend; facts in chat");
 
 await db.$disconnect();
 console.log("All AI coach integration checks passed");

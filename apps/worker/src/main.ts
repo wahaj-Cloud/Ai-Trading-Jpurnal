@@ -9,7 +9,13 @@ import {
   MetaApiClient,
   nativeSymbol,
 } from "@atc/exchange-adapters";
-import { checkRisk, notify, ResendSender, runScheduledNotifications } from "@atc/notify";
+import {
+  checkRisk,
+  notify,
+  ResendSender,
+  runCryptoRenewals,
+  runScheduledNotifications,
+} from "@atc/notify";
 import {
   AI_QUEUE,
   type AiJobData,
@@ -31,7 +37,11 @@ import { queueAutoReviews, scheduleCoachNotes } from "./ai/schedule.js";
 import { processBacktest } from "./backtest/process.js";
 import { loadEnv } from "./env.js";
 import { log } from "./logger.js";
+import { runMarketContext, runMarketHistory } from "./market/context.js";
+import { runMarketDesk } from "./market/desk.js";
+import { startFlowCollector } from "./market/flow-collector.js";
 import { runLiquidationMaps } from "./market/liq-map.js";
+import { runMarketOverview } from "./market/overview.js";
 import { runMarketPulse } from "./market/pulse.js";
 import { initMonitoring } from "./monitoring.js";
 import { startLiveNews } from "./news/live.js";
@@ -220,12 +230,17 @@ async function main(): Promise<void> {
     ENGAGEMENT_QUEUE,
     async () => {
       // Each step is isolated: a failure in one never skips the other.
-      const [sent, notes, rewrapped, cleaned] = await Promise.allSettled([
+      const [sent, notes, rewrapped, cleaned, renewals] = await Promise.allSettled([
         runScheduledNotifications(notifyDeps),
         model.enabled ? scheduleCoachNotes(db, aiQueue) : Promise.resolve(0),
         rewrapCredentials(db, vault, env.CREDENTIAL_ACTIVE_KEY_ID),
         cleanupMetatrader(db, metaapi),
+        runCryptoRenewals(notifyDeps),
       ]);
+      if (renewals.status === "rejected")
+        log.error("crypto renewals failed", { err: renewals.reason });
+      else if (renewals.value.reminded + renewals.value.ended > 0)
+        log.info("crypto renewals", renewals.value);
       if (rewrapped.status === "rejected")
         log.error("credential re-wrap failed", { err: rewrapped.reason });
       if (cleaned.status === "rejected")
@@ -276,9 +291,90 @@ async function main(): Promise<void> {
   } else {
     await market.removeJobScheduler("liquidation-maps");
   }
+  if (env.MARKET_OVERVIEW_ENABLED) {
+    await market.upsertJobScheduler(
+      "market-overview",
+      { pattern: "*/10 * * * *" },
+      { name: "market-overview", opts: { removeOnComplete: true, removeOnFail: 50 } },
+    );
+    await market.add(
+      "market-overview",
+      {},
+      { jobId: `market-overview-boot-${Date.now()}`, removeOnComplete: true, removeOnFail: true },
+    );
+  } else {
+    await market.removeJobScheduler("market-overview");
+  }
+  if (env.MARKET_DESK_ENABLED) {
+    // Minutes 2, 17, 32, 47: just after the liquidation maps and the market overview refresh.
+    await market.upsertJobScheduler(
+      "market-desk",
+      { pattern: "2-59/15 * * * *" },
+      { name: "market-desk", opts: { removeOnComplete: true, removeOnFail: 50 } },
+    );
+    await market.add(
+      "market-desk",
+      {},
+      {
+        jobId: `market-desk-boot-${Date.now()}`,
+        // Give the first liquidation maps and mood readings time to land.
+        delay: 90_000,
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    );
+  } else {
+    await market.removeJobScheduler("market-desk");
+  }
+  if (env.MARKET_CONTEXT_ENABLED) {
+    // Minutes 7, 22, 37, 52: after the desk. History hourly at minute 9.
+    await market.upsertJobScheduler(
+      "market-context",
+      { pattern: "7-59/15 * * * *" },
+      { name: "market-context", opts: { removeOnComplete: true, removeOnFail: 50 } },
+    );
+    await market.upsertJobScheduler(
+      "market-history",
+      { pattern: "9 * * * *" },
+      { name: "market-history", opts: { removeOnComplete: true, removeOnFail: 50 } },
+    );
+    for (const name of ["market-context", "market-history"])
+      await market.add(
+        name,
+        {},
+        { jobId: `${name}-boot-${Date.now()}`, removeOnComplete: true, removeOnFail: true },
+      );
+  } else {
+    await market.removeJobScheduler("market-context");
+    await market.removeJobScheduler("market-history");
+  }
   const marketWorker = new Worker(
     MARKET_QUEUE,
     async (job) => {
+      if (job.name === "market-context") {
+        const res = await runMarketContext({
+          db,
+          config: adapterConfig,
+          fredApiKey: env.FRED_API_KEY,
+        });
+        log.info("market context updated", res);
+        return;
+      }
+      if (job.name === "market-history") {
+        const res = await runMarketHistory({ db, config: adapterConfig });
+        log.info("market history updated", res);
+        return;
+      }
+      if (job.name === "market-desk") {
+        const res = await runMarketDesk({ db, config: adapterConfig, model });
+        log.info("market desk updated", res);
+        return;
+      }
+      if (job.name === "market-overview") {
+        const res = await runMarketOverview({ db, cmc: { apiKey: env.CMC_API_KEY } });
+        if (res.failed.length > 0) log.warn("market overview partly updated", res);
+        return;
+      }
       if (job.name === "liquidation-maps") {
         const res = await runLiquidationMaps(marketDeps);
         log.info("liquidation maps updated", res);
@@ -326,7 +422,7 @@ async function main(): Promise<void> {
   backtestWorker.on("error", onError("backtest worker"));
   market.on("error", onError("market queue"));
   setupScan.on("error", onError("setup queue"));
-  marketWorker.on("failed", (_job, err) => log.warn("market pulse failed", { err }));
+  marketWorker.on("failed", (job, err) => log.warn("market job failed", { job: job?.name, err }));
   setupWorker.on("failed", (_job, err) => log.warn("setup scan failed", { err }));
   syncQueue.on("error", onError("sync queue"));
   aiQueue.on("error", onError("ai queue"));
@@ -342,11 +438,21 @@ async function main(): Promise<void> {
     ? startOfficialWatcher({ key: env.BLS_API_KEY, db, redis })
     : null;
 
+  const flow = env.MARKET_FLOW_ENABLED ? startFlowCollector({ db, redis }) : null;
+
   log.info("worker started", {
+    marketFlow: flow ? "on" : "off",
     liveNews: liveNews ? "on" : "off",
     officialNews: official ? "on" : "off",
     marketPulse: env.MARKET_PULSE_ENABLED ? "on" : "off",
     liquidationMaps: env.LIQ_MAP_ENABLED ? "on" : "off",
+    marketDesk: env.MARKET_DESK_ENABLED ? "on" : "off",
+    marketContext: env.MARKET_CONTEXT_ENABLED ? (env.FRED_API_KEY ? "on" : "on, no macro") : "off",
+    marketOverview: env.MARKET_OVERVIEW_ENABLED
+      ? env.CMC_API_KEY
+        ? "on (key)"
+        : "on (keyless)"
+      : "off",
     ai: model.enabled ? env.AI_FAST_MODEL : "off",
     concurrency: env.SYNC_CONCURRENCY,
     intervalMinutes: env.SYNC_INTERVAL_MINUTES,
@@ -356,6 +462,7 @@ async function main(): Promise<void> {
     log.info("worker stopping", { signal });
     liveNews?.stop();
     official?.stop();
+    await flow?.stop();
     // Let running syncs finish their current step; cursors make any unfinished work resumable.
     await Promise.allSettled([
       syncWorker.close(),

@@ -31,6 +31,8 @@ export const planLimitsSchema = z.object({
   marketPulseAllWindows: z.number().int().min(0).max(1).optional(),
   /** Estimated liquidation map: 0 = Bitcoin only (preview), 1 = every supported market. */
   liquidationMap: z.number().int().min(0).max(1).optional(),
+  /** Market Context Desk: 0 = Bitcoin only, 1 = every desk market. */
+  marketDesk: z.number().int().min(0).max(1).optional(),
 });
 export type StoredPlanLimits = z.infer<typeof planLimitsSchema>;
 export type PlanLimits = Required<StoredPlanLimits>;
@@ -46,6 +48,55 @@ export const LIST_PRICE_USD: Record<Exclude<PlanCodeId, "ENTERPRISE">, number> =
   PRO: 15,
   PREMIUM: 25,
 };
+
+type PaidPlan = "PRO" | "PREMIUM";
+type BillingInterval = "month" | "year";
+
+/** Yearly list prices: two months free (12 months for the price of 10). */
+export const LIST_PRICE_YEARLY_USD: Record<Exclude<PlanCodeId, "ENTERPRISE">, number> = {
+  FREE: 0,
+  PRO: 150,
+  PREMIUM: 250,
+};
+export const YEARLY_MONTHS_FREE = 2;
+
+/** Percentage saved by paying yearly instead of monthly (17 for two months free). */
+export function yearlySavingPct(monthly: number, yearly: number): number {
+  return monthly > 0 ? Math.round((1 - yearly / (monthly * 12)) * 100) : 0;
+}
+
+/** Crypto has no auto-renewal: each payment buys this many days. */
+export const CRYPTO_PERIOD_DAYS: Record<BillingInterval, number> = { month: 30, year: 365 };
+export const cryptoPriceUsd = (plan: PaidPlan, interval: BillingInterval): number =>
+  interval === "year" ? LIST_PRICE_YEARLY_USD[plan] : LIST_PRICE_USD[plan];
+
+/**
+ * New crypto paid-until after buying `interval` of `plan`. Time left on the same plan is kept and
+ * extended; time left on another paid plan is converted at its value (e.g. 10 days of Pro at $15
+ * become 6 days of Premium at $25), so nothing paid is lost on an upgrade or a downgrade.
+ */
+export function nextCryptoPaidUntil(input: {
+  now: Date;
+  currentPlan: string;
+  currentUntil: Date | null;
+  plan: PaidPlan;
+  interval: BillingInterval;
+}): Date {
+  const { now, currentPlan, currentUntil, plan, interval } = input;
+  let start = now.getTime();
+  if (
+    currentUntil &&
+    currentUntil.getTime() > start &&
+    (currentPlan === "PRO" || currentPlan === "PREMIUM")
+  ) {
+    const left = currentUntil.getTime() - start;
+    start +=
+      currentPlan === plan
+        ? left
+        : Math.floor((left * LIST_PRICE_USD[currentPlan]) / LIST_PRICE_USD[plan]);
+  }
+  return new Date(start + CRYPTO_PERIOD_DAYS[interval] * 86_400_000);
+}
 
 /**
  * Each plan's monthly AI budget stays well under a quarter of its price, the main cost that grows
@@ -71,6 +122,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketPulseCoins: 20,
     marketPulseAllWindows: 0,
     liquidationMap: 0,
+    marketDesk: 0,
   },
   PRO: {
     aiBudgetUsd: 3,
@@ -83,6 +135,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketPulseCoins: UNLIMITED,
     marketPulseAllWindows: 1,
     liquidationMap: 1,
+    marketDesk: 1,
   },
   PREMIUM: {
     aiBudgetUsd: 7,
@@ -95,6 +148,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketPulseCoins: UNLIMITED,
     marketPulseAllWindows: 1,
     liquidationMap: 1,
+    marketDesk: 1,
   },
   ENTERPRISE: {
     aiBudgetUsd: UNLIMITED,
@@ -107,6 +161,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketPulseCoins: UNLIMITED,
     marketPulseAllWindows: 1,
     liquidationMap: 1,
+    marketDesk: 1,
   },
 };
 

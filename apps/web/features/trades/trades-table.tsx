@@ -8,6 +8,7 @@ import {
   formatDuration,
   formatNumber,
   formatPnl,
+  formatSize,
   isCoinAsset,
   pnlTone,
 } from "./format";
@@ -157,8 +158,8 @@ export function TradesTable({
                 {!compact && (
                   <>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
-                      {formatNumber(p.quantity)}{" "}
-                      <span className="text-ink-faint">{p.sizeAsset}</span>
+                      {formatSize(p).value}{" "}
+                      <span className="text-ink-faint">{formatSize(p).unit}</span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       {formatNumber(p.entryPrice)}

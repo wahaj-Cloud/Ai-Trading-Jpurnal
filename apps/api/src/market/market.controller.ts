@@ -1,12 +1,29 @@
 import {
+  type DeskEventDto,
+  type DeskQuery,
+  deskQuerySchema,
+  type FlowFeedPage,
+  type FlowFeedQuery,
+  type FlowSummaryDto,
+  type FlowSummaryQuery,
+  flowFeedQuerySchema,
+  flowSummaryQuerySchema,
+  type LiquidationDto,
   type LiquidationMapQuery,
   type LiquidationMapResponse,
   liquidationMapQuerySchema,
+  type MarketBiasDto,
+  type MarketDeskResponse,
+  type MarketOverviewDto,
   type MarketPulseDto,
   type MarketPulseQuery,
   marketPulseQuerySchema,
   type PulseMyTradesDto,
   type PulseSymbolDto,
+  type TradeCheckQuery,
+  type TradeCheckResponse,
+  tradeCheckQuerySchema,
+  type WhaleTradeDto,
 } from "@atc/shared";
 import { Controller, Get, Module, Param, Query } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
@@ -14,7 +31,9 @@ import { z } from "zod";
 import { CurrentUser } from "../auth/decorators.js";
 import type { AuthenticatedUser } from "../common/request.types.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
+import { FlowService } from "./flow.service.js";
 import { MarketService } from "./market.service.js";
+import { TradeCheckService } from "./trade-check.service.js";
 
 const symbolParam = z
   .string()
@@ -24,7 +43,52 @@ const symbolParam = z
 
 @Controller({ path: "market", version: "1" })
 export class MarketController {
-  constructor(private readonly market: MarketService) {}
+  constructor(
+    private readonly market: MarketService,
+    private readonly flow: FlowService,
+    private readonly tradeCheck: TradeCheckService,
+  ) {}
+
+  @Get("check")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  check(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(tradeCheckQuerySchema)) q: TradeCheckQuery,
+  ): Promise<TradeCheckResponse> {
+    return this.tradeCheck.check(user.id, q);
+  }
+
+  @Get("flow")
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  flowSummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(flowSummaryQuerySchema)) q: FlowSummaryQuery,
+  ): Promise<FlowSummaryDto> {
+    return this.flow.summary(user.id, q);
+  }
+
+  @Get("flow/whales")
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  whales(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(flowFeedQuerySchema)) q: FlowFeedQuery,
+  ): Promise<FlowFeedPage<WhaleTradeDto>> {
+    return this.flow.whales(user.id, q);
+  }
+
+  @Get("flow/liquidations")
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  liquidations(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(flowFeedQuerySchema)) q: FlowFeedQuery,
+  ): Promise<FlowFeedPage<LiquidationDto>> {
+    return this.flow.liquidations(user.id, q);
+  }
+
+  @Get("bias")
+  bias(@CurrentUser() user: AuthenticatedUser): Promise<MarketBiasDto> {
+    return this.flow.bias(user.id);
+  }
 
   @Get("pulse")
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
@@ -33,6 +97,25 @@ export class MarketController {
     @Query(new ZodValidationPipe(marketPulseQuerySchema)) q: MarketPulseQuery,
   ): Promise<MarketPulseDto> {
     return this.market.pulse(user.id, q);
+  }
+
+  @Get("overview")
+  overview(): Promise<MarketOverviewDto> {
+    return this.market.overview();
+  }
+
+  @Get("desk")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  desk(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(deskQuerySchema)) q: DeskQuery,
+  ): Promise<MarketDeskResponse> {
+    return this.market.desk(user.id, q);
+  }
+
+  @Get("next-event")
+  async nextEvent(): Promise<{ event: DeskEventDto | null }> {
+    return { event: await this.market.nextEvent() };
   }
 
   @Get("liquidation-map")
@@ -58,5 +141,8 @@ export class MarketController {
   }
 }
 
-@Module({ controllers: [MarketController], providers: [MarketService] })
+@Module({
+  controllers: [MarketController],
+  providers: [MarketService, FlowService, TradeCheckService],
+})
 export class MarketModule {}

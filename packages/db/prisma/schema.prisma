@@ -67,6 +67,7 @@ model User {
   tradeReviews     TradeReview[]
   tradeContexts    TradeContext[]
   coachNotes       CoachNote[]
+  cryptoPayments   CryptoPayment[]
   conversations    CoachConversation[]
   riskLimit        RiskLimit?
   goals            Goal[]
@@ -125,6 +126,8 @@ model Subscription {
   paddleEventAt        DateTime?          @map("paddle_event_at") @db.Timestamptz(3)
   /// Set by an admin: the plan was granted manually and billing events must not override it.
   manualPlan           Boolean            @default(false) @map("manual_plan")
+  /// Paid with crypto (no auto-renewal): the plan lapses to Free after this time.
+  cryptoPaidUntil      DateTime?          @map("crypto_paid_until") @db.Timestamptz(3)
   createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -366,6 +369,8 @@ model Position {
   entryPrice        Decimal?          @map("entry_price") @db.Decimal(36, 18)
   exitPrice         Decimal?          @map("exit_price") @db.Decimal(36, 18)
   quantity          Decimal?          @db.Decimal(36, 18)
+  /// MetaTrader (Exness) size in lots, as the broker shows it; null for crypto exchanges.
+  lots              Decimal?          @db.Decimal(20, 4)
   leverage          Decimal?          @db.Decimal(10, 2)
   grossPnl          Decimal?          @map("gross_pnl") @db.Decimal(36, 18)
   fees              Decimal?          @db.Decimal(36, 18)
@@ -418,6 +423,8 @@ model OpenPosition {
   /// Base units for linear contracts; quote (USD) units for inverse contracts. Null when the
   /// exchange reports contracts and the contract size is unknown.
   quantity         Decimal?          @db.Decimal(36, 18)
+  /// MetaTrader (Exness) size in lots; null for crypto exchanges.
+  lots             Decimal?          @db.Decimal(20, 4)
   entryPrice       Decimal?          @map("entry_price") @db.Decimal(36, 18)
   markPrice        Decimal?          @map("mark_price") @db.Decimal(36, 18)
   unrealizedPnl    Decimal?          @map("unrealized_pnl") @db.Decimal(36, 18)
@@ -767,6 +774,91 @@ model Notification {
 // ─── Billing and admin (Phase 10) ───
 
 /// Every billing webhook received, once (idempotency and audit).
+/// A whale trade: one large market (taker) order on a public futures feed, fills added up.
+model WhaleTrade {
+  id       BigInt   @id @default(autoincrement())
+  exchange Exchange
+  symbol   String   @db.VarChar(20)
+  /// Taker side: buy | sell
+  side     String   @db.VarChar(4)
+  price    Decimal  @db.Decimal(24, 10)
+  qty      Decimal  @db.Decimal(30, 10)
+  usd      Decimal  @db.Decimal(20, 2)
+  fills    Int
+  at       DateTime @db.Timestamptz(3)
+
+  @@index([symbol, at(sort: Desc)])
+  @@index([at])
+  @@map("whale_trades")
+}
+
+/// Trend bias after each closed candle (Trade Check "your record"): which trend a past trade was
+/// entered in. `at` is the candle's close time. Kept ~400 days.
+model MarketTrendHistory {
+  symbol    String   @db.VarChar(20)
+  /// 1d | 4h
+  timeframe String   @db.VarChar(4)
+  at        DateTime @db.Timestamptz(3)
+  /// up | down | range
+  state     String   @db.VarChar(5)
+
+  @@id([symbol, timeframe, at])
+  @@map("market_trend_history")
+}
+
+/// Settled Binance funding rates (fraction per settlement), for Trade Check "your record".
+model FundingRateHistory {
+  symbol String   @db.VarChar(20)
+  at     DateTime @db.Timestamptz(3)
+  rate   Decimal  @db.Decimal(14, 10)
+
+  @@id([symbol, at])
+  @@map("funding_rate_history")
+}
+
+/// A real forced close (liquidation) reported by an exchange's public feed.
+model LiquidationEvent {
+  id       BigInt   @id @default(autoincrement())
+  exchange Exchange
+  symbol   String   @db.VarChar(20)
+  /// Liquidated position: long | short
+  side     String   @db.VarChar(5)
+  price    Decimal  @db.Decimal(24, 10)
+  qty      Decimal  @db.Decimal(30, 10)
+  usd      Decimal  @db.Decimal(20, 2)
+  at       DateTime @db.Timestamptz(3)
+
+  @@index([symbol, at(sort: Desc)])
+  @@index([at])
+  @@map("liquidation_events")
+}
+
+/// One crypto checkout (NOWPayments invoice). Crypto has no auto-renewal: each payment buys a
+/// fixed period of a plan, added to any crypto time already paid.
+model CryptoPayment {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  planCode    PlanCode  @map("plan_code")
+  /// month | year
+  interval    String    @db.VarChar(5)
+  amountUsd   Decimal   @map("amount_usd") @db.Decimal(10, 2)
+  invoiceId   String?   @unique @map("invoice_id") @db.VarChar(40)
+  paymentId   String?   @map("payment_id") @db.VarChar(40)
+  /// CREATED, WAITING, CONFIRMING, PAID, PARTIAL, FAILED, EXPIRED, REFUNDED
+  status      String    @default("CREATED") @db.VarChar(12)
+  payCurrency String?   @map("pay_currency") @db.VarChar(20)
+  paidAt      DateTime? @map("paid_at") @db.Timestamptz(3)
+  /// The plan's paid-until time after this payment was applied.
+  periodEnd   DateTime? @map("period_end") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("crypto_payments")
+}
+
 model BillingEvent {
   id         String   @id @default(uuid(7)) @db.Uuid
   /// Paddle event ID (evt_...).
@@ -1034,4 +1126,21 @@ model LiquidationMap {
 
   @@id([symbol, window])
   @@map("liquidation_maps")
+}
+
+/// Latest market-wide readings (CoinMarketCap global metrics, Fear & Greed, Altcoin Season Index).
+model MarketSnapshot {
+  key       String   @id @db.VarChar(40)
+  data      Json
+  updatedAt DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@map("market_snapshots")
+}
+
+/// Total crypto market cap over time, for the dashboard mini chart (kept ~35 days).
+model MarketCapPoint {
+  ts             DateTime @id @db.Timestamptz(3)
+  totalMarketCap Decimal  @map("total_market_cap") @db.Decimal(30, 2)
+
+  @@map("market_cap_points")
 }

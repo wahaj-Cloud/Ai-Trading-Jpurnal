@@ -3,6 +3,7 @@ import {
   type AdminCostsDto,
   type AdminLogsPage,
   type AdminOverviewDto,
+  type AdminPaymentsDto,
   type AdminPlanChange,
   type AdminPlanUpdate,
   type AdminSyncRowDto,
@@ -53,6 +54,10 @@ const costsQuery = z
 const planCode = z.enum(["FREE", "PRO", "PREMIUM", "ENTERPRISE"]);
 const syncQuery = z
   .object({ failed: z.enum(["true", "false"]).optional(), cursor: z.uuid().optional() })
+  .strict();
+
+const paymentsQuery = z
+  .object({ problems: z.enum(["true", "false"]).optional(), cursor: z.uuid().optional() })
   .strict();
 
 @Controller({ path: "admin", version: "1" })
@@ -126,6 +131,13 @@ export class AdminController {
     @Query(new ZodValidationPipe(auditQuery)) q: z.infer<typeof auditQuery>,
   ): Promise<AdminLogsPage<AdminAuditRowDto>> {
     return this.admin.auditLog(q.action || undefined, q.cursor);
+  }
+
+  @Get("payments")
+  payments(
+    @Query(new ZodValidationPipe(paymentsQuery)) q: z.infer<typeof paymentsQuery>,
+  ): Promise<AdminPaymentsDto> {
+    return this.admin.payments(q.problems === "true", q.cursor);
   }
 
   @Get("logs/sync")

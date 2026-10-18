@@ -12,7 +12,13 @@ export * from "./market";
  */
 
 const REST = "https://fapi.binance.com";
-const WS = "wss://fstream.binance.com/stream?streams=";
+/**
+ * Market streams (tickers, klines) live under /market since Binance split its futures WebSocket in
+ * March 2026; the old /stream URL still connects but stopped sending these channels on 2026-04-23.
+ */
+const WS = "wss://fstream.binance.com/market/stream?streams=";
+/** No message for this long on a live socket means the feed has stalled: reconnect. */
+const STALL_MS = 30_000;
 
 export interface MiniTicker {
   symbol: string;
@@ -94,7 +100,9 @@ export function useBinanceStream(
     let stopped = false;
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let watchdog: ReturnType<typeof setInterval> | null = null;
     let opened = false;
+    let lastMessage = 0;
 
     const connect = () => {
       if (stopped) return;
@@ -102,10 +110,12 @@ export function useBinanceStream(
       ws = new WebSocket(WS + key);
       ws.onopen = () => {
         opened = true;
-        attempt = 0;
+        lastMessage = Date.now();
         setStatus("live");
       };
       ws.onmessage = (ev) => {
+        lastMessage = Date.now();
+        attempt = 0;
         try {
           handler.current((JSON.parse(String(ev.data)) as { data: unknown }).data);
         } catch {
@@ -125,9 +135,18 @@ export function useBinanceStream(
     };
     setStatus("connecting");
     connect();
+    // An open socket that stops delivering (an exchange-side change, a sleeping laptop, a proxy)
+    // looks "live" forever; close it so the reconnect logic takes over.
+    watchdog = setInterval(() => {
+      if (opened && ws?.readyState === WebSocket.OPEN && Date.now() - lastMessage > STALL_MS) {
+        setStatus("reconnecting");
+        ws.close();
+      }
+    }, 5_000);
     return () => {
       stopped = true;
       if (timer) clearTimeout(timer);
+      if (watchdog) clearInterval(watchdog);
       ws?.close();
     };
   }, [key]);

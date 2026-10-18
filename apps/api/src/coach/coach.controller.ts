@@ -10,6 +10,7 @@ import {
   type HelpAnswerDto,
   type HelpAskInput,
   helpAskSchema,
+  type PsychologyReportDto,
   type ReviewedTradeDto,
   type StrategyInsightDto,
 } from "@atc/shared";
@@ -61,6 +62,14 @@ export class CoachController {
     @Query(new ZodValidationPipe(behaviourQuery)) q: z.infer<typeof behaviourQuery>,
   ): Promise<BehaviourSummaryDto> {
     return this.coach.behaviour(user.id, q.days);
+  }
+
+  @Get("psychology")
+  psychology(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(behaviourQuery)) q: z.infer<typeof behaviourQuery>,
+  ): Promise<PsychologyReportDto> {
+    return this.coach.psychology(user.id, q.days);
   }
 
   @Get("notes")

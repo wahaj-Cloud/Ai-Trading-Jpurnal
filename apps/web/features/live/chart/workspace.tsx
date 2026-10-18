@@ -34,6 +34,7 @@ import { cn } from "@/lib/cn";
 import type { FeedStatus } from "../binance";
 import { LIVE_INTERVALS, type LiveInterval, QUICK_INTERVALS, TRADFI_NAMES } from "../market";
 import { DRAWING_COLORS, DRAWING_LABELS, type DrawingKind } from "./drawings";
+import { NextEventChip } from "./event-chip";
 import { formatCountdown } from "./geometry";
 import { LiqMapCard, mapOf, useLiquidationMap } from "./liq-map";
 import { IndicatorsPanel, SettingsPanel } from "./panels";
@@ -310,6 +311,7 @@ export function ChartWorkspace({
         )}
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <NextEventChip symbol={symbol} />
           {engine === "wm" && (
             <button
               type="button"

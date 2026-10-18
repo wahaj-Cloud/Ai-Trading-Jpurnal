@@ -6,6 +6,7 @@ import {
   type OpenPositionsDto,
   type PositionDto,
   type PositionsPage,
+  type PsychologyReportDto,
   type PulseMyTradesDto,
   type ReportDto,
   type ReviewedTradeDto,
@@ -145,6 +146,15 @@ export function convertBehaviour(dto: BehaviourSummaryDto, d: Display): Behaviou
   return {
     ...dto,
     costByBehaviour: dto.costByBehaviour.map((c) => ({ ...c, netPnl: money(c.netPnl, d.rate) })),
+  };
+}
+
+export function convertPsychology(dto: PsychologyReportDto, d: Display): PsychologyReportDto {
+  if (isIdentity(d)) return dto;
+  return {
+    ...dto,
+    tax: dto.tax ? { ...dto.tax, netPnl: money(dto.tax.netPnl, d.rate) } : null,
+    byHabit: dto.byHabit.map((h) => ({ ...h, netPnl: money(h.netPnl, d.rate) })),
   };
 }
 

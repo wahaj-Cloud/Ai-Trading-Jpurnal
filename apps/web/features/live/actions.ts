@@ -1,6 +1,10 @@
 "use server";
 
-import { type LiquidationMapResponse, liquidationMapQuerySchema } from "@atc/shared";
+import {
+  type DeskEventDto,
+  type LiquidationMapResponse,
+  liquidationMapQuerySchema,
+} from "@atc/shared";
 import { apiFetch } from "@/lib/api";
 
 /** The latest estimated liquidation map for a market, or why there is none. */
@@ -13,9 +17,21 @@ export async function getLiquidationMapAction(
   try {
     return await apiFetch<LiquidationMapResponse>(
       `/v1/market/liquidation-map?symbol=${q.data.symbol}&window=${q.data.window}`,
-      { signal: AbortSignal.timeout(10_000) },
+      { signal: AbortSignal.timeout(30_000) },
     );
   } catch {
     return { status: "error" };
+  }
+}
+
+/** The next high-impact US release, for the chart's countdown chip. */
+export async function getNextEventAction(): Promise<DeskEventDto | null> {
+  try {
+    const r = await apiFetch<{ event: DeskEventDto | null }>("/v1/market/next-event", {
+      signal: AbortSignal.timeout(10_000),
+    });
+    return r.event;
+  } catch {
+    return null;
   }
 }

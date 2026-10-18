@@ -61,6 +61,36 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((v) => v === "true"),
+  /** Market Flow: live whale trades and liquidations from Binance, Bybit and OKX public feeds. */
+  MARKET_FLOW_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  /** Market Context Desk: drivers for BTC, ETH, SOL, gold and silver every 15 minutes. */
+  MARKET_DESK_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  /** Trade Check readings (long/short ratios, basis, Coinbase premium, options, macro) every 15 min. */
+  MARKET_CONTEXT_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  /**
+   * Free FRED API key (fredaccount.stlouisfed.org): the dollar index, US 10-year yield, S&P 500,
+   * Nasdaq and VIX on Trade Check. Without it the macro rows are hidden.
+   */
+  FRED_API_KEY: z.string().min(10).optional(),
+  /** Dashboard market overview from CoinMarketCap (works without a key). */
+  MARKET_OVERVIEW_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  /**
+   * Optional free CoinMarketCap API key (coinmarketcap.com/api, Basic plan). Not needed for the
+   * live readings; with it, the 7-day market-cap chart is filled straight away on a new install.
+   */
+  CMC_API_KEY: z.string().min(10).optional(),
   /** Strategy Lab backtests run at once by one worker process (CPU-heavy: keep low). */
   BACKTEST_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
 });

@@ -40,6 +40,8 @@ export interface DerivedPosition {
   exitPrice: string | null;
   /** Largest size held, in base units. */
   quantity: string | null;
+  /** MetaTrader brokers: the same size in lots. */
+  lots?: string | null;
   leverage: string | null;
   grossPnl: string | null;
   /** Positive = paid. */

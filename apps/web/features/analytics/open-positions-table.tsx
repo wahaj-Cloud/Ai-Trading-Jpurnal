@@ -3,6 +3,7 @@ import {
   formatNumber,
   formatPercent,
   formatPnl,
+  formatSize,
   isCoinAsset,
   pnlTone,
 } from "@/features/trades/format";
@@ -62,7 +63,7 @@ export function OpenPositionsTable({
                 )}
               </p>
               <p className="figures truncate text-xs text-ink-muted">
-                {formatNumber(p.quantity)} {p.sizeAsset} @ {formatNumber(p.entryPrice)}
+                {formatSize(p).value} {formatSize(p).unit} @ {formatNumber(p.entryPrice)}
                 {!compact && ` · mark ${formatNumber(p.markPrice)}`}
                 {!compact && ` · ${p.accountLabel || EXCHANGE_CATALOG[p.exchange].name}`}
               </p>

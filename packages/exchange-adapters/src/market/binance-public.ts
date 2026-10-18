@@ -73,7 +73,7 @@ export async function fetchBinanceUniverse(
 export async function fetchBinanceRecentCandles(
   o: BinanceClientOptions,
   symbol: string,
-  interval: "5m" | "15m" | "1h" | "4h",
+  interval: "5m" | "15m" | "1h" | "4h" | "1d" | "1w",
   limit: number,
   now = Date.now(),
 ): Promise<MarketCandle[]> {
@@ -122,4 +122,50 @@ export async function fetchBinanceFunding(
     .filter(([t, rate]) => Number.isFinite(t) && Number.isFinite(rate))
     .sort((a, b) => a[0] - b[0])
     .map(([t, rate]) => ({ t, rate }));
+}
+
+export interface BinanceMarketNow {
+  /** Last traded price and rolling 24h change (%), as Binance shows them. */
+  lastPrice: number;
+  change24hPct: number;
+  /** Mark price and the funding rate that applies at the next settlement (fraction). */
+  markPrice: number | null;
+  nextFundingRate: number | null;
+  nextFundingTime: number | null;
+}
+
+/** Current price, 24h change and live funding rate for one market (two light public calls). */
+export async function fetchBinanceMarketNow(
+  o: BinanceClientOptions,
+  symbol: string,
+): Promise<BinanceMarketNow> {
+  const s = encodeURIComponent(symbol);
+  const [ticker, premium] = await Promise.all([
+    getJson(o, `${base(o)}/fapi/v1/ticker/24hr?symbol=${s}`) as Promise<{
+      lastPrice?: string;
+      priceChangePercent?: string;
+    }>,
+    (
+      getJson(o, `${base(o)}/fapi/v1/premiumIndex?symbol=${s}`) as Promise<{
+        markPrice?: string;
+        lastFundingRate?: string;
+        nextFundingTime?: number;
+      }>
+    ).catch(() => null),
+  ]);
+  const num = (v: unknown) => {
+    const n = Number(v);
+    return v !== undefined && v !== null && v !== "" && Number.isFinite(n) ? n : null;
+  };
+  const lastPrice = num(ticker?.lastPrice);
+  const change = num(ticker?.priceChangePercent);
+  if (lastPrice === null || lastPrice <= 0 || change === null)
+    throw new ExchangeHttpError(502, null, "Binance: no 24h ticker");
+  return {
+    lastPrice,
+    change24hPct: change,
+    markPrice: num(premium?.markPrice),
+    nextFundingRate: num(premium?.lastFundingRate),
+    nextFundingTime: num(premium?.nextFundingTime),
+  };
 }

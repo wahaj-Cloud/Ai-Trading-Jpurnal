@@ -43,6 +43,7 @@ function positionRow(account: AccountRef, p: DerivedPosition, source: "FILLS" | 
     entryPrice: p.entryPrice,
     exitPrice: p.exitPrice,
     quantity: p.quantity,
+    lots: p.lots ?? null,
     leverage,
     grossPnl: p.grossPnl,
     fees: p.fees,

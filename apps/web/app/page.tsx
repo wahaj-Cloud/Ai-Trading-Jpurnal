@@ -1,10 +1,12 @@
 import {
   type ExchangeId,
   LIST_PRICE_USD,
+  LIST_PRICE_YEARLY_USD,
   PLAN_DEFAULTS,
   type PlanLimits,
   type PublicPlanDto,
   UNLIMITED,
+  YEARLY_MONTHS_FREE,
 } from "@atc/shared";
 import { auth } from "@clerk/nextjs/server";
 import {
@@ -111,6 +113,9 @@ function planFeatures(l: PlanLimits): string[] {
       ? "Market Pulse: all coins, 24h/7d/30d"
       : `Market Pulse: top ${l.marketPulseCoins} coins`,
     l.liquidationMap === 1 ? "Liquidation map: 12 markets incl. gold" : "Liquidation map: Bitcoin",
+    l.marketDesk === 1
+      ? "Market Context Desk: 5 markets incl. gold"
+      : "Market Context Desk: Bitcoin",
     ...(l.brokerAccounts !== 0 ? [`${n(l.brokerAccounts, "Exness account")}`] : []),
     "Live Markets and economic calendar",
   ];
@@ -597,7 +602,7 @@ export default async function LandingPage() {
             id="pricing"
             eyebrow="Pricing"
             title="Start free. Upgrade when it pays for itself."
-            sub="No card for the free plan. Paid plans are monthly and can be cancelled in one click."
+            sub="No card for the free plan. Pay monthly, or yearly with two months free. Card, PayPal, Apple Pay, Google Pay or crypto."
           >
             <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-3">
               {plans.map((p) => {
@@ -625,6 +630,15 @@ export default async function LandingPage() {
                         <span className="text-2xl font-bold">Founding price</span>
                       )}
                     </p>
+                    {(p.code === "PRO" || p.code === "PREMIUM") && (
+                      <p className="mt-1 text-sm">
+                        or{" "}
+                        <span className="font-semibold">${LIST_PRICE_YEARLY_USD[p.code]}/year</span>{" "}
+                        <span className="rounded-full bg-profit/15 px-2 py-0.5 text-xs font-medium text-profit">
+                          {YEARLY_MONTHS_FREE} months free
+                        </span>
+                      </p>
+                    )}
                     <p className="mt-1 text-sm text-ink-muted">
                       {p.code === "FREE"
                         ? "Everything you need to start journaling."

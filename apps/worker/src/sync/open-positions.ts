@@ -24,6 +24,7 @@ export function openPositionRows(
       settleAsset: settle,
       direction: s.direction,
       quantity: s.quantity,
+      lots: s.lots ?? null,
       entryPrice: s.entryPrice,
       markPrice: s.markPrice,
       unrealizedPnl: s.unrealizedPnl,

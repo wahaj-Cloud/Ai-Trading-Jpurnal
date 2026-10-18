@@ -53,6 +53,8 @@ export interface OpenPositionSnapshot {
   direction: "LONG" | "SHORT";
   /** Null when the exchange reports contracts and their size is unknown. */
   quantity: string | null;
+  /** MetaTrader brokers: size in lots. */
+  lots?: string | null;
   entryPrice: string | null;
   markPrice: string | null;
   unrealizedPnl: string | null;

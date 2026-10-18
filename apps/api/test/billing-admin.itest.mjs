@@ -450,5 +450,65 @@ console.log(
   "✓ deletion destroys exchange keys; suspension blocks sign-in and sync; admin needs a verified email",
 );
 
+// Signed checkout claims: a customer may pay with any email when our server signed the account ID;
+// a forged or missing claim still needs the email to match.
+const erin = await mk(6);
+const signedBilling = new BillingService(prisma, {
+  ...env,
+  PADDLE_API_KEY: "k",
+  PADDLE_WEBHOOK_SECRET: "pdl_ntfset_signed",
+});
+signedBilling.paddle = new PaddleApi("k", "sandbox", fakeFetch);
+const claim = (await signedBilling.billing(erin.id)).checkoutClaim;
+assert.match(claim, /^[0-9a-f]{64}$/);
+const esub = (over = {}) =>
+  sub({
+    id: "sub_e1",
+    customer_id: "ctm_other_email",
+    custom_data: { userId: erin.id, claim },
+    ...over,
+  });
+assert.equal(
+  await signedBilling.handleEvent(
+    event(
+      "subscription.created",
+      esub({ custom_data: { userId: erin.id, claim: "0".repeat(64) } }),
+      "2026-10-02T09:00:00Z",
+    ),
+  ),
+  "IGNORED_CONFLICT",
+  "forged claim and a different email: refused",
+);
+assert.equal(
+  await signedBilling.handleEvent(event("subscription.created", esub(), "2026-10-02T10:00:00Z")),
+  "APPLIED",
+  "valid claim: linked even though the checkout email differs",
+);
+assert.equal((await subOf(erin)).planCode, "PRO");
+// The payment itself is recorded against erin, with its amount, and shows in the admin list.
+await signedBilling.handleEvent({
+  event_id: "evt_txn_e1",
+  event_type: "transaction.completed",
+  occurred_at: new Date().toISOString(),
+  data: {
+    id: "txn_e1",
+    subscription_id: "sub_e1",
+    customer_id: "ctm_other_email",
+    currency_code: "USD",
+    details: { totals: { grand_total: "1500", earnings: "1375" } },
+  },
+});
+const pay = await admin.payments(false, undefined);
+const row = pay.items.find((r) => r.eventId === "evt_txn_e1");
+assert.equal(row.userEmail, erin.email);
+assert.deepEqual(row.amount, { currency: "USD", total: "15.00", earnings: "13.75" });
+const usd = pay.revenue30d.find((r) => r.currency === "USD");
+assert.equal(usd.total, "15.00");
+assert.equal(usd.earnings, "13.75");
+const problems = await admin.payments(true, undefined);
+assert.ok(problems.items.length > 0 && problems.items.every((r) => r.problem));
+assert.ok(problems.items.some((r) => r.outcome === "IGNORED_CONFLICT"));
+console.log("✓ signed checkout claims; payments list with amounts, revenue and problems flagged");
+
 await db.$disconnect();
 console.log("All billing and admin integration checks passed");

@@ -40,7 +40,46 @@ export interface BillingDto {
   checkoutEnabled: boolean;
   email: string;
   userId: string;
+  /** Server signature of userId, passed to the checkout so the webhook can trust it. */
+  checkoutClaim: string | null;
+  crypto: CryptoBillingDto;
 }
+
+const LIVE_STATUSES = new Set(["ACTIVE", "TRIALING", "PAST_DUE"]);
+
+/**
+ * Whether a subscription's paid plan is in force now. A crypto-prepaid plan lapses at its paid-until
+ * time even before the hourly job moves it back to Free.
+ */
+export function subscriptionInForce(
+  s: {
+    status: string;
+    cryptoPaidUntil?: Date | null;
+    paddleSubscriptionId?: string | null;
+    manualPlan?: boolean;
+  },
+  now = new Date(),
+): boolean {
+  if (!LIVE_STATUSES.has(s.status)) return false;
+  if (s.cryptoPaidUntil && !s.manualPlan && !s.paddleSubscriptionId)
+    return s.cryptoPaidUntil.getTime() > now.getTime();
+  return true;
+}
+
+export interface CryptoBillingDto {
+  /** Crypto checkout is configured. */
+  enabled: boolean;
+  /** The plan is prepaid with crypto until this time (no auto-renewal). */
+  paidUntil: string | null;
+  prices: { plan: "PRO" | "PREMIUM"; interval: "month" | "year"; usd: number }[];
+  /** The latest crypto checkout still waiting for the network, if any. */
+  pending: { status: string; plan: string; interval: string; createdAt: string } | null;
+}
+
+export const cryptoCheckoutSchema = z
+  .object({ plan: z.enum(["PRO", "PREMIUM"]), interval: z.enum(["month", "year"]) })
+  .strict();
+export type CryptoCheckoutInput = z.infer<typeof cryptoCheckoutSchema>;
 
 export const changePlanSchema = z
   .object({ priceId: z.string().regex(/^pri_[a-z0-9]{6,64}$/i, "Unknown price") })
@@ -127,6 +166,44 @@ export interface AdminSyncRowDto {
 export interface AdminLogsPage<T> {
   items: T[];
   nextCursor: string | null;
+}
+
+/** Outcomes that mean a payment event did NOT update the customer's plan: needs a look. */
+export const PAYMENT_PROBLEM_OUTCOMES = [
+  "IGNORED_UNKNOWN_USER",
+  "IGNORED_CONFLICT",
+  "IGNORED_UNKNOWN_PRICE",
+  "IGNORED_UNKNOWN_ORDER",
+  "IGNORED_MISMATCH",
+  "NEEDS_REVIEW",
+  "PROCESSING",
+] as const;
+
+export interface AdminPaymentRowDto {
+  id: string;
+  eventId: string;
+  type: string;
+  outcome: string;
+  occurredAt: string;
+  userEmail: string | null;
+  /** Paddle customer and subscription, for looking the payment up in Paddle. */
+  customerId: string | null;
+  subscriptionId: string | null;
+  /** Transactions only: amount charged and what we receive after Paddle's fee (major units). */
+  amount: { currency: string; total: string; earnings: string | null } | null;
+  problem: boolean;
+}
+
+export interface AdminPaymentsDto extends AdminLogsPage<AdminPaymentRowDto> {
+  /** Completed payments in the last 30 days, per currency. */
+  revenue30d: {
+    method: "card" | "crypto";
+    currency: string;
+    payments: number;
+    total: string;
+    earnings: string | null;
+  }[];
+  problems30d: number;
 }
 
 export const adminPlanChangeSchema = z
@@ -234,6 +311,7 @@ export const adminPlanUpdateSchema = z
     marketPulseCoins: limitInt,
     marketPulseAllWindows: z.number().int().min(0).max(1),
     liquidationMap: z.number().int().min(0).max(1),
+    marketDesk: z.number().int().min(0).max(1),
   })
   .strict();
 export type AdminPlanUpdate = z.infer<typeof adminPlanUpdateSchema>;

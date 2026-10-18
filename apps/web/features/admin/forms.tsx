@@ -171,6 +171,7 @@ const LIMIT_FIELDS: Array<{
   { name: "marketPulseCoins", label: "Pulse coins" },
   { name: "marketPulseAllWindows", label: "Pulse 7d/30d (0/1)" },
   { name: "liquidationMap", label: "Liq. map all markets (0/1)" },
+  { name: "marketDesk", label: "Desk all markets (0/1)" },
 ];
 
 /** One plan's price and limits; -1 means unlimited. */

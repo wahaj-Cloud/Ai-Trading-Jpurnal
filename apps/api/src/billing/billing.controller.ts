@@ -1,4 +1,10 @@
-import { type BillingDto, changePlanSchema, type PublicPlanDto } from "@atc/shared";
+import {
+  type BillingDto,
+  type CryptoCheckoutInput,
+  changePlanSchema,
+  cryptoCheckoutSchema,
+  type PublicPlanDto,
+} from "@atc/shared";
 import {
   BadRequestException,
   Body,
@@ -18,6 +24,8 @@ import type { AppRequest, AuthenticatedUser } from "../common/request.types.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { ENV, type Env } from "../config/env.js";
 import { BillingService } from "./billing.service.js";
+import { CryptoBillingService } from "./crypto.service.js";
+import { type NowPayment, verifyNowPaymentsSignature } from "./nowpayments.js";
 import { type PaddleEvent, verifyPaddleSignature } from "./paddle.js";
 
 @Controller({ version: "1" })
@@ -26,6 +34,7 @@ export class BillingController {
 
   constructor(
     private readonly billing: BillingService,
+    private readonly crypto: CryptoBillingService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -38,8 +47,43 @@ export class BillingController {
   }
 
   @Get("billing")
-  get(@CurrentUser() user: AuthenticatedUser): Promise<BillingDto> {
-    return this.billing.billing(user.id);
+  async get(@CurrentUser() user: AuthenticatedUser): Promise<BillingDto> {
+    const [billing, crypto] = await Promise.all([
+      this.billing.billing(user.id),
+      this.crypto.status(user.id),
+    ]);
+    return { ...billing, crypto };
+  }
+
+  /** Opens a crypto invoice (USDT, BTC, ETH…) for a fixed period of a plan. */
+  @Post("billing/crypto/checkout")
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  cryptoCheckout(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(cryptoCheckoutSchema)) body: CryptoCheckoutInput,
+  ): Promise<{ url: string }> {
+    return this.crypto.checkout(user.id, body);
+  }
+
+  /** NOWPayments notifications: HMAC-signed, then re-checked against NOWPayments' API. */
+  @Public()
+  @SkipThrottle()
+  @Post("webhooks/nowpayments")
+  @HttpCode(200)
+  async nowpayments(
+    @Req() req: RawBodyRequest<AppRequest>,
+  ): Promise<{ ok: true; outcome: string }> {
+    const secret = this.env.NOWPAYMENTS_IPN_SECRET;
+    if (!secret) throw new UnauthorizedException("Crypto webhooks are not configured");
+    if (!req.rawBody) throw new BadRequestException("Missing body");
+    if (!verifyNowPaymentsSignature(req.rawBody, req.get("x-nowpayments-sig"), secret)) {
+      throw new UnauthorizedException("Invalid signature");
+    }
+    const body = JSON.parse(req.rawBody.toString("utf8")) as NowPayment;
+    const outcome = await this.crypto.handleIpn(body);
+    this.logger.log({ msg: "nowpayments event", status: body.payment_status, outcome });
+    return { ok: true, outcome };
   }
 
   @Post("billing/portal")

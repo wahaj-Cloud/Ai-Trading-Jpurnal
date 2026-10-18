@@ -82,6 +82,15 @@ const envSchema = z.object({
   PADDLE_API_KEY: z.string().min(1).optional(),
   PADDLE_WEBHOOK_SECRET: z.string().min(1).optional(),
   PADDLE_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
+  /** Crypto payments (nowpayments.io). Without both, the crypto option is hidden. */
+  NOWPAYMENTS_API_KEY: z.string().min(1).optional(),
+  NOWPAYMENTS_IPN_SECRET: z.string().min(1).optional(),
+  NOWPAYMENTS_SANDBOX: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** This API's public address (https://api.example.com), for payment notifications. */
+  API_PUBLIC_URL: z.url().optional(),
   /** "PRO:month:pri_...,PRO:year:pri_...,PREMIUM:month:pri_...,PREMIUM:year:pri_..." */
   PADDLE_PRICES: z
     .string()
@@ -139,6 +148,18 @@ const checkedEnvSchema = envSchema.superRefine((env, ctx) => {
           code: "custom",
           path: [key],
           message: "Required when PADDLE_PRICES is set",
+        });
+      }
+    }
+  }
+  // Crypto checkout needs the notification secret and our public address, or payments never apply.
+  if (env.NOWPAYMENTS_API_KEY) {
+    for (const key of ["NOWPAYMENTS_IPN_SECRET", "API_PUBLIC_URL"] as const) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: "Required when NOWPAYMENTS_API_KEY is set",
         });
       }
     }

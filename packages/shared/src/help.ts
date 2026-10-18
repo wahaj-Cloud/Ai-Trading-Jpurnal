@@ -243,6 +243,42 @@ export const HELP_TOPICS: HelpTopic[] = [
     href: "/live",
   },
   {
+    id: "market-desk",
+    question: "What is the Market Context Desk?",
+    answer:
+      "Market Desk explains what is moving Bitcoin, Ethereum, Solana, gold and silver right now, one driver at a time: trend (moving averages and swing structure), momentum (RSI and the 24h move), positioning (open interest, taker buying vs selling and funding), liquidity (the biggest estimated liquidation clusters), macro (high-impact US releases, actual vs forecast) and crypto mood (Fear & Greed, Bitcoin dominance). Each driver shows which way its own evidence leans, with the numbers. There is deliberately no overall bullish or bearish call and no confidence score: it is context, never a signal. It also counts down to the next high-impact release and compares your open positions with their market's drivers. Recomputed every 15 minutes. Free shows Bitcoin; Pro and Premium every market.",
+    keywords:
+      "market desk context drivers bias bullish bearish sentiment macro news fomc cpi gold xau btc why is the market moving trend momentum funding",
+    href: "/desk",
+  },
+  {
+    id: "market-flow",
+    question: "What is Market Flow (whale trades, liquidations and trend bias)?",
+    answer:
+      "Market Flow shows what big money and forced closes are doing, live from the public feeds of Binance, Bybit and OKX. Whale trades are single market orders above a size per coin (for example $250k on Bitcoin), after adding up all the fills of the order. Liquidations are real forced closes of long or short positions; Binance publishes at most one per coin per second, so its totals are a minimum. You can see the last 1, 4 or 24 hours, the net whale flow, liquidations by exchange, a chart and the full feed with filters. Trend bias shows the measured trend on the daily, 4-hour and 1-hour charts from closed candles: price against its 50 EMA, the 50 EMA against the 200 EMA, and the last break of swing structure; two agreeing set an up- or down-trend, otherwise it is a range. It describes the market now and is never a forecast or a signal. Free shows Bitcoin and Ethereum; Pro and Premium every market.",
+    keywords:
+      "whale trades whales big orders liquidations liquidated longs shorts flow bias trend daily 4 hour 1 hour timeframe 1d 4h 1h bullish bearish",
+    href: "/flow",
+  },
+  {
+    id: "trade-check",
+    question: "What is Trade Check, and why doesn't it just say long or short?",
+    answer:
+      "Trade Check puts every reading professional traders look at before a position on one page, per market: the trend on the weekly, daily, 4-hour and 1-hour charts; where price sits in last week's range and against the 200-day average; the Fear & Greed Index; funding, open interest, long/short ratios of all accounts and of Binance's top traders, taker buying and selling, whale orders and liquidation pools; the Coinbase premium (US spot demand), the futures basis and stablecoin supply; options skew, put/call ratio, implied volatility (DVOL) and max pain from Deribit; and the US dollar, 10-year yield, Nasdaq, S&P 500 and VIX from the St. Louis Fed (FRED). Each reading is judged by a fixed rule written next to it (for example, funding above 0.03% per settlement means longs are crowded and counts for shorts) and the page counts how many support longs, how many support shorts and how many are neutral. Risk flags warn about releases, crowded funding, big option expiries and volatility jumps. 'Your record in these conditions' shows how your own trades did when you entered with or against the daily and 4-hour trend, near releases and with crowded funding, and which of those groups a long or a short taken now would fall in. It deliberately never gives a single long/short call: a count of readings is context, markets often move against most of them, and the decision, the stop and the size stay yours. Macro rows need the free FRED key on the server. Free shows Bitcoin; Pro and Premium every market.",
+    keywords:
+      "trade check checklist before entry long short should i buy sell sentiment fear greed funding open interest long short ratio top traders coinbase premium basis stablecoin options skew put call max pain dvol volatility dxy dollar yields nasdaq vix macro record",
+    href: "/check",
+  },
+  {
+    id: "discipline-score",
+    question: "What are the discipline score and the psychological tax?",
+    answer:
+      "On the dashboard, the discipline score (0–100) measures how you traded over the last 30 days: half of it is the share of clean trades with no habit flagged (revenge, FOMO, overtrading, holding losers and the rest), a quarter is how steady your position size was (between half and twice your normal size), and a quarter is the share of calm days without revenge trades or overtrading. It needs at least 5 trades, and the bars show the last 8 weeks. The psychological tax is the net result of every trade flagged with an emotional habit, each trade counted once, and what share of all your losses came from those trades. Journal your emotions and mistakes so more habits can be spotted.",
+    keywords:
+      "discipline score psychology psychological tax emotional habits cost revenge fomo tilt consistency",
+    href: "/dashboard",
+  },
+  {
     id: "market-pulse",
     question: "What is Market Pulse?",
     answer:

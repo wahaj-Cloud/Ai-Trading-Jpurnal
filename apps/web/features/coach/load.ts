@@ -5,10 +5,16 @@ import type {
   CoachStatusDto,
   ConversationDto,
   ConversationSummaryDto,
+  PsychologyReportDto,
   ReviewedTradeDto,
 } from "@atc/shared";
 import { cache } from "react";
-import { convertBehaviour, convertNotes, convertReviews } from "@/features/currency/convert";
+import {
+  convertBehaviour,
+  convertNotes,
+  convertPsychology,
+  convertReviews,
+} from "@/features/currency/convert";
 import { apiFetch } from "@/lib/api";
 import { getDisplay } from "@/lib/display";
 
@@ -19,6 +25,13 @@ export const getBehaviour = cache(async (days: 7 | 30 | 90 = 30) => {
     getDisplay(),
   ]);
   return convertBehaviour(dto, display);
+});
+export const getPsychology = cache(async (days: 7 | 30 | 90 = 30) => {
+  const [dto, display] = await Promise.all([
+    apiFetch<PsychologyReportDto>(`/v1/coach/psychology?days=${days}`),
+    getDisplay(),
+  ]);
+  return convertPsychology(dto, display);
 });
 export const getNotes = cache(async (limit = 20) => {
   const [notes, display] = await Promise.all([

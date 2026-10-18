@@ -12,6 +12,8 @@ export interface ExchangePositionRecord {
   entryPrice: string | null;
   exitPrice: string | null;
   quantity: string | null;
+  /** MetaTrader brokers: size in lots (quantity is lots × contract size). */
+  lots?: string | null;
   leverage: string | null;
   grossPnl: string | null;
   fees: string | null;
@@ -58,6 +60,7 @@ export function fromExchangeRecord(record: ExchangePositionRecord): DerivedPosit
     entryPrice: record.entryPrice,
     exitPrice: record.exitPrice,
     quantity: record.quantity,
+    lots: record.lots ?? null,
     leverage: record.leverage,
     grossPnl,
     fees: fees === null ? null : str(fees),

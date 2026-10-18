@@ -5,9 +5,12 @@ import { z } from "zod";
  * `size` is the widget's width on large screens: full row, two-thirds, one-third.
  */
 export const DASHBOARD_WIDGETS = [
+  { id: "market-overview", label: "Crypto market (CoinMarketCap)", size: "full" },
+  { id: "market-flow", label: "Trend bias and market flow", size: "full" },
   { id: "market-sessions", label: "Market sessions clock", size: "wide" },
   { id: "best-session", label: "Your best session", size: "narrow" },
   { id: "kpis", label: "Key numbers", size: "full" },
+  { id: "psychology", label: "Discipline score and psychological tax", size: "full" },
   { id: "recommendations", label: "Recommended improvements", size: "full" },
   { id: "equity", label: "Equity curve", size: "wide" },
   { id: "wins-losses", label: "Wins and losses", size: "narrow" },

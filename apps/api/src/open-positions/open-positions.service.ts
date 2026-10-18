@@ -56,6 +56,7 @@ function toDto(r: Row): OpenPositionDto {
     sizeAsset: inverse ? r.quoteAsset : r.baseAsset,
     direction: r.direction,
     quantity: s(r.quantity),
+    lots: s(r.lots),
     entryPrice: s(r.entryPrice),
     markPrice: s(mark),
     unrealizedPnl: s(r.unrealizedPnl),

@@ -6,6 +6,8 @@ import {
   Calculator,
   CandlestickChart,
   CircleHelp,
+  ClipboardCheck,
+  Compass,
   FileText,
   FlaskConical,
   LayoutDashboard,
@@ -17,6 +19,7 @@ import {
   Settings,
   ShieldCheck,
   Target,
+  Waves,
 } from "lucide-react";
 
 export interface NavItem {
@@ -45,6 +48,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Lab", href: "/lab", icon: FlaskConical, available: true },
   { label: "Setup Alerts", href: "/setups", icon: BellRing, available: true },
   { label: "Live Markets", href: "/live", icon: Radio, available: true },
+  { label: "Trade Check", href: "/check", icon: ClipboardCheck, available: true },
+  { label: "Market Desk", href: "/desk", icon: Compass, available: true },
+  { label: "Market Flow", href: "/flow", icon: Waves, available: true },
   { label: "Market Pulse", href: "/market", icon: Activity, available: true },
   { label: "Reports", href: "/reports", icon: FileText, available: true },
   { label: "News", href: "/news", icon: Newspaper, available: true },

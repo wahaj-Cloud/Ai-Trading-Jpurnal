@@ -5,6 +5,7 @@ import {
   type AdminCostsDto,
   type AdminLogsPage,
   type AdminOverviewDto,
+  type AdminPaymentsDto,
   type AdminPlanChange,
   type AdminPlanCostRow,
   type AdminPlanUpdate,
@@ -16,11 +17,13 @@ import {
   AI_COST_METRIC,
   type AnnouncementDto,
   type AnnouncementInput,
+  PAYMENT_PROBLEM_OUTCOMES,
   resolveLimits,
   UNLIMITED,
 } from "@atc/shared";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { AuditService } from "../audit/audit.service.js";
+import { transactionAmount } from "../billing/paddle.js";
 import { ENV, type Env } from "../config/env.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
@@ -492,6 +495,126 @@ export class AdminService {
         finishedAt: r.finishedAt?.toISOString() ?? null,
       })),
       nextCursor: rows.length > PAGE ? (page.at(-1)?.id ?? null) : null,
+    };
+  }
+
+  /**
+   * Payments as Paddle reported them, newest first, with problems flagged: a payment event that did
+   * not update the customer's plan (unknown user, conflict, unknown price) must be fixed by hand.
+   */
+  async payments(
+    problemsOnly: boolean,
+    cursor: string | undefined,
+    now = new Date(),
+  ): Promise<AdminPaymentsDto> {
+    const db = this.prisma.client;
+    const problem = (outcome: string, type: string) =>
+      (PAYMENT_PROBLEM_OUTCOMES as readonly string[]).includes(outcome) ||
+      type === "transaction.payment_failed";
+    const problemWhere = {
+      OR: [
+        { outcome: { in: [...PAYMENT_PROBLEM_OUTCOMES] } },
+        { type: "transaction.payment_failed" },
+      ],
+    };
+    const since30 = new Date(now.getTime() - 30 * DAY);
+    const [rows, completed, problems30d] = await Promise.all([
+      db.billingEvent.findMany({
+        where: { ...(problemsOnly ? problemWhere : {}), ...(cursor ? { id: { lt: cursor } } : {}) },
+        orderBy: { id: "desc" },
+        take: PAGE + 1,
+      }),
+      db.billingEvent.findMany({
+        where: {
+          type: { in: ["transaction.completed", "crypto.finished"] },
+          occurredAt: { gte: since30 },
+          // Notifications we could not verify against the order are not counted as money in.
+          outcome: { notIn: ["IGNORED_MISMATCH", "IGNORED_UNKNOWN_ORDER"] },
+        },
+        select: { type: true, payload: true },
+        take: 10_000,
+      }),
+      db.billingEvent.count({ where: { ...problemWhere, occurredAt: { gte: since30 } } }),
+    ]);
+    const page = rows.slice(0, PAGE);
+    const ids = [...new Set(page.map((r) => r.userId).filter((v): v is string => v !== null))];
+    const users = ids.length
+      ? await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true } })
+      : [];
+    const emailOf = new Map(users.map((u) => [u.id, u.email]));
+
+    // Revenue per currency, summed in minor units so no rounding creeps in.
+    // Card (Paddle) and crypto (NOWPayments) are kept apart: their fees differ.
+    const revenue = new Map<
+      string,
+      {
+        method: "card" | "crypto";
+        currency: string;
+        payments: number;
+        total: bigint;
+        earnings: bigint | null;
+      }
+    >();
+    for (const r of completed) {
+      const p = r.payload as { data?: Record<string, unknown> };
+      const a = transactionAmount({ event_type: r.type, data: p?.data });
+      if (!a) continue;
+      const toMinor = (v: string) => BigInt(v.replace(".", ""));
+      const method = r.type.startsWith("crypto.") ? ("crypto" as const) : ("card" as const);
+      const key = `${method}:${a.currency}`;
+      const cur = revenue.get(key) ?? {
+        method,
+        currency: a.currency,
+        payments: 0,
+        total: 0n,
+        earnings: 0n,
+      };
+      cur.payments += 1;
+      cur.total += toMinor(a.total);
+      cur.earnings =
+        cur.earnings === null || a.earnings === null ? null : cur.earnings + toMinor(a.earnings);
+      revenue.set(key, cur);
+    }
+    const major = (v: bigint, currency: string) =>
+      transactionAmount({
+        event_type: "transaction.x",
+        data: { currency_code: currency, details: { totals: { grand_total: v.toString() } } },
+      })?.total ?? v.toString();
+
+    return {
+      items: page.map((r) => {
+        const p = r.payload as { data?: Record<string, unknown> };
+        const d = (p?.data ?? {}) as {
+          id?: string;
+          customer_id?: string;
+          subscription_id?: string;
+        };
+        const isSub = r.type.startsWith("subscription.");
+        const crypto = r.type.startsWith("crypto.");
+        return {
+          id: r.id,
+          eventId: r.eventId,
+          type: r.type,
+          outcome: r.outcome,
+          occurredAt: r.occurredAt.toISOString(),
+          userEmail: r.userId ? (emailOf.get(r.userId) ?? null) : null,
+          customerId: crypto ? null : (d.customer_id ?? null),
+          subscriptionId: crypto
+            ? `NOWPayments ${String((d as { payment_id?: unknown }).payment_id ?? "")}`
+            : ((isSub ? d.id : d.subscription_id) ?? null),
+          amount: transactionAmount({ event_type: r.type, data: p?.data }),
+          problem: problem(r.outcome, r.type),
+        };
+      }),
+      nextCursor: rows.length > PAGE ? (page.at(-1)?.id ?? null) : null,
+      revenue30d: [...revenue.values()].map((v) => ({
+        method: v.method,
+        currency: v.currency,
+        payments: v.payments,
+        total: major(v.total, v.currency),
+        earnings: v.earnings === null ? null : major(v.earnings, v.currency),
+      })),
+      problems30d,
     };
   }
 

@@ -1,5 +1,5 @@
+import { computeLiquidationMap } from "@atc/exchange-adapters";
 import { describe, expect, it } from "vitest";
-import { computeLiquidationMap } from "./liq-map.js";
 
 const STEP = 300_000;
 const NOW = Date.UTC(2026, 9, 14, 12, 2, 0);

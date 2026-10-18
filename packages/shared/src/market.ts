@@ -155,10 +155,19 @@ export interface LiquidationMapDto {
   sources: Array<{ exchange: LiqMapSource; ok: boolean }>;
 }
 
+/** Row key under which the worker records its last run (in the liquidation_maps table). */
+export const LIQ_MAP_STATUS_KEY = { symbol: "_STATUS", window: "run" } as const;
+export interface LiqMapRunStatus {
+  at: string;
+  maps: number;
+  failed: number;
+  errors: Array<{ symbol: string; window: string; error: string }>;
+}
+
 export type LiquidationMapResponse =
   | { status: "ok"; map: LiquidationMapDto }
-  /** The market is not mapped, or the first map is not ready yet. */
-  | { status: "unavailable"; reason: "unsupported" | "pending" }
+  /** The market is not mapped, or no map could be built yet (with the reason when known). */
+  | { status: "unavailable"; reason: "unsupported" | "pending" | "failed"; detail?: string }
   /** The plan shows Bitcoin only. */
   | { status: "locked" };
 
@@ -176,3 +185,36 @@ export type LiquidationMapQuery = z.infer<typeof liquidationMapQuerySchema>;
 
 export const LIQ_MAP_DISCLAIMER =
   "Estimated, not real orders: built from public open interest on Binance, Bybit and OKX, who was buying or selling, and a typical leverage mix. Shows where many positions would be liquidated if price got there. Context, never a signal.";
+
+// ─── Market overview (CoinMarketCap) ───
+
+export interface MarketOverviewDto {
+  marketCap: {
+    usd: number;
+    /** % change vs 24 hours ago; null until known. */
+    change24hPct: number | null;
+    volume24hUsd: number | null;
+    btcDominance: number | null;
+    /** Up to 7 days of hourly readings, oldest first, for the mini chart. */
+    sparkline: Array<{ t: number; usd: number }>;
+    updatedAt: string;
+  } | null;
+  fearGreed: { value: number; label: string; updatedAt: string } | null;
+  altcoinSeason: { value: number; updatedAt: string } | null;
+}
+
+/** Fear & Greed bands as CoinMarketCap names them (0–100). */
+export function fearGreedLabel(value: number): string {
+  if (value < 20) return "Extreme fear";
+  if (value < 40) return "Fear";
+  if (value < 60) return "Neutral";
+  if (value < 80) return "Greed";
+  return "Extreme greed";
+}
+
+/** Altcoin Season Index reading: ≥75 altcoin season, ≤25 Bitcoin season. */
+export function altcoinSeasonLabel(value: number): string {
+  if (value >= 75) return "Altcoin season";
+  if (value <= 25) return "Bitcoin season";
+  return value >= 50 ? "Leaning altcoins" : "Leaning Bitcoin";
+}

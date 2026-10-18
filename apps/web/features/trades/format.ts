@@ -94,6 +94,22 @@ export function formatNumber(value: string | null): string {
   return value === null ? "—" : plain.format(Number(value));
 }
 
+/**
+ * A position's size as the trader knows it: lots for MetaTrader brokers (Exness: "0.10 lot"),
+ * coins or contracts for crypto exchanges ("0.25 BTC").
+ */
+export function formatSize(p: {
+  quantity: string | null;
+  lots?: string | null;
+  sizeAsset: string;
+}): { value: string; unit: string } {
+  if (p.lots !== null && p.lots !== undefined) {
+    const n = Number(p.lots);
+    return { value: n.toFixed(2), unit: n === 1 ? "lot" : "lots" };
+  }
+  return { value: formatNumber(p.quantity), unit: p.sizeAsset };
+}
+
 export function formatDuration(seconds: number | null): string {
   if (seconds === null) return "—";
   if (seconds < 60) return `${seconds}s`;

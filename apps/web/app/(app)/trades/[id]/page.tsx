@@ -14,6 +14,7 @@ import {
   formatPnl,
   formatR,
   formatRatio,
+  formatSize,
   isCoinAsset,
 } from "@/features/trades/format";
 import { getTradeDetail } from "@/features/trades/load";
@@ -125,7 +126,11 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
           </div>
           <Metric label="Entry" value={formatNumber(t.entryPrice)} />
           <Metric label="Exit" value={formatNumber(t.exitPrice)} />
-          <Metric label="Size" value={`${formatNumber(t.quantity)} ${t.sizeAsset}`} />
+          <Metric
+            label="Size"
+            value={`${formatSize(t).value} ${formatSize(t).unit}`}
+            hint={t.lots !== null ? `${formatNumber(t.quantity)} ${t.sizeAsset}` : undefined}
+          />
           <Metric
             label="Result in R"
             value={formatR(risk.rMultiple)}

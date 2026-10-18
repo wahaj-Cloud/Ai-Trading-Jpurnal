@@ -4,6 +4,8 @@ import {
   type DashboardWidgetId,
   type DashboardWidgetSize,
   GoalDto,
+  type MarketBiasDto,
+  type MarketOverviewDto,
   OpenPositionsDto,
   PositionsPage,
   RiskStatusDto,
@@ -17,7 +19,7 @@ import { FoundingBadge } from "@/features/billing/founding-badge";
 import { CalendarHeatmap } from "@/features/charts/calendar-heatmap";
 import { PnlColumns } from "@/features/charts/pnl-columns";
 import { TimeSeriesChart } from "@/features/charts/time-series-chart";
-import { getBehaviour, getNotes } from "@/features/coach/load";
+import { getBehaviour, getNotes, getPsychology } from "@/features/coach/load";
 import { buildRecommendations, MIN_TRADES_FOR_ADVICE } from "@/features/coach/recommendations";
 import { RecommendationsList } from "@/features/coach/recommendations-card";
 import { CoinBars, DirectionSplit, WinLossPanel } from "@/features/dashboard/balance-panels";
@@ -32,6 +34,9 @@ import {
   YearlyGrid,
 } from "@/features/dashboard/insight-cards";
 import { KpiBand } from "@/features/dashboard/kpi-band";
+import { MarketFlowWidget } from "@/features/dashboard/market-flow-widget";
+import { MarketOverview } from "@/features/dashboard/market-overview";
+import { PsychologyPanel } from "@/features/dashboard/psychology-panel";
 import { SessionClock } from "@/features/dashboard/session-clock";
 import { SessionMap } from "@/features/dashboard/session-map";
 import { SetupRunway } from "@/features/dashboard/setup-runway";
@@ -125,23 +130,27 @@ export default async function DashboardPage({
   const [me, display] = await Promise.all([getMe(), getDisplay()]);
   const firstName = me.name?.split(" ")[0];
   const newsFrom = new Date();
-  const [report, open, recent, notes, habits, risk, goals, news] = await Promise.all([
-    orNull<AnalyticsDto>(getAnalytics("all")),
-    orNull<OpenPositionsDto>(getOpenPositions()),
-    orNull<PositionsPage>(getPositions("status=CLOSED&sort=closed&limit=5")),
-    orNull(getNotes(1)),
-    orNull(getBehaviour(30)),
-    orNull(apiFetch<RiskStatusDto>("/v1/risk-status")),
-    orNull(apiFetch<GoalDto[]>("/v1/goals")),
-    orNull(
-      getCalendar({
-        // Include the last hour so a release that just came out is still listed.
-        from: new Date(newsFrom.getTime() - 3_600_000),
-        to: new Date(newsFrom.getTime() + 48 * 3_600_000),
-        impact: ["HIGH", "MEDIUM"],
-      }),
-    ),
-  ]);
+  const [report, open, recent, notes, habits, risk, goals, news, overview, psychology, flow] =
+    await Promise.all([
+      orNull<AnalyticsDto>(getAnalytics("all")),
+      orNull<OpenPositionsDto>(getOpenPositions()),
+      orNull<PositionsPage>(getPositions("status=CLOSED&sort=closed&limit=5")),
+      orNull(getNotes(1)),
+      orNull(getBehaviour(30)),
+      orNull(apiFetch<RiskStatusDto>("/v1/risk-status")),
+      orNull(apiFetch<GoalDto[]>("/v1/goals")),
+      orNull(
+        getCalendar({
+          // Include the last hour so a release that just came out is still listed.
+          from: new Date(newsFrom.getTime() - 3_600_000),
+          to: new Date(newsFrom.getTime() + 48 * 3_600_000),
+          impact: ["HIGH", "MEDIUM"],
+        }),
+      ),
+      orNull(apiFetch<MarketOverviewDto>("/v1/market/overview")),
+      orNull(getPsychology(30)),
+      orNull(apiFetch<MarketBiasDto>("/v1/market/bias")),
+    ]);
   const onboarded = Object.values(me.onboarding).every(Boolean);
   const hasTrades = (report?.summary.trades ?? 0) > 0;
   const today = report?.range.to ?? new Date().toISOString().slice(0, 10);
@@ -162,6 +171,11 @@ export default async function DashboardPage({
 
   /** Each dashboard widget; null when it has nothing to show yet (e.g. before the first trade). */
   const widgets: Partial<Record<DashboardWidgetId, ReactNode>> = {
+    "market-overview":
+      overview && (overview.marketCap || overview.fearGreed || overview.altcoinSeason) ? (
+        <MarketOverview initial={overview} />
+      ) : null,
+    "market-flow": flow && flow.items.length > 0 ? <MarketFlowWidget data={flow} /> : null,
     "market-sessions": (
       <Panel title="Market sessions">
         <SessionClock timeZone={me.timezone} />
@@ -176,6 +190,7 @@ export default async function DashboardPage({
       </Panel>
     ),
     kpis: <KpiBand report={report} />,
+    psychology: hasTrades && psychology ? <PsychologyPanel report={psychology} /> : null,
     recommendations: showRecommendations ? (
       <Panel
         title="Recommended improvements"

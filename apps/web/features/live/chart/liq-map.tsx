@@ -19,6 +19,7 @@ import { formatPrice } from "../market";
 import { heatColor } from "./heatmap";
 
 const REFRESH_MS = 5 * 60_000;
+const RETRY_MS = 60_000;
 const compactUsd = (v: number) =>
   `$${new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(v)}`;
 
@@ -30,16 +31,21 @@ export function useLiquidationMap(symbol: string, on: boolean, window: LiqMapWin
   useEffect(() => {
     if (!on) return;
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     setState({ status: "loading" });
+    // A map refreshes every 5 minutes; without one, try again after a minute.
     const load = () =>
-      getLiquidationMapAction(symbol, window).then((r) => {
-        if (alive) setState(r);
-      });
+      getLiquidationMapAction(symbol, window)
+        .catch((): LiqMapState => ({ status: "error" }))
+        .then((r) => {
+          if (!alive) return;
+          setState(r);
+          timer = setTimeout(load, r.status === "ok" ? REFRESH_MS : RETRY_MS);
+        });
     void load();
-    const t = setInterval(load, REFRESH_MS);
     return () => {
       alive = false;
-      clearInterval(t);
+      if (timer) clearTimeout(timer);
     };
   }, [symbol, on, window]);
   return state;
@@ -118,7 +124,7 @@ export function LiqMapCard({
 
       {state.status === "loading" && <p className="text-ink-muted">Loading the map…</p>}
       {state.status === "error" && (
-        <p className="text-ink-muted">The map could not be loaded. It retries every 5 minutes.</p>
+        <p className="text-ink-muted">The map could not be loaded. Retrying in a minute.</p>
       )}
       {state.status === "locked" && (
         <p className="text-ink-muted">
@@ -141,7 +147,9 @@ export function LiqMapCard({
         <p className="text-ink-muted">
           {state.reason === "pending"
             ? "The first map for this market is being built. It appears within 5 minutes."
-            : "Liquidation maps cover BTC, ETH, SOL, XRP, DOGE, BNB, SUI, ADA, LINK, AVAX, gold and silver."}
+            : state.reason === "failed"
+              ? `The map could not be built right now. Retrying in a minute. Details: ${state.detail ?? "unknown"}`
+              : "Liquidation maps cover BTC, ETH, SOL, XRP, DOGE, BNB, SUI, ADA, LINK, AVAX, gold and silver."}
         </p>
       )}
 

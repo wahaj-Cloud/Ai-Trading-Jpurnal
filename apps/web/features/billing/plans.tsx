@@ -1,12 +1,18 @@
 "use client";
 
-import type { BillingDto, BillingInterval, PlanOfferDto } from "@atc/shared";
+import {
+  type BillingDto,
+  type BillingInterval,
+  type PlanOfferDto,
+  YEARLY_MONTHS_FREE,
+} from "@atc/shared";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { changePlanAction, openPortalAction } from "./actions";
+import { CryptoCheckout } from "./crypto-checkout";
 
 declare global {
   interface Window {
@@ -16,7 +22,18 @@ declare global {
       Checkout: { open(opts: Record<string, unknown>): void };
       PricePreview(opts: { items: { priceId: string; quantity: number }[] }): Promise<{
         data: {
-          details: { lineItems: { price: { id: string }; formattedTotals: { total: string } }[] };
+          details: {
+            lineItems: {
+              price: {
+                id: string;
+                trialPeriod?: {
+                  interval: "day" | "week" | "month" | "year";
+                  frequency: number;
+                } | null;
+              };
+              formattedTotals: { total: string };
+            }[];
+          };
         };
       }>;
     };
@@ -65,6 +82,9 @@ function features(o: PlanOfferDto): string[] {
     o.limits.liquidationMap === 1
       ? "Liquidation map: BTC, ETH, gold and 9 more"
       : "Liquidation map: Bitcoin",
+    o.limits.marketDesk === 1
+      ? "Market Context Desk: BTC, ETH, SOL, gold, silver"
+      : "Market Context Desk: Bitcoin",
   ];
 }
 
@@ -81,6 +101,8 @@ export function Plans({
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [ready, setReady] = useState(false);
   const [prices, setPrices] = useState<Record<string, string>>({});
+  /** Free trial set on the Paddle price, e.g. "7-day". */
+  const [trials, setTrials] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const loaded = useRef(false);
@@ -100,7 +122,9 @@ export function Plans({
         token: TOKEN,
         eventCallback: (e) => {
           if (e.name === "checkout.completed") {
-            setMessage("Payment received. Your plan updates within a minute.");
+            setMessage(
+              "Payment received. Your plan updates within a minute. If it has not changed after a few minutes, contact support from Help and we will fix it straight away.",
+            );
             setTimeout(() => router.refresh(), 5_000);
           }
         },
@@ -111,13 +135,22 @@ export function Plans({
       );
       if (items.length)
         P.PricePreview({ items })
-          .then((r) =>
+          .then((r) => {
+            const items = r.data.details.lineItems;
             setPrices(
+              Object.fromEntries(items.map((li) => [li.price.id, li.formattedTotals.total])),
+            );
+            setTrials(
               Object.fromEntries(
-                r.data.details.lineItems.map((li) => [li.price.id, li.formattedTotals.total]),
+                items.flatMap((li) => {
+                  const t = li.price.trialPeriod;
+                  return t && t.frequency > 0
+                    ? [[li.price.id, `${t.frequency}-${t.interval}`]]
+                    : [];
+                }),
               ),
-            ),
-          )
+            );
+          })
           .catch(() => undefined);
     };
     document.head.appendChild(script);
@@ -127,7 +160,10 @@ export function Plans({
     window.Paddle?.Checkout.open({
       items: [{ priceId, quantity: 1 }],
       customer: { email: billing.email },
-      customData: { userId: billing.userId },
+      customData: {
+        userId: billing.userId,
+        ...(billing.checkoutClaim ? { claim: billing.checkoutClaim } : {}),
+      },
     });
   const changePlan = (priceId: string, name: string) => {
     if (
@@ -145,7 +181,9 @@ export function Plans({
       }
     });
   };
-  const hasYearly = billing.offers.some((o) => o.prices.some((p) => p.interval === "year"));
+  const hasYearly =
+    billing.offers.some((o) => o.prices.some((p) => p.interval === "year")) ||
+    billing.crypto.enabled;
 
   return (
     <div className="grid gap-6">
@@ -163,7 +201,16 @@ export function Plans({
                 interval === i ? "border-coach text-ink" : "border-rule text-ink-muted",
               )}
             >
-              {i === "month" ? "Monthly" : "Yearly"}
+              {i === "month" ? (
+                "Monthly"
+              ) : (
+                <>
+                  Yearly{" "}
+                  <span className="ml-1 rounded-full bg-profit/15 px-1.5 py-0.5 text-xs text-profit">
+                    {YEARLY_MONTHS_FREE} months free
+                  </span>
+                </>
+              )}
             </button>
           ))}
         </fieldset>
@@ -204,6 +251,11 @@ export function Plans({
                     <span className="text-sm font-normal text-ink-muted"> / {price.interval}</span>
                   )}
                 </p>
+                {price && trials[price.priceId] && !billing.hasOnlineSubscription && (
+                  <p className="mt-1 text-xs font-medium text-profit">
+                    {trials[price.priceId]} free trial, cancel any time
+                  </p>
+                )}
                 <ul className="mt-4 grid flex-1 gap-2 text-sm text-ink-muted">
                   {features(o).map((f) => (
                     <li key={f} className="flex gap-2">
@@ -235,7 +287,9 @@ export function Plans({
                       onClick={() => checkout(price.priceId)}
                       className="w-full"
                     >
-                      {`Upgrade to ${o.name}`}
+                      {trials[price.priceId]
+                        ? `Start ${trials[price.priceId]} free trial`
+                        : `Upgrade to ${o.name}`}
                     </Button>
                   ) : null}
                 </div>
@@ -243,11 +297,12 @@ export function Plans({
             );
           })}
       </div>
-      {!canCheckout && !billing.manualPlan && (
+      {!canCheckout && !billing.manualPlan && !billing.crypto.enabled && (
         <p className="text-sm text-ink-muted">
           Online payments are not switched on yet. Contact support to upgrade.
         </p>
       )}
+      <CryptoCheckout billing={billing} interval={interval} />
       {billing.hasBillingAccount && (
         <div className="flex flex-wrap items-center gap-3">
           <Button

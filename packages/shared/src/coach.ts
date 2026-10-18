@@ -51,6 +51,45 @@ export interface BehaviourSummaryDto {
   costByBehaviour: { code: BehaviourCode; trades: number; netPnl: string }[];
 }
 
+/** Fewest closed trades before a discipline score is shown. */
+export const DISCIPLINE_MIN_TRADES = 5;
+
+/**
+ * Psychology report: what emotional habits cost (the "psychological tax") and a 0–100 discipline
+ * score built from three measured parts. Rules-based and explainable; no AI involved.
+ */
+export interface PsychologyReportDto {
+  from: string;
+  to: string;
+  /** Closed trades in the period. */
+  trades: number;
+  /**
+   * Net result of every trade flagged with at least one habit (USD-settled, each trade once).
+   * Null when those trades did not lose money overall.
+   */
+  tax: {
+    netPnl: string;
+    trades: number;
+    /** Share (0–1) of all losses in the period that came from flagged trades. */
+    lossShare: number | null;
+  } | null;
+  /** Per-habit net result, worst first. A trade can appear under more than one habit. */
+  byHabit: { code: BehaviourCode; trades: number; netPnl: string }[];
+  /** 0–100; null below DISCIPLINE_MIN_TRADES. */
+  score: number | null;
+  /** Each part 0–100; sizing is null when no trade had a measurable USD size. */
+  parts: { clean: number; sizing: number | null; calmDays: number } | null;
+  /** Last 8 weeks (Monday start), oldest first. */
+  trend: { week: string; trades: number; score: number | null }[];
+}
+
+export function disciplineLabel(score: number): string {
+  if (score >= 85) return "Excellent";
+  if (score >= 70) return "Good";
+  if (score >= 50) return "Mixed";
+  return "Needs work";
+}
+
 export const GRADES = ["A+", "A", "B", "C", "D", "F"] as const;
 export type Grade = (typeof GRADES)[number];
 

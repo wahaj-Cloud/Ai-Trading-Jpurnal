@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isValidTimeZone, tradeRisk } from "@atc/analytics";
 import type { Prisma, PrismaClient } from "@atc/db";
-import { type PlanLimits, resolveLimits, UNLIMITED } from "@atc/shared";
+import { type PlanLimits, resolveLimits, subscriptionInForce, UNLIMITED } from "@atc/shared";
 import type { CoachTrade } from "./types.js";
 
 const s = (v: Prisma.Decimal | null) => (v === null ? null : v.toString());
@@ -14,11 +14,16 @@ export async function userTimeZone(db: PrismaClient, userId: string): Promise<st
 export async function planLimits(db: PrismaClient, userId: string): Promise<PlanLimits> {
   const sub = await db.subscription.findUnique({
     where: { userId },
-    select: { status: true, plan: { select: { code: true, limits: true } } },
+    select: {
+      status: true,
+      cryptoPaidUntil: true,
+      paddleSubscriptionId: true,
+      manualPlan: true,
+      plan: { select: { code: true, limits: true } },
+    },
   });
-  // A lapsed paid subscription falls back to the Free plan's limits.
-  const active =
-    sub && (sub.status === "ACTIVE" || sub.status === "TRIALING" || sub.status === "PAST_DUE");
+  // A lapsed paid subscription (or an expired crypto period) falls back to the Free plan's limits.
+  const active = sub && subscriptionInForce(sub);
   if (active) return resolveLimits(sub.plan.code, sub.plan.limits);
   const free = await db.plan.findUnique({ where: { code: "FREE" }, select: { limits: true } });
   return resolveLimits("FREE", free?.limits);
