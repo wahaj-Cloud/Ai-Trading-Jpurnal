@@ -47,6 +47,7 @@ export async function runMarketPulse(deps: PulseDeps): Promise<{ coins: number; 
   const now = (deps.now ?? Date.now)();
   const binance = deps.config.binance ?? {};
   const universe = (await fetchBinanceUniverse(binance))
+    .filter((s) => !s.tradfi) // crypto coins only
     .filter((s) => s.symbol === BTC || now - s.onboardDate >= MIN_LISTED_MS)
     .sort((a, b) => b.quoteVolume - a.quoteVolume)
     .slice(0, PULSE_COINS);

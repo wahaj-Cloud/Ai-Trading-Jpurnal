@@ -20,7 +20,7 @@ const server = startFakeBinance(4200);
 const kucoinServer = startFakeKucoin(4201);
 const client = createPrismaClient(dbUrl);
 const prisma = { client };
-const vault = new CredentialVault(parseKeyRing("v1:" + "Kx9".repeat(20), "v1"));
+const vault = new CredentialVault(parseKeyRing(`v1:${"Kx9".repeat(20)}`, "v1"));
 const adapters = createAdapterRegistry({
   binance: { spotBaseUrl: "http://localhost:4200", futuresBaseUrl: "http://localhost:4200" },
   kucoin: { spotBaseUrl: "http://localhost:4201", futuresBaseUrl: "http://localhost:4201" },
@@ -49,7 +49,7 @@ await client.$executeRawUnsafe("TRUNCATE users CASCADE");
 const mk = (n) =>
   client.user.create({
     data: {
-      authProviderId: "u" + n,
+      authProviderId: `u${n}`,
       email: `u${n}@x.io`,
       subscription: { create: {} },
       settings: { create: {} },

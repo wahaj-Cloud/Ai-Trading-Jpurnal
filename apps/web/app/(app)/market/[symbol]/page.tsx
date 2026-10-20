@@ -1,4 +1,10 @@
-import { PULSE_DISCLAIMER, PULSE_LINKS, PULSE_WINDOWS, type PulseSymbolDto } from "@atc/shared";
+import {
+  fixedMinus,
+  PULSE_DISCLAIMER,
+  PULSE_LINKS,
+  PULSE_WINDOWS,
+  type PulseSymbolDto,
+} from "@atc/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Panel } from "@/features/analytics/metric";
@@ -57,11 +63,11 @@ export default async function PulseSymbolPage({ params }: { params: Promise<{ sy
                   <dl className="figures mt-2 grid gap-1 text-sm">
                     <div className="flex justify-between">
                       <dt className="text-ink-muted">Correlation</dt>
-                      <dd>{r.corr.toFixed(2)}</dd>
+                      <dd>{fixedMinus(r.corr, 2)}</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-ink-muted">Beta</dt>
-                      <dd>{r.beta.toFixed(2)}</dd>
+                      <dd>{fixedMinus(r.beta, 2)}</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-ink-muted">vs BTC</dt>

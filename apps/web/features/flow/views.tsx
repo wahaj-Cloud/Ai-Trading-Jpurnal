@@ -6,11 +6,14 @@ import {
 } from "@atc/shared";
 import { cn } from "@/lib/cn";
 
+const compactUsd = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 });
 export const usdCompact = (v: number) => {
-  const sign = v < 0 ? "−" : "";
-  return `${sign}$${new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(Math.abs(v))}`;
+  const body = compactUsd.format(Math.abs(v));
+  // No minus on an amount that shows as $0.
+  return `${v < 0 && body !== "0" ? "−" : ""}$${body}`;
 };
-export const signedUsd = (v: number) => (v > 0 ? `+${usdCompact(v)}` : usdCompact(v));
+export const signedUsd = (v: number) =>
+  v > 0 && compactUsd.format(v) !== "0" ? `+${usdCompact(v)}` : usdCompact(v);
 
 const BIAS_STYLE: Record<BiasState, { arrow: string; cls: string }> = {
   up: { arrow: "▲", cls: "bg-profit/12 text-profit" },

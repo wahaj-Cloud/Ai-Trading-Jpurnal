@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { parseKeyRing } from "./key-ring.js";
 import { CredentialVault, DecryptionError } from "./vault.js";
 
-const s1 = "a".repeat(20) + "B3x9-qLm2Zr8Wt5Yp1Nc7Vd4Hk6Js0Fg";
-const s2 = "z".repeat(20) + "Q7w2-eR5tY8uI1oP4aS6dF9gH3jK0lZx";
+const s1 = `${"a".repeat(20)}B3x9-qLm2Zr8Wt5Yp1Nc7Vd4Hk6Js0Fg`;
+const s2 = `${"z".repeat(20)}Q7w2-eR5tY8uI1oP4aS6dF9gH3jK0lZx`;
 const creds = { apiKey: "PUBLICKEY123", apiSecret: "SECRET456" };
 
 describe("CredentialVault", () => {

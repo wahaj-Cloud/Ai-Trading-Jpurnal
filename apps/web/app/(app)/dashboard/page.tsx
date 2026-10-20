@@ -7,8 +7,10 @@ import {
   type MarketOverviewDto,
   type NewsPageDto,
   OpenPositionsDto,
+  type OrderflowResponse,
   PositionsPage,
   RiskStatusDto,
+  type ScalpResponse,
   type TradeCheckResponse,
 } from "@atc/shared";
 import Link from "next/link";
@@ -49,6 +51,8 @@ import { getCalendar } from "@/features/news/load";
 import { NewsAlert } from "@/features/news/news-alert";
 import { HighImpactNewsWidget } from "@/features/news/news-widget";
 import { UpcomingNews } from "@/features/news/upcoming-news";
+import { OrderflowWidget } from "@/features/orderflow/widget";
+import { ScalpWidget } from "@/features/scalp/widget";
 import { getPositions } from "@/features/trades/load";
 import { TradesTable } from "@/features/trades/trades-table";
 import { apiFetch } from "@/lib/api";
@@ -137,28 +141,44 @@ export default async function DashboardPage({
   const [me, display] = await Promise.all([getMe(), getDisplay()]);
   const firstName = me.name?.split(" ")[0];
   const newsFrom = new Date();
-  const [report, open, recent, notes, habits, risk, goals, news, overview, psychology, flow, top] =
-    await Promise.all([
-      orNull<AnalyticsDto>(getAnalytics("all")),
-      orNull<OpenPositionsDto>(getOpenPositions()),
-      orNull<PositionsPage>(getPositions("status=CLOSED&sort=closed&limit=5")),
-      orNull(getNotes(1)),
-      orNull(getBehaviour(30)),
-      orNull(apiFetch<RiskStatusDto>("/v1/risk-status")),
-      orNull(apiFetch<GoalDto[]>("/v1/goals")),
-      orNull(
-        getCalendar({
-          // Include the last hour so a release that just came out is still listed.
-          from: new Date(newsFrom.getTime() - 3_600_000),
-          to: new Date(newsFrom.getTime() + 48 * 3_600_000),
-          impact: ["HIGH", "MEDIUM"],
-        }),
-      ),
-      orNull(apiFetch<MarketOverviewDto>("/v1/market/overview")),
-      orNull(getPsychology(30)),
-      orNull(apiFetch<MarketBiasDto>("/v1/market/bias")),
-      orNull(apiFetch<NewsPageDto>("/v1/news?folder=top&limit=6")),
-    ]);
+  const [
+    report,
+    open,
+    recent,
+    notes,
+    habits,
+    risk,
+    goals,
+    news,
+    overview,
+    psychology,
+    flow,
+    top,
+    orderflow,
+    scalp,
+  ] = await Promise.all([
+    orNull<AnalyticsDto>(getAnalytics("all")),
+    orNull<OpenPositionsDto>(getOpenPositions()),
+    orNull<PositionsPage>(getPositions("status=CLOSED&sort=closed&limit=5")),
+    orNull(getNotes(1)),
+    orNull(getBehaviour(30)),
+    orNull(apiFetch<RiskStatusDto>("/v1/risk-status")),
+    orNull(apiFetch<GoalDto[]>("/v1/goals")),
+    orNull(
+      getCalendar({
+        // Include the last hour so a release that just came out is still listed.
+        from: new Date(newsFrom.getTime() - 3_600_000),
+        to: new Date(newsFrom.getTime() + 48 * 3_600_000),
+        impact: ["HIGH", "MEDIUM"],
+      }),
+    ),
+    orNull(apiFetch<MarketOverviewDto>("/v1/market/overview")),
+    orNull(getPsychology(30)),
+    orNull(apiFetch<MarketBiasDto>("/v1/market/bias")),
+    orNull(apiFetch<NewsPageDto>("/v1/news?folder=top&limit=6")),
+    orNull(apiFetch<OrderflowResponse>("/v1/market/order-flow?window=4h")),
+    orNull(apiFetch<ScalpResponse>("/v1/market/scalp")),
+  ]);
   const tradeCheck = await orNull(loadTradeCheck(recent?.items[0]?.symbol));
   const onboarded = Object.values(me.onboarding).every(Boolean);
   const hasTrades = (report?.summary.trades ?? 0) > 0;
@@ -175,6 +195,14 @@ export default async function DashboardPage({
   const prevMonth = month > firstMonth ? shiftMonth(month, -1) : null;
   const nextMonth = month < currentMonth ? shiftMonth(month, 1) : null;
 
+  // Bitcoin plus the coin of the latest trade (Binance's name for it), when the scan covers it.
+  const lastBase = recent?.items[0]?.baseAsset?.toUpperCase();
+  const scalpCoins = (scalp?.coins ?? []).filter(
+    (c) =>
+      c.symbol === "BTCUSDT" ||
+      (lastBase && [`${lastBase}USDT`, `1000${lastBase}USDT`].includes(c.symbol)),
+  );
+
   const recommendations = buildRecommendations(report, habits, 4);
   const showRecommendations = (report?.summary.trades ?? 0) >= MIN_TRADES_FOR_ADVICE;
 
@@ -186,6 +214,9 @@ export default async function DashboardPage({
       ) : null,
     "market-flow": flow && flow.items.length > 0 ? <MarketFlowWidget data={flow} /> : null,
     "trade-check": tradeCheck ? <TradeCheckWidget check={tradeCheck} /> : null,
+    scalping: scalpCoins.length > 0 ? <ScalpWidget coins={scalpCoins} /> : null,
+    "order-flow":
+      orderflow && orderflow.coins.length > 0 ? <OrderflowWidget data={orderflow} /> : null,
     "high-impact-news": (
       <HighImpactNewsWidget
         headlines={(top?.items ?? []).filter(

@@ -26,7 +26,7 @@ export interface ParsedEvent {
 }
 
 const IMPACT: Record<string, Impact> = { high: "HIGH", medium: "MEDIUM", low: "LOW" };
-const text = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
+const text = (v: string | null | undefined) => (v?.trim() ? v.trim() : null);
 
 export const eventId = (source: string, currency: string, title: string, at: Date) =>
   createHash("sha256")

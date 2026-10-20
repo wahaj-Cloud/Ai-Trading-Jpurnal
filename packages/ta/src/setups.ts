@@ -90,8 +90,9 @@ function sweepLevel(r: WindowReadings, target: SweepTarget, k: number): number |
     case "asia_low":
     case "asia_high": {
       const dayStart = Math.floor(c.t / DAY_MS) * DAY_MS;
-      // The Asian range is only complete once the session has ended.
-      if (c.t < dayStart + ASIA_END_MS) return null;
+      // The Asian range is only complete once the session has ended, and only known when the
+      // window reaches back to the start of the day.
+      if (c.t < dayStart + ASIA_END_MS || (w[0] as Candle).t > dayStart) return null;
       let level: number | null = null;
       for (let x = k - 1; x >= 0; x--) {
         const p = w[x] as Candle;
@@ -107,6 +108,8 @@ function sweepLevel(r: WindowReadings, target: SweepTarget, k: number): number |
     case "prev_day_low":
     case "prev_day_high": {
       const dayStart = Math.floor(c.t / DAY_MS) * DAY_MS;
+      // A partial previous day would give a wrong high/low: unknown instead.
+      if ((w[0] as Candle).t > dayStart - DAY_MS) return null;
       let level: number | null = null;
       for (let x = k - 1; x >= 0; x--) {
         const p = w[x] as Candle;

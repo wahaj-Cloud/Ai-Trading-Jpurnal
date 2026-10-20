@@ -9,6 +9,7 @@ import {
   type LiqMapWindow,
   type LiquidationMapDto,
   type LiquidationMapResponse,
+  signedPct,
 } from "@atc/shared";
 import { Flame, X } from "lucide-react";
 import Link from "next/link";
@@ -76,8 +77,7 @@ export function LiqMapCard({
   const ageMin = map
     ? Math.max(0, Math.round((Date.now() - Date.parse(map.computedAt)) / 60_000))
     : 0;
-  const pct = (p: number) =>
-    price ? `${p >= price ? "+" : "−"}${Math.abs((p / price - 1) * 100).toFixed(1)}%` : "";
+  const pct = (p: number) => (price ? signedPct((p / price - 1) * 100, 1) : "");
 
   return (
     <section

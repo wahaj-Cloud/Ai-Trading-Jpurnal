@@ -104,6 +104,13 @@ describe("headline rules", () => {
       monetaryPolicy: true,
     });
     expect(fed).toMatchObject({ category: "central-banks", impact: "HIGH" });
+    const minutes = classifyHeadline({
+      title: "Federal Reserve issues FOMC minutes",
+      source: "FED",
+      monetaryPolicy: true,
+    });
+    expect(minutes.impact).toBe("HIGH");
+    expect(minutes.why).toMatch(/^Interest-rate decisions/);
     const speech = classifyHeadline({
       title: "Christine Lagarde: A new age of capital",
       source: "ECB",

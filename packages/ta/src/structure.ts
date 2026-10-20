@@ -114,6 +114,11 @@ export interface Zone {
   t: number;
   /** Price traded back into the zone before `until`. */
   touched: boolean;
+  /**
+   * Order blocks only: the candle whose close went through the block, turning it into a breaker or
+   * mitigation block (null while it holds). A broken block's own life starts after this candle.
+   */
+  brokenIndex?: number | null;
 }
 
 /** Fair value gaps formed before `until`, with whether price has since filled into them. */
@@ -174,6 +179,7 @@ export function orderBlocks(candles: readonly Candle[], until = candles.length):
     const ob = candles[obIndex] as Candle;
     let kind: Zone["kind"] = "ORDER_BLOCK";
     let touched = false;
+    let brokenIndex: number | null = null;
     for (let k = e.index + 1; k < end; k++) {
       const x = candles[k] as Candle;
       if (bullish ? x.l <= ob.h : x.h >= ob.l) touched = true;
@@ -191,13 +197,23 @@ export function orderBlocks(candles: readonly Candle[], until = candles.length):
               .some((x) => (bullish ? x.price > first.price : x.price < first.price))
           : false;
         kind = swept ? "BREAKER" : "MITIGATION";
+        brokenIndex = k;
         break;
       }
     }
     // A broken block flips: a failed bullish block acts as resistance (bearish), and vice versa.
     const direction =
       kind === "ORDER_BLOCK" ? (bullish ? "BULLISH" : "BEARISH") : bullish ? "BEARISH" : "BULLISH";
-    out.push({ kind, direction, top: ob.h, bottom: ob.l, index: obIndex, t: ob.t, touched });
+    out.push({
+      kind,
+      direction,
+      top: ob.h,
+      bottom: ob.l,
+      index: obIndex,
+      t: ob.t,
+      touched,
+      brokenIndex,
+    });
   }
   return out;
 }

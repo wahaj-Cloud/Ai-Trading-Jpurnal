@@ -17,8 +17,11 @@ import {
   AI_COST_METRIC,
   type AnnouncementDto,
   type AnnouncementInput,
+  calibrate,
   PAYMENT_PROBLEM_OUTCOMES,
+  type ReadoutRecord,
   resolveLimits,
+  type ScalpCalibrationDto,
   UNLIMITED,
 } from "@atc/shared";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
@@ -69,11 +72,30 @@ const announcementDto = (a: Prisma.AnnouncementGetPayload<object>): Announcement
 
 @Injectable()
 export class AdminService {
+  /** Recomputed at most every 10 minutes: it reads up to 8 days of records. */
+  private calibration: { days: number; at: number; dto: ScalpCalibrationDto } | null = null;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @Inject(ENV) private readonly env: Env,
   ) {}
+
+  async scalpCalibration(days: number, now = Date.now()): Promise<ScalpCalibrationDto> {
+    const c = this.calibration;
+    if (c && c.days === days && now - c.at < 10 * 60_000) return c.dto;
+    // Every 5th minute is plenty for the spread and keeps the read small.
+    const rows = await this.prisma.client.$queryRaw<Array<{ at: Date; data: unknown }>>`
+      SELECT at, data FROM scalp_readouts
+       WHERE at >= ${new Date(now - days * 86_400_000)}
+         AND EXTRACT(MINUTE FROM at)::int % 5 = 0
+       ORDER BY at`;
+    const dto = calibrate(
+      rows.map((r) => ({ at: r.at.getTime(), data: r.data as Record<string, ReadoutRecord> })),
+    );
+    this.calibration = { days, at: now, dto };
+    return dto;
+  }
 
   /**
    * What each plan and the most expensive users cost this month against what they pay: AI spend

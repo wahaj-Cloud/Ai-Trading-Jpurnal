@@ -21,7 +21,6 @@ import {
   LIQ_MAP_SYMBOLS,
   type LiqMapRunStatus,
   type LiqMapWindow,
-  type LiquidationMapDto,
   type LiquidationMapQuery,
   type LiquidationMapResponse,
   type MarketDeskDto,

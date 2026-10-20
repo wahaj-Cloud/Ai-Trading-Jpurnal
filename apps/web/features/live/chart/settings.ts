@@ -68,6 +68,10 @@ export const chartSettingsSchema = z.object({
       signal: period(2, 100, 9),
     })
     .catch({ on: false, fast: 12, slow: 26, signal: 9 }),
+  /** Unfilled fair value gaps and live order blocks drawn as boxes. */
+  zones: z
+    .object({ fvg: z.boolean().catch(false), ob: z.boolean().catch(false) })
+    .catch({ fvg: false, ob: false }),
   /** Estimated liquidation map behind the candles. */
   liqMap: z
     .object({ on: z.boolean().catch(false), window: z.enum(["24h", "7d"]).catch("24h") })

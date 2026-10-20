@@ -8,8 +8,8 @@ export default function LabLayout({ children }: { children: ReactNode }) {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Lab</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-            Test ideas before you risk money: replay your own trades with better rules, or run your
-            saved setups over past candles.
+            Test ideas before you risk money: replay your own trades with better rules, run your
+            saved setups over past candles, or let a paper bot trade them live with virtual money.
           </p>
         </div>
         <LabTabs />

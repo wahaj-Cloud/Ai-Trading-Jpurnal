@@ -129,6 +129,8 @@ export async function updatePlanAction(
     marketPulseAllWindows: num(form.get("marketPulseAllWindows")),
     liquidationMap: num(form.get("liquidationMap")),
     marketDesk: num(form.get("marketDesk")),
+    scalpAlerts: num(form.get("scalpAlerts")),
+    paperBots: num(form.get("paperBots")),
   });
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { formatCountdown, MARKETS, marketStatus, wallClock } from "./market-hours";
 
-const london = MARKETS.find((m) => m.id === "LONDON")!;
-const ny = MARKETS.find((m) => m.id === "NEW_YORK")!;
+const byId = (id: string) => {
+  const m = MARKETS.find((x) => x.id === id);
+  if (!m) throw new Error(`market ${id} missing`);
+  return m;
+};
+const london = byId("LONDON");
+const ny = byId("NEW_YORK");
 
 describe("market hours", () => {
   it("reads the wall clock in another timezone", () => {

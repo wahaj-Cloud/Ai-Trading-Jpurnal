@@ -211,6 +211,21 @@ export function IndicatorsPanel({
           )}
         </Section>
 
+        <Section title="Smart-money zones">
+          <Toggle
+            label="Fair value gaps (FVG)"
+            hint="Three-candle gaps price has not traded back into yet (dashed boxes). The same detection your setup alerts use."
+            checked={s.zones.fvg}
+            onChange={(v) => onChange({ ...s, zones: { ...s.zones, fvg: v } })}
+          />
+          <Toggle
+            label="Order blocks"
+            hint="The last opposite candle before a break of structure, while price has not closed through it; failed blocks that flipped show as breakers."
+            checked={s.zones.ob}
+            onChange={(v) => onChange({ ...s, zones: { ...s.zones, ob: v } })}
+          />
+        </Section>
+
         <Section title="Liquidations">
           <Toggle
             label="Liquidation map (estimated)"
@@ -282,6 +297,7 @@ export function IndicatorsPanel({
               rsi: DEFAULT_SETTINGS.rsi,
               macd: DEFAULT_SETTINGS.macd,
               liqMap: DEFAULT_SETTINGS.liqMap,
+              zones: DEFAULT_SETTINGS.zones,
             })
           }
         >

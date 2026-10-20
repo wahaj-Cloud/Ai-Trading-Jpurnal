@@ -1,4 +1,7 @@
 import {
+  type CockpitDto,
+  type CockpitQuery,
+  cockpitQuerySchema,
   type DeskEventDto,
   type DeskQuery,
   deskQuerySchema,
@@ -11,28 +14,51 @@ import {
   type LiquidationDto,
   type LiquidationMapQuery,
   type LiquidationMapResponse,
+  type LiveStreamQuery,
+  type LiveTicketDto,
   liquidationMapQuerySchema,
+  liveStreamQuerySchema,
   type MarketBiasDto,
   type MarketDeskResponse,
   type MarketOverviewDto,
   type MarketPulseDto,
   type MarketPulseQuery,
   marketPulseQuerySchema,
+  type OrderflowQuery,
+  type OrderflowResponse,
+  orderflowQuerySchema,
   type PulseMyTradesDto,
   type PulseSymbolDto,
+  type ScalpResponse,
   type TradeCheckQuery,
   type TradeCheckResponse,
   tradeCheckQuerySchema,
   type WhaleTradeDto,
 } from "@atc/shared";
-import { Controller, Get, Module, Param, Query } from "@nestjs/common";
-import { Throttle } from "@nestjs/throttler";
+import {
+  Controller,
+  Get,
+  Header,
+  type MessageEvent,
+  Module,
+  Param,
+  Post,
+  Query,
+  Sse,
+} from "@nestjs/common";
+import { SkipThrottle, Throttle } from "@nestjs/throttler";
+import type { Observable } from "rxjs";
 import { z } from "zod";
-import { CurrentUser } from "../auth/decorators.js";
+import { CurrentUser, Public } from "../auth/decorators.js";
 import type { AuthenticatedUser } from "../common/request.types.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
+import { CockpitService } from "./cockpit.service.js";
 import { FlowService } from "./flow.service.js";
+import { LiveFlowService } from "./live-flow.service.js";
 import { MarketService } from "./market.service.js";
+import { OrderflowService } from "./orderflow.service.js";
+import { PaperBotsController, PaperBotsService } from "./paper-bots.controller.js";
+import { ScalpAlertsController, ScalpAlertsService } from "./scalp-alerts.controller.js";
 import { TradeCheckService } from "./trade-check.service.js";
 
 const symbolParam = z
@@ -47,7 +73,57 @@ export class MarketController {
     private readonly market: MarketService,
     private readonly flow: FlowService,
     private readonly tradeCheck: TradeCheckService,
+    private readonly orderflow: OrderflowService,
+    private readonly cockpitService: CockpitService,
+    private readonly live: LiveFlowService,
   ) {}
+
+  /** A two-minute ticket the browser uses to open the live stream (plan included). */
+  @Post("live/ticket")
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  liveTicket(@CurrentUser() user: AuthenticatedUser): Promise<LiveTicketDto> {
+    return this.live.ticket(user.id);
+  }
+
+  /**
+   * Live order flow, once a second: Order Flow (one window, with its flow lines), Scalping (every
+   * coin) or the Cockpit (one market). Opened with a ticket instead of a sign-in header, which a
+   * browser stream cannot send.
+   */
+  @Public()
+  @SkipThrottle()
+  @Sse("live/stream")
+  @Header("Cache-Control", "no-cache, no-transform")
+  @Header("X-Accel-Buffering", "no")
+  liveStream(
+    @Query(new ZodValidationPipe(liveStreamQuerySchema)) q: LiveStreamQuery,
+  ): Observable<MessageEvent> {
+    return this.live.stream(q);
+  }
+
+  @Get("cockpit")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  cockpit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(cockpitQuerySchema)) q: CockpitQuery,
+  ): Promise<CockpitDto> {
+    return this.cockpitService.get(user.id, q);
+  }
+
+  @Get("scalp")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  scalp(@CurrentUser() user: AuthenticatedUser): Promise<ScalpResponse> {
+    return this.orderflow.scalp(user.id);
+  }
+
+  @Get("order-flow")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  orderFlow(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(orderflowQuerySchema)) q: OrderflowQuery,
+  ): Promise<OrderflowResponse> {
+    return this.orderflow.get(user.id, q);
+  }
 
   @Get("check")
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
@@ -142,7 +218,16 @@ export class MarketController {
 }
 
 @Module({
-  controllers: [MarketController],
-  providers: [MarketService, FlowService, TradeCheckService],
+  controllers: [MarketController, ScalpAlertsController, PaperBotsController],
+  providers: [
+    MarketService,
+    FlowService,
+    TradeCheckService,
+    OrderflowService,
+    CockpitService,
+    ScalpAlertsService,
+    PaperBotsService,
+    LiveFlowService,
+  ],
 })
 export class MarketModule {}

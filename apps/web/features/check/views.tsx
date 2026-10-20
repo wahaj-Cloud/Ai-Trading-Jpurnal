@@ -7,12 +7,14 @@ import {
   type CheckRecordDto,
   type CheckRecordGroupDto,
   fmtPrice,
+  signedPct,
+  signedUsd,
   type TradeCheckDto,
 } from "@atc/shared";
 import { AlertTriangle, CalendarClock, History, ListChecks } from "lucide-react";
 import Link from "next/link";
-import { ago } from "@/features/desk/views";
 import { BiasChip } from "@/features/flow/views";
+import { FreshnessBadge } from "@/features/live-flow/freshness";
 import { Countdown } from "@/features/news/countdown";
 import { cn } from "@/lib/cn";
 
@@ -48,7 +50,7 @@ export function TallyCard({ check, price }: { check: TradeCheckDto; price: React
     <section aria-label="Overview" className={cn(card, "grid content-start gap-4 lg:col-span-2")}>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="font-semibold">{check.name}</h2>
-        <span className="text-xs text-ink-faint">Readings updated {ago(check.computedAt)}</span>
+        <FreshnessBadge at={check.computedAt} every="every 15 min" staleAfterMs={30 * 60_000} />
       </div>
       {price}
       <div className="grid gap-2">
@@ -167,11 +169,7 @@ function Level({ label, v, price }: { label: string; v: number; price: number })
     <div className="flex items-baseline justify-between gap-2">
       <dt className="text-ink-muted">{label}</dt>
       <dd className="figures">
-        {fmtPrice(v)}{" "}
-        <span className="text-xs text-ink-faint">
-          {d >= 0 ? "+" : "−"}
-          {Math.abs(d).toFixed(1)}%
-        </span>
+        {fmtPrice(v)} <span className="text-xs text-ink-faint">{signedPct(d, 1)}</span>
       </dd>
     </div>
   );
@@ -268,7 +266,7 @@ export function FactorGroups({ factors }: { factors: CheckFactorDto[] }) {
 const money = (v: string | null) => {
   if (v === null) return "—";
   const n = Number(v);
-  return `${n > 0 ? "+" : n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+  return signedUsd(n);
 };
 
 function GroupLine({ g, emphasis }: { g: CheckRecordGroupDto; emphasis?: boolean }) {

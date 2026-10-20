@@ -1,4 +1,5 @@
 import type { LiquidationMapDto, OpenPositionDto } from "@atc/shared";
+import { signedUsd } from "@atc/shared";
 import { heikinAshi } from "@atc/ta/indicators";
 import {
   AreaSeries,
@@ -36,6 +37,7 @@ import { type ChartPoint, TimeAxis } from "./geometry";
 import { HeatmapPrimitive } from "./heatmap";
 import type { ChartSettings, ChartType } from "./settings";
 import { computeStudies, type StudyLine, studyPanes, toTaCandles } from "./studies";
+import { chartZones, ZonesPrimitive } from "./zones";
 
 export const PANE_HEIGHT = 130;
 const STUDY_THROTTLE_MS = 300;
@@ -65,8 +67,7 @@ export interface Legend {
   studies: LegendRow[];
 }
 
-const usd = (v: number) =>
-  `${v >= 0 ? "+" : "−"}$${Math.abs(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const usd = (v: number) => signedUsd(v);
 
 function pricePrecision(symbol: string, price: number): number {
   if (TRADFI_NAMES[symbol]) return price >= 100 ? 2 : 3;
@@ -120,6 +121,7 @@ export class ChartController {
   readonly drawings = new DrawingsPrimitive();
   private readonly countdown = new CountdownPrimitive();
   private readonly heatmap = new HeatmapPrimitive((pt) => this.drawings.toXY(pt));
+  private readonly zones = new ZonesPrimitive((pt) => this.drawings.toXY(pt));
   private main: ISeriesApi<SeriesType>;
   private mainType: ChartType;
   private volume: ISeriesApi<"Histogram"> | null = null;
@@ -170,6 +172,7 @@ export class ChartController {
     this.main.detachPrimitive(this.countdown);
     this.main.detachPrimitive(this.drawings);
     this.main.detachPrimitive(this.heatmap);
+    this.main.detachPrimitive(this.zones);
     this.chart.remove();
   }
 
@@ -233,6 +236,7 @@ export class ChartController {
       this.lastStudyAt = now;
       this.studies = computeStudies(this.rows, this.settings);
       for (const s of this.studies) this.studySeries.get(s.key)?.setData(this.studyData(s));
+      this.updateZones();
     } else if (now - this.lastStudyAt > STUDY_THROTTLE_MS) {
       this.lastStudyAt = now;
       this.studies = computeStudies(this.rows, this.settings);
@@ -282,6 +286,7 @@ export class ChartController {
       this.main.detachPrimitive(this.drawings);
       this.main.detachPrimitive(this.countdown);
       this.main.detachPrimitive(this.heatmap);
+      this.main.detachPrimitive(this.zones);
       this.chart.removeSeries(this.main);
       this.main = this.createMain(s.type);
       this.main.applyOptions({
@@ -458,6 +463,7 @@ export class ChartController {
     else
       series = this.chart.addSeries(CandlestickSeries, { ...common, ...this.mainStyle(type, s) });
     series.attachPrimitive(this.heatmap);
+    series.attachPrimitive(this.zones);
     series.attachPrimitive(this.drawings);
     series.attachPrimitive(this.countdown);
     return series;
@@ -536,7 +542,18 @@ export class ChartController {
   }
 
   /** Full redraw: main series, volume, indicator series and panels, overlays. */
+  /** Fair value gaps and order blocks from the candles (closed ones only: the forming candle can still change). */
+  private updateZones(): void {
+    const z = this.settings.zones;
+    const closed = this.rows.slice(0, -1);
+    this.zones.set(z.fvg || z.ob ? chartZones(toTaCandles(closed), z) : [], {
+      up: this.settings.upColor,
+      down: this.settings.downColor,
+    });
+  }
+
   private redrawAll(): void {
+    this.updateZones();
     if (this.mainType === "heikin") this.ha = this.haFor(this.rows);
     this.main.setData(this.rows.map((_, i) => this.mainPoint(i)));
 

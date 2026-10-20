@@ -29,4 +29,6 @@ export const ENGAGEMENT_QUEUE = "engagement";
 
 /** Market Pulse (hourly BTC correlations) and My Setup Alerts (candle-close scans). */
 export const MARKET_QUEUE = "market-data";
+/** The 1-minute order-flow scan, on its own queue so slower market jobs never delay it. */
+export const MARKET_FAST_QUEUE = "market-fast";
 export const SETUP_SCAN_QUEUE = "setup-scan";

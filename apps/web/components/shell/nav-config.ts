@@ -4,6 +4,7 @@ import {
   BellRing,
   Bitcoin,
   BookOpenText,
+  Bot,
   Calculator,
   CalendarDays,
   CandlestickChart,
@@ -12,6 +13,7 @@ import {
   Compass,
   FileText,
   FlaskConical,
+  Gauge,
   Globe,
   Landmark,
   LayoutDashboard,
@@ -23,8 +25,10 @@ import {
   Settings,
   ShieldCheck,
   Siren,
+  Split,
   Target,
   Waves,
+  Zap,
 } from "lucide-react";
 
 export interface NavItem {
@@ -85,6 +89,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "AI Coach", href: "/coach", icon: MessageSquareText, available: true, mobile: true },
       { label: "Strategy Lab", href: "/lab", icon: FlaskConical, available: true },
+      { label: "Paper Bots", href: "/lab/paper", icon: Bot, available: true },
       { label: "Setup Alerts", href: "/setups", icon: BellRing, available: true },
       { label: "Calculators", href: "/calculators", icon: Calculator, available: true },
     ],
@@ -97,6 +102,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Live Charts", href: "/live", icon: Radio, available: true },
       { label: "Trade Check", href: "/check", icon: ClipboardCheck, available: true },
       { label: "Market Desk", href: "/desk", icon: Compass, available: true },
+      { label: "Scalp Cockpit", href: "/cockpit", icon: Gauge, available: true },
+      { label: "Scalping", href: "/scalp", icon: Zap, available: true },
+      { label: "Order Flow", href: "/orderflow", icon: Split, available: true },
       { label: "Market Flow", href: "/flow", icon: Waves, available: true },
       { label: "Market Pulse", href: "/market", icon: Activity, available: true },
     ],
@@ -150,8 +158,15 @@ export const NAV_ITEMS: NavItem[] = [NAV_HOME, ...NAV_GROUPS.flatMap((g) => g.it
 export const isActivePath = (pathname: string, href: string, exact = false) =>
   pathname === href || (!exact && pathname.startsWith(`${href}/`));
 
+/** Active when it matches and no deeper page matches too (/lab/paper is Paper Bots, not /lab). */
 export const isActiveItem = (pathname: string, item: NavItem) =>
-  isActivePath(pathname, item.href, item.exact);
+  isActivePath(pathname, item.href, item.exact) &&
+  !NAV_ITEMS.some(
+    (o) =>
+      o.href.length > item.href.length &&
+      o.href.startsWith(`${item.href}/`) &&
+      isActivePath(pathname, o.href, o.exact),
+  );
 
 /** The folder holding the current page, if any. */
 export function groupOf(pathname: string, isAdmin = false): NavGroup | null {

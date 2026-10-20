@@ -9,6 +9,7 @@ import {
 import { CalendarClock, Crosshair, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { BiasChip } from "@/features/flow/views";
+import { FreshnessBadge } from "@/features/live-flow/freshness";
 import { Countdown } from "@/features/news/countdown";
 import { CurrencyFlag } from "@/features/news/currency-flag";
 import { cn } from "@/lib/cn";
@@ -57,7 +58,7 @@ export function MarketCard({ desk }: { desk: MarketDeskDto }) {
     <section aria-label={`${desk.name} overview`} className={cn(card, "grid content-start gap-4")}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="font-semibold">{desk.name}</h2>
-        <span className="text-xs text-ink-faint">Updated {ago(desk.computedAt)}</span>
+        <FreshnessBadge at={desk.computedAt} every="every 15 min" staleAfterMs={30 * 60_000} />
       </div>
       <LivePrice symbol={desk.symbol} price={desk.price} change24hPct={desk.change24hPct} />
       <div className="grid gap-2">

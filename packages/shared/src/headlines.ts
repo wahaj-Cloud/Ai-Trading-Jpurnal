@@ -312,7 +312,11 @@ export function classifyHeadline(input: {
     category = "crypto";
   if (input.source === "FED" || input.source === "ECB") category = "central-banks";
 
-  const leadHigh = hits.find((r) => effective(r) === impact) ?? lead;
+  // An official policy release explains itself as a policy decision, whatever its title says.
+  const policy = input.monetaryPolicy
+    ? NEWS_RULES.find((r) => r.tag === "rate-decision")
+    : undefined;
+  const leadHigh = hits.find((r) => effective(r) === impact) ?? policy ?? lead;
   return {
     category,
     impact,

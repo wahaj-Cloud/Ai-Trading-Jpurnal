@@ -5,11 +5,13 @@ import {
   type NewsImpact,
   type NewsItemDto,
   type NewsReactionDto,
+  signedPct,
 } from "@atc/shared";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useMounted } from "@/lib/use-mounted";
 import { loadMoreNewsAction } from "./actions";
 import { ImpactBadge } from "./impact";
 import { useLiveHeadlines } from "./live-news";
@@ -26,26 +28,36 @@ export function fits(item: NewsItemDto, folder: NewsFolder, impact: ImpactFilter
   return impact === "ALL" || RANK[item.impact] >= RANK[impact];
 }
 
-function useNow(everyMs = 30_000) {
-  const [now, setNow] = useState(() => Date.now());
+/**
+ * The current time, starting from the moment the server rendered the page (so the server HTML and
+ * the first browser render say the same "13 min ago"), then the browser's clock.
+ */
+function useNow(renderedAt: number, everyMs = 30_000) {
+  const [now, setNow] = useState(renderedAt);
   useEffect(() => {
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), everyMs);
     return () => clearInterval(id);
   }, [everyMs]);
   return now;
 }
 
-export function timeAgo(iso: string, now: number): string {
+/** `local`: dates in the browser's time zone (only once the page runs in the browser), else UTC. */
+export function timeAgo(iso: string, now: number, local = true): string {
   const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
   if (s < 60) return "just now";
   const m = Math.round(s / 60);
   if (m < 60) return `${m} min ago`;
   const h = Math.round(m / 60);
   if (h < 24) return `${h} h ago`;
-  return new Date(iso).toLocaleDateString("en", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("en", {
+    day: "numeric",
+    month: "short",
+    ...(local ? {} : { timeZone: "UTC" }),
+  });
 }
 
-const pct = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(2)}%`;
+const pct = (v: number) => signedPct(v, 2);
 
 function Reaction({ r }: { r: NewsReactionDto }) {
   const cells: Array<[string, number | null]> = [
@@ -84,6 +96,7 @@ export function HeadlineRow({
   compact?: boolean;
   isNew?: boolean;
 }) {
+  const local = useMounted();
   return (
     <li
       className={cn(
@@ -93,8 +106,11 @@ export function HeadlineRow({
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-faint">
         <ImpactBadge impact={item.impact} />
-        <time dateTime={item.publishedAt} title={new Date(item.publishedAt).toLocaleString()}>
-          {timeAgo(item.publishedAt, now)}
+        <time
+          dateTime={item.publishedAt}
+          title={local ? new Date(item.publishedAt).toLocaleString() : undefined}
+        >
+          {timeAgo(item.publishedAt, now, local)}
         </time>
         <span>
           {item.publisher}
@@ -147,6 +163,7 @@ export function HeadlineFeed({
   compact = false,
   limit,
   emptyText = "No headlines here yet. New ones appear the moment they are published.",
+  renderedAt,
 }: {
   folder: NewsFolder;
   impact?: ImpactFilter;
@@ -156,8 +173,10 @@ export function HeadlineFeed({
   /** Show at most this many (dashboard). */
   limit?: number;
   emptyText?: string;
+  /** Date.now() on the server when the page rendered. */
+  renderedAt: number;
 }) {
-  const now = useNow();
+  const now = useNow(renderedAt);
   const live = useLiveHeadlines();
   const [older, setOlder] = useState<NewsItemDto[]>([]);
   const [cursor, setCursor] = useState(nextCursor);

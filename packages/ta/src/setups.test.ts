@@ -62,7 +62,7 @@ describe("setup evaluator", () => {
 
   it("gives the same answer as a live scan that only has the last window", () => {
     for (const r of RULES) {
-      for (const i of [500, 800, 1199]) {
+      for (const i of [SETUP_WINDOW + 50, 900, 1199]) {
         const live = candles.slice(i - SETUP_WINDOW + 1, i + 1);
         expect(evaluateSetupAt(r, candles, i).matched).toBe(
           evaluateSetupAt(r, live, live.length - 1).matched,
@@ -299,5 +299,36 @@ describe("backtest safeguards", () => {
     // 20 x 1000 notional, 0.01% move: −$2, not the planned −$50.
     expect(res.trades[0]?.pnl).toBeCloseTo(-2, 2);
     expect(res.summary.warnings.join(" ")).toMatch(/20× leverage/);
+  });
+});
+
+describe("previous day's high and low", () => {
+  // 5-minute candles over three UTC days at a flat 100, except one deep low early yesterday (90)
+  // and a wick to 93 late today that closes back at 100.
+  const M5 = 5 * 60_000;
+  const day0 = Date.UTC(2026, 0, 5);
+  const candles: Candle[] = [];
+  for (let t = day0; t < day0 + 3 * 86_400_000 - 4 * 3_600_000; t += M5) {
+    const yesterdayLow = t === day0 + 86_400_000 + 3_600_000;
+    candles.push({ t, o: 100, h: 100.2, l: yesterdayLow ? 90 : 99.8, c: 100, v: 100 });
+  }
+  const last = candles.length - 1;
+  candles[last] = { ...(candles[last] as Candle), l: 93, c: 100 };
+  const sweep = rule([{ type: "liquidity_sweep", of: "prev_day_low", withinCandles: 1 }]);
+
+  it("uses the whole previous day (its low was 90, so a wick to 93 is not a sweep)", () => {
+    expect(evaluateSetupAt(sweep, candles, last).matched).toBe(false);
+  });
+
+  it("treats a window that starts part-way through the previous day as unknown", () => {
+    // 300 candles reach back only to yesterday afternoon: the 90 low is missing, and the old
+    // behaviour read yesterday's low as 99.8 and called the wick to 93 a sweep.
+    const partial = candles.slice(-300);
+    expect(evaluateSetupAt(sweep, partial, partial.length - 1).matched).toBe(false);
+  });
+
+  it("a real sweep of the full previous day's low still matches", () => {
+    const deeper = candles.map((c, i) => (i === last ? { ...c, l: 89, c: 100 } : c));
+    expect(evaluateSetupAt(sweep, deeper, last).matched).toBe(true);
   });
 });

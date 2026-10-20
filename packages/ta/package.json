@@ -11,6 +11,14 @@
     "./indicators": {
       "types": "./dist/indicators.d.ts",
       "default": "./dist/indicators.js"
+    },
+    "./structure": {
+      "types": "./dist/structure.d.ts",
+      "default": "./dist/structure.js"
+    },
+    "./ratings": {
+      "types": "./dist/ratings.d.ts",
+      "default": "./dist/ratings.js"
     }
   },
   "scripts": {

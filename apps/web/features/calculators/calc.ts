@@ -26,7 +26,16 @@ export function positionSize(
 ): PositionSize | null {
   if (!finite(balance, riskPct, entry, stop, leverage)) return null;
   const distance = Math.abs(entry - stop);
-  if (balance <= 0 || riskPct <= 0 || entry <= 0 || distance === 0 || leverage <= 0) return null;
+  // Risking more than the whole balance on one trade is not a position size.
+  if (
+    balance <= 0 ||
+    riskPct <= 0 ||
+    riskPct > 100 ||
+    entry <= 0 ||
+    distance === 0 ||
+    leverage <= 0
+  )
+    return null;
   const riskAmount = (balance * riskPct) / 100;
   const quantity = riskAmount / distance;
   const notional = quantity * entry;
@@ -116,7 +125,15 @@ export function riskOfRuin(
   ruinPct = 50,
 ): number | null {
   if (!finite(winRatePct, rewardToRisk, riskPct, ruinPct)) return null;
-  if (winRatePct < 0 || winRatePct > 100 || rewardToRisk <= 0 || riskPct <= 0 || ruinPct <= 0) {
+  if (
+    winRatePct < 0 ||
+    winRatePct > 100 ||
+    rewardToRisk <= 0 ||
+    riskPct <= 0 ||
+    riskPct > 100 ||
+    ruinPct <= 0 ||
+    ruinPct > 100
+  ) {
     return null;
   }
   const p = winRatePct / 100;
@@ -162,7 +179,14 @@ export function monteCarlo(
   seed = 42,
 ): MonteCarlo | null {
   if (!finite(balance, winRatePct, rewardToRisk, riskPct, trades, runs)) return null;
-  if (balance <= 0 || winRatePct < 0 || winRatePct > 100 || rewardToRisk <= 0 || riskPct <= 0) {
+  if (
+    balance <= 0 ||
+    winRatePct < 0 ||
+    winRatePct > 100 ||
+    rewardToRisk <= 0 ||
+    riskPct <= 0 ||
+    riskPct >= 100
+  ) {
     return null;
   }
   if (trades < 1 || runs < 1 || trades > 10_000 || runs > 20_000) return null;
@@ -185,8 +209,15 @@ export function monteCarlo(
   }
   finals.sort((a, b) => a - b);
   drawdowns.sort((a, b) => a - b);
-  const at = (xs: number[], q: number) =>
-    xs[Math.min(xs.length - 1, Math.floor(q * xs.length))] ?? 0;
+  // Linear interpolation between the closest ranks (Excel PERCENTILE.INC, numpy's default), so the
+  // median of an even number of runs is the average of the middle two.
+  const at = (xs: number[], q: number) => {
+    const pos = (xs.length - 1) * q;
+    const lo = Math.floor(pos);
+    const a = xs[lo] ?? 0;
+    const b = xs[Math.min(xs.length - 1, lo + 1)] ?? a;
+    return a + (b - a) * (pos - lo);
+  };
   return {
     p10: at(finals, 0.1),
     median: at(finals, 0.5),

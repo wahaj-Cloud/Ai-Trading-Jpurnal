@@ -47,7 +47,9 @@ export interface PlanGrade {
 const MAINT = 0.005;
 
 const finite = (...n: number[]) => n.every((x) => Number.isFinite(x));
-const pct = (n: number, d = 1) => `${n.toFixed(d)}%`;
+/** A share that rounds to zero but is not zero reads "under 1%" rather than a misleading "0%". */
+const pct = (n: number, d = 1) =>
+  n > 0 && Number(n.toFixed(d)) === 0 ? `under ${(10 ** -d).toFixed(d)}%` : `${n.toFixed(d)}%`;
 /** Prices with sensible precision: 59,100.5 · 1.2345 · 0.00012345. */
 export const fmtPrice = (n: number) =>
   n.toLocaleString("en-US", { maximumFractionDigits: n >= 100 ? 2 : n >= 1 ? 4 : 8 });

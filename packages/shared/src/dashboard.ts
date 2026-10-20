@@ -102,6 +102,22 @@ export const DASHBOARD_WIDGETS = [
     home: { href: "/check", label: "Trade Check" },
   },
   {
+    id: "scalping",
+    label: "Scalping strength",
+    size: "narrow",
+    group: "markets",
+    description: "Buying or selling strength from 5m to 1D for Bitcoin and your last traded coin.",
+    home: { href: "/scalp", label: "Scalping" },
+  },
+  {
+    id: "order-flow",
+    label: "Order flow",
+    size: "narrow",
+    group: "markets",
+    description: "How many top coins are being net bought or sold, and the biggest flows each way.",
+    home: { href: "/orderflow", label: "Order Flow" },
+  },
+  {
     id: "calendar",
     label: "Calendar",
     size: "wide",

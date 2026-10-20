@@ -44,7 +44,7 @@ const median = (values: number[]): number | null => {
   return s.length % 2 ? (s[mid] as number) : ((s[mid - 1] as number) + (s[mid] as number)) / 2;
 };
 
-const pct = (n: number, d: number) => Math.round((100 * n) / d);
+const _pct = (n: number, d: number) => Math.round((100 * n) / d);
 
 export function disciplineScore(
   trades: readonly CoachTrade[],

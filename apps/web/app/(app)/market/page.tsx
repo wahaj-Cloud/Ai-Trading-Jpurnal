@@ -1,4 +1,5 @@
 import {
+  fixedMinus,
   type MarketPulseDto,
   marketPulseQuerySchema,
   PULSE_DISCLAIMER,
@@ -13,6 +14,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Panel } from "@/features/analytics/metric";
 import { convertPulseMine } from "@/features/currency/convert";
+import { FreshnessBadge } from "@/features/live-flow/freshness";
 import { formatPercent, formatPnl } from "@/features/trades/format";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -75,7 +77,7 @@ const signedPct = (v: number, dp = 2) => {
   const shown = Number((v * 100).toFixed(dp));
   return `${shown > 0 ? "+" : shown < 0 ? "−" : ""}${Math.abs(shown).toFixed(dp)}%`;
 };
-const ago = (iso: string | null) => {
+const _ago = (iso: string | null) => {
   if (!iso) return "not yet";
   const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
@@ -110,7 +112,7 @@ export default async function MarketPulsePage({ searchParams }: { searchParams: 
           </p>
         </div>
         <p className="text-xs text-ink-faint">
-          Updated {ago(pulse.computedAt)} · every hour
+          <FreshnessBadge at={pulse.computedAt} every="every hour" staleAfterMs={2 * 3_600_000} />
           {pulse.btcReturn !== null && (
             <>
               {" "}
@@ -248,8 +250,8 @@ export default async function MarketPulsePage({ searchParams }: { searchParams: 
                         </span>
                       )}
                     </td>
-                    <td className="py-2 text-right">{r.corr.toFixed(2)}</td>
-                    <td className="py-2 text-right">{r.beta.toFixed(2)}</td>
+                    <td className="py-2 text-right">{fixedMinus(r.corr, 2)}</td>
+                    <td className="py-2 text-right">{fixedMinus(r.beta, 2)}</td>
                     <td
                       className={cn(
                         "py-2 text-right",

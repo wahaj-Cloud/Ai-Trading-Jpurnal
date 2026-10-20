@@ -16,6 +16,7 @@ import {
   adminPlanUpdateSchema,
   adminSuspendSchema,
   announcementInputSchema,
+  type ScalpCalibrationDto,
 } from "@atc/shared";
 import {
   Body,
@@ -60,6 +61,10 @@ const paymentsQuery = z
   .object({ problems: z.enum(["true", "false"]).optional(), cursor: z.uuid().optional() })
   .strict();
 
+const calibrationQuery = z
+  .object({ days: z.coerce.number().int().min(1).max(8).default(7) })
+  .strict();
+
 @Controller({ path: "admin", version: "1" })
 @UseGuards(AdminGuard)
 export class AdminController {
@@ -68,6 +73,14 @@ export class AdminController {
   @Get("overview")
   overview(): Promise<AdminOverviewDto> {
     return this.admin.overview();
+  }
+
+  /** Threshold review of the Scalp Cockpit strength labels, from the recorded minutes. */
+  @Get("scalp-calibration")
+  scalpCalibration(
+    @Query(new ZodValidationPipe(calibrationQuery)) q: z.infer<typeof calibrationQuery>,
+  ): Promise<ScalpCalibrationDto> {
+    return this.admin.scalpCalibration(q.days);
   }
 
   @Get("costs")

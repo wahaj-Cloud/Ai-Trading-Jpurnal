@@ -1,5 +1,5 @@
 import { isValidTimeZone, localParts, startOfLocalDay } from "@atc/analytics";
-import { planLimits } from "@atc/coach";
+import { enterPaperTrade, planLimits } from "@atc/coach";
 import type { PrismaClient } from "@atc/db";
 import { type AdapterConfig, fetchBinanceRecentCandles } from "@atc/exchange-adapters";
 import { type NewNotification, notify } from "@atc/notify";
@@ -11,7 +11,7 @@ import {
   type SetupTimeframe,
   setupRuleSchema,
 } from "@atc/shared";
-import { evaluateSetupAt, SETUP_MIN_CANDLES, TIMEFRAME_MS } from "@atc/ta";
+import { atr, evaluateSetupAt, SETUP_MIN_CANDLES, TIMEFRAME_MS } from "@atc/ta";
 import type { Redis } from "ioredis";
 import { log } from "../logger.js";
 import { saveCandles } from "../market/candle-store.js";
@@ -37,6 +37,10 @@ interface ActiveSetup {
   timeframe: SetupTimeframe;
   rule: SetupRule;
   cooldownMinutes: number;
+  /** False when only paper bots watch this setup (its alerts are switched off). */
+  alerts: boolean;
+  /** Paper bots trading this setup on this group's market. */
+  bots: string[];
 }
 
 const GROUP_CONCURRENCY = 4;
@@ -46,7 +50,12 @@ const STALE_CANDLES = 2;
 export async function scanSetups(deps: ScanDeps): Promise<{ groups: number; alerts: number }> {
   const now = (deps.now ?? Date.now)();
   const setups = await deps.db.setup.findMany({
-    where: { isActive: true, deletedAt: null, user: { deletedAt: null, suspendedAt: null } },
+    where: {
+      deletedAt: null,
+      user: { deletedAt: null, suspendedAt: null },
+      // Alerts on, or a paper bot trading it.
+      OR: [{ isActive: true }, { paperBots: { some: { enabled: true } } }],
+    },
     select: {
       id: true,
       userId: true,
@@ -56,6 +65,8 @@ export async function scanSetups(deps: ScanDeps): Promise<{ groups: number; aler
       timeframe: true,
       rule: true,
       cooldownMinutes: true,
+      isActive: true,
+      paperBots: { where: { enabled: true }, select: { id: true, symbol: true } },
     },
   });
   const groups = new Map<
@@ -68,6 +79,8 @@ export async function scanSetups(deps: ScanDeps): Promise<{ groups: number; aler
     const tf = s.timeframe as SetupTimeframe;
     if (!TIMEFRAME_MS[tf]) continue;
     for (const symbol of s.symbols) {
+      const bots = s.paperBots.filter((b) => b.symbol === symbol).map((b) => b.id);
+      if (!s.isActive && bots.length === 0) continue;
       const key = `${s.exchange}:${symbol}:${tf}`;
       const g = groups.get(key) ?? { exchange: "BINANCE", symbol, tf, setups: [] };
       g.setups.push({
@@ -77,6 +90,8 @@ export async function scanSetups(deps: ScanDeps): Promise<{ groups: number; aler
         timeframe: tf,
         rule: rule.data,
         cooldownMinutes: s.cooldownMinutes,
+        alerts: s.isActive,
+        bots,
       });
       groups.set(key, g);
     }
@@ -130,9 +145,26 @@ async function scanGroup(
   const i = candles.length - 1;
   const closeAt = new Date(last.t + step);
   let sent = 0;
+  let range: number | null | undefined;
   for (const s of g.setups) {
     const match = evaluateSetupAt(s.rule, candles, i);
     if (!match.matched) continue;
+    // Paper bots enter at the close of the matching candle, the stop sized on its 14-bar ATR.
+    for (const botId of s.bots) {
+      range ??= atr(candles, 14)[i] ?? null;
+      try {
+        await enterPaperTrade(deps.db, botId, {
+          side: s.rule.direction === "long" ? "LONG" : "SHORT",
+          price: last.c,
+          range,
+          at: closeAt.getTime(),
+          note: { kind: "setup", matched: match.labels },
+        });
+      } catch (err) {
+        log.warn("paper bot entry failed", { botId, err });
+      }
+    }
+    if (!s.alerts) continue;
     if (s.cooldownMinutes > 0) {
       const recent = await deps.db.setupAlert.findFirst({
         where: {

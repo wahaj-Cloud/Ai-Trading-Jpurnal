@@ -61,13 +61,7 @@ export interface LiveCandle {
   closeTime: number;
 }
 
-/** Prices to a sensible number of decimals for their size (63,512.4 · 0.15432 · 0.00001234). */
-export function formatPrice(v: number): string {
-  if (!Number.isFinite(v)) return "—";
-  const abs = Math.abs(v);
-  const digits = abs >= 1000 ? 1 : abs >= 1 ? 3 : abs >= 0.01 ? 5 : 8;
-  return v.toLocaleString("en", { minimumFractionDigits: digits, maximumFractionDigits: digits });
-}
+export { formatPrice } from "@atc/shared";
 
 export const formatChange = (c: number) => {
   const pct = Number((c * 100).toFixed(2));

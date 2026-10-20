@@ -230,6 +230,18 @@ await db.marketSnapshot.deleteMany({
   },
 });
 await db.economicEvent.deleteMany({ where: { id: { startsWith: "tc-test-" } } });
+// The crowd-mood readings come from their own snapshots; set them here so the test never depends
+// on what an earlier run left behind.
+for (const [key, data] of [
+  ["fear_greed", { value: 48, label: "Neutral" }],
+  ["global", { btcDominance: 57.2 }],
+  ["altcoin_season", { value: 31 }],
+])
+  await db.marketSnapshot.upsert({
+    where: { key },
+    create: { key, data, updatedAt: new Date(NOW) },
+    update: { data, updatedAt: new Date(NOW) },
+  });
 
 const config = { binance: { fetch: fetchFn }, bybit: { fetch: fetchFn }, okx: { fetch: fetchFn } };
 const sources = {

@@ -1,3 +1,4 @@
+import { fixedMinus } from "@atc/shared";
 /**
  * Display formatting only. Values arrive as exact decimal strings; converting to Number here is
  * safe because nothing is calculated from the result.
@@ -144,7 +145,7 @@ const tinyCompact2 = new Intl.NumberFormat("en-US", {
 export function formatSignedTiny(value: string | number | null): string {
   if (value === null) return "—";
   const n = Number(value);
-  if (!Number.isFinite(n) || n === 0) return "0";
+  if (!Number.isFinite(n) || Math.abs(n) < 0.5) return "0";
   const abs = Math.abs(n);
   const body =
     abs < 1000
@@ -161,12 +162,12 @@ export function formatMoney(value: string | null, asset?: string | null): string
 
 /** 0.5372 -> "53.7%" */
 export function formatPercent(value: number | null, digits = 1): string {
-  return value === null ? "—" : `${(value * 100).toFixed(digits)}%`;
+  return value === null ? "—" : `${fixedMinus(value * 100, digits)}%`;
 }
 
 /** Ratios such as profit factor: "1.85". */
 export function formatRatio(value: number | null): string {
-  return value === null ? "—" : value.toFixed(2);
+  return value === null ? "—" : fixedMinus(value, 2);
 }
 
 /** R multiples keep their sign: "+2.0R", "−1.5R". */

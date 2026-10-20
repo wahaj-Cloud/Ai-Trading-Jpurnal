@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EXCHANGE_IDS, type ExchangeId } from "./exchanges.js";
+import type { EntryReadoutDto } from "./scalp-alerts.js";
 
 /** A journal trade as the API returns it. Money and sizes are decimal strings (never floats). */
 export interface PositionDto {
@@ -34,6 +35,8 @@ export interface PositionDto {
   planned: boolean;
   /** How closely the coin moved with BTC (24h correlation) when the trade opened. */
   btcCorrAtEntry: number | null;
+  /** Scalp Cockpit counts in the minute the trade opened (kept for trades from the last 8 days on). */
+  entryReadout: EntryReadoutDto | null;
   /** Whether the trader has written a journal entry for this trade, and its rating. */
   reviewed: boolean;
   rating: number | null;

@@ -5,6 +5,7 @@ import type { Position, Prisma } from "@atc/db";
 import { canonicalSymbol } from "@atc/exchange-adapters";
 import {
   type EmotionCode,
+  type EntryReadoutDto,
   type FillDto,
   type ImportResult,
   type ImportRow,
@@ -337,9 +338,17 @@ export function toDto(p: PositionWithAccount, review?: Review): PositionDto {
     incompleteHistory: p.incompleteHistory,
     planned: p.setupAlertId !== null,
     btcCorrAtEntry: p.btcCorrAtEntry ?? null,
+    entryReadout: entryReadoutOf(p.entryReadout),
     reviewed: review !== undefined,
     rating: review?.rating ?? null,
   };
+}
+
+/** The stored entry readings, or null when none were recorded (or the market was not scanned). */
+function entryReadoutOf(v: unknown): EntryReadoutDto | null {
+  if (!v || typeof v !== "object" || "none" in v) return null;
+  const r = v as EntryReadoutDto;
+  return typeof r.at === "string" ? r : null;
 }
 
 function encodeCursor(at: Date, id: string): string {

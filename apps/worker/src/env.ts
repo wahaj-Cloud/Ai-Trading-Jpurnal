@@ -71,6 +71,19 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((v) => v === "true"),
+  /** Order Flow: taker buying/selling and open interest of the top 100 futures, every 5 min. */
+  ORDER_FLOW_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  /**
+   * Live order flow: Order Flow, Scalping and the Scalp Cockpit recalculated every second from
+   * Binance's public streams (open interest every 5 seconds), and scalp alerts checked live.
+   */
+  LIVE_FLOW_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
   /** Market Flow: live whale trades and liquidations from Binance, Bybit and OKX public feeds. */
   MARKET_FLOW_ENABLED: z
     .enum(["true", "false"])

@@ -1,4 +1,4 @@
-import { BIAS_TIMEFRAMES, type MarketBiasDto } from "@atc/shared";
+import { BIAS_TIMEFRAMES, type MarketBiasDto, signedPct } from "@atc/shared";
 import { Waves } from "lucide-react";
 import Link from "next/link";
 import { BiasChip, signedUsd, usdCompact } from "@/features/flow/views";
@@ -64,8 +64,7 @@ export function MarketFlowWidget({ data }: { data: MarketBiasDto }) {
                         r.change24hPct >= 0 ? "text-profit" : "text-loss",
                       )}
                     >
-                      {r.change24hPct >= 0 ? "+" : "−"}
-                      {Math.abs(r.change24hPct).toFixed(2)}%
+                      {signedPct(r.change24hPct, 2)}
                     </span>
                   )}
                 </td>

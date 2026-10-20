@@ -19,10 +19,13 @@ const LiveContext = createContext<{
   connected: boolean;
   /** Headlines that arrived live since the page loaded, newest first. */
   headlines: NewsItemDto[];
+  /** The API's public address, for the other live streams (order flow). */
+  apiUrl: string | null;
 }>({
   live: {},
   connected: false,
   headlines: [],
+  apiUrl: null,
 });
 
 /** Live headlines, newest first (Medium and High; the stream never carries Low ones). */
@@ -127,7 +130,7 @@ export function LiveNewsProvider({
   }, [apiUrl]);
 
   return (
-    <LiveContext.Provider value={{ live, connected, headlines }}>
+    <LiveContext.Provider value={{ live, connected, headlines, apiUrl }}>
       {children}
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed inset-x-3 top-20 z-50 grid justify-items-end gap-2 sm:right-6 sm:left-auto">

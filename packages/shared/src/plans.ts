@@ -33,6 +33,10 @@ export const planLimitsSchema = z.object({
   liquidationMap: z.number().int().min(0).max(1).optional(),
   /** Market Context Desk: 0 = Bitcoin only, 1 = every desk market. */
   marketDesk: z.number().int().min(0).max(1).optional(),
+  /** Scalp Cockpit alerts the user can keep (-1 = no limit). */
+  scalpAlerts: z.number().int().min(-1).optional(),
+  /** Paper bots (virtual money, never send orders) the user can keep (-1 = no limit). */
+  paperBots: z.number().int().min(-1).optional(),
 });
 export type StoredPlanLimits = z.infer<typeof planLimitsSchema>;
 export type PlanLimits = Required<StoredPlanLimits>;
@@ -123,6 +127,8 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketPulseAllWindows: 0,
     liquidationMap: 0,
     marketDesk: 0,
+    scalpAlerts: 1,
+    paperBots: 1,
   },
   PRO: {
     aiBudgetUsd: 3,
@@ -136,6 +142,8 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketPulseAllWindows: 1,
     liquidationMap: 1,
     marketDesk: 1,
+    scalpAlerts: 5,
+    paperBots: 3,
   },
   PREMIUM: {
     aiBudgetUsd: 7,
@@ -149,6 +157,8 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketPulseAllWindows: 1,
     liquidationMap: 1,
     marketDesk: 1,
+    scalpAlerts: 20,
+    paperBots: 10,
   },
   ENTERPRISE: {
     aiBudgetUsd: UNLIMITED,
@@ -162,6 +172,8 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketPulseAllWindows: 1,
     liquidationMap: 1,
     marketDesk: 1,
+    scalpAlerts: UNLIMITED,
+    paperBots: UNLIMITED,
   },
 };
 
@@ -184,6 +196,7 @@ export function resolveLimits(code: PlanCodeId, raw: unknown): PlanLimits {
       setups: 0,
       whatIf: 0,
       backtestRunsPerMonth: 0,
+      paperBots: 0,
     };
   }
   const filled = { ...parsed.data } as PlanLimits;

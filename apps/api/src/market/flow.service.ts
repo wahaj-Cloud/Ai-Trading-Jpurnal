@@ -19,7 +19,6 @@ import {
   type LiquidationDto,
   type MarketBiasDto,
   type MarketDeskDto,
-  type TimeframeBiasDto,
   type WhaleTradeDto,
 } from "@atc/shared";
 import { Injectable } from "@nestjs/common";

@@ -34,6 +34,7 @@ export function HighImpactNewsWidget({
           nextCursor={null}
           compact
           limit={6}
+          renderedAt={Date.now()}
           emptyText="No high-impact headlines in the last two days. New ones appear here and pop up on every page the moment they break."
         />
         <aside className="grid content-start gap-3 rounded-[var(--radius-control)] bg-hi/[0.03] p-4">

@@ -1,4 +1,9 @@
-import { BACKTEST_DISCLAIMER, type BacktestRunsDto, type SetupsListDto } from "@atc/shared";
+import {
+  BACKTEST_DISCLAIMER,
+  type BacktestRunsDto,
+  type SetupsListDto,
+  signedPct,
+} from "@atc/shared";
 import { Lock } from "lucide-react";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
@@ -121,9 +126,7 @@ export default async function StrategyLabPage() {
                         r.summary ? (r.summary.returnPct >= 0 ? "text-profit" : "text-loss") : "",
                       )}
                     >
-                      {r.summary
-                        ? `${r.summary.returnPct >= 0 ? "+" : "−"}${Math.abs(r.summary.returnPct).toFixed(2)}%`
-                        : "—"}
+                      {r.summary ? signedPct(r.summary.returnPct, 2) : "—"}
                     </td>
                   </tr>
                 ))}

@@ -405,6 +405,9 @@ const result = await job.waitUntilFinished(events, 30_000);
 assert.equal(result.status, "SUCCEEDED");
 assert.equal(SYNC_JOB_OPTIONS.removeOnComplete, true);
 console.log("✓ scheduler queues each due account once; worker processes it");
+// The rest of the test drives syncs directly; stop the queue worker so it cannot run the same
+// account at the same moment (production never does: one job ID per account).
+await worker.close();
 
 // 8. An exchange outage backs off per account instead of retrying every minute.
 mexc.down = true;
@@ -677,7 +680,6 @@ assert.equal(
 );
 console.log("✓ master-key rotation re-wraps every stored key automatically");
 
-await worker.close();
 await events.close();
 await queue.obliterate({ force: true });
 await queue.close();

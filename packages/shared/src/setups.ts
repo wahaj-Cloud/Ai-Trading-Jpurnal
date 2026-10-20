@@ -14,8 +14,12 @@ export type SetupExchange = (typeof SETUP_EXCHANGES)[number];
 export const SETUP_TIMEFRAMES = TIMEFRAMES;
 export type SetupTimeframe = (typeof SETUP_TIMEFRAMES)[number];
 
-/** Candles every evaluation looks at (enough for a 200 EMA); live and backtest use the same. */
-export const SETUP_WINDOW = 400;
+/**
+ * Candles every evaluation looks at; live and backtest use the same. 600 covers two full UTC days
+ * on 5m candles (the previous day's high/low from any time of today) and lets a 200 EMA settle
+ * (its starting value weighs under 2% after 400 candles).
+ */
+export const SETUP_WINDOW = 600;
 /** Current rule language version. Older saved rules keep working when it grows. */
 export const SETUP_RULE_VERSION = 1;
 

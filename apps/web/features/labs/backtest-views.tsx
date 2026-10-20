@@ -1,6 +1,7 @@
 "use client";
 
 import type { BacktestTradeChartDto, BacktestTradeDto } from "@atc/shared";
+import { signedFixed } from "@atc/shared";
 import { CandlestickChart, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState, useTransition } from "react";
@@ -141,7 +142,7 @@ export function BacktestTrades({ runId, trades }: { runId: string; trades: Backt
                 <td
                   className={cn("py-2 text-right", t.rMultiple >= 0 ? "text-profit" : "text-loss")}
                 >
-                  {t.rMultiple.toFixed(2)}R
+                  {signedFixed(t.rMultiple, 2)}R
                 </td>
                 <td className={cn("py-2 text-right", t.pnl >= 0 ? "text-profit" : "text-loss")}>
                   {usd(t.pnl)}

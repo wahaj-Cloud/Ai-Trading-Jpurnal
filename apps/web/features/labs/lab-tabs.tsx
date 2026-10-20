@@ -7,12 +7,16 @@ import { cn } from "@/lib/cn";
 const TABS = [
   { href: "/lab", label: "What-If Lab", badge: "Pro" },
   { href: "/lab/strategy", label: "Strategy Lab", badge: "Premium" },
+  { href: "/lab/paper", label: "Paper Bots", badge: "All plans" },
 ];
 
 export function LabTabs() {
   const path = usePathname();
   return (
-    <nav aria-label="Lab" className="flex gap-1 rounded-full border border-rule p-1 text-sm">
+    <nav
+      aria-label="Lab"
+      className="flex max-w-full gap-1 overflow-x-auto rounded-full border border-rule p-1 text-sm"
+    >
       {TABS.map((t) => {
         const active = t.href === "/lab" ? path === "/lab" : path.startsWith(t.href);
         return (

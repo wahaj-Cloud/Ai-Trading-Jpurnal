@@ -4,6 +4,9 @@ import {
   type BacktestTradesPage,
   describeCondition,
   type SetupDto,
+  signedFixed,
+  signedPct,
+  signedUsd,
 } from "@atc/shared";
 import { AlertTriangle, Download, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -17,8 +20,7 @@ export const metadata = { title: "Backtest" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const pct = (v: number | null, dp = 1) => (v === null ? "—" : `${(v * 100).toFixed(dp)}%`);
-const usd = (v: number) =>
-  `${v < 0 ? "−" : v > 0 ? "+" : ""}$${Math.abs(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const usd = (v: number) => signedUsd(v);
 
 export default async function BacktestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -134,15 +136,14 @@ export default async function BacktestPage({ params }: { params: Promise<{ id: s
           )}
           <dl className="surface grid grid-cols-2 gap-5 rounded-[var(--radius-surface)] p-5 sm:grid-cols-4 2xl:grid-cols-8">
             <Metric label="Net result" value={usd(s.netPnl)} signed={String(s.netPnl)} />
-            <Metric
-              label="Return"
-              value={`${s.returnPct >= 0 ? "+" : "−"}${Math.abs(s.returnPct).toFixed(2)}%`}
-              signed={String(s.returnPct)}
-            />
+            <Metric label="Return" value={signedPct(s.returnPct, 2)} signed={String(s.returnPct)} />
             <Metric label="Trades" value={s.trades} hint={`${s.wins} won · ${s.losses} lost`} />
             <Metric label="Win rate" value={pct(s.winRate)} />
             <Metric label="Profit factor" value={s.profitFactor?.toFixed(2) ?? "—"} />
-            <Metric label="Average R" value={s.avgR === null ? "—" : `${s.avgR.toFixed(2)}R`} />
+            <Metric
+              label="Average R"
+              value={s.avgR === null ? "—" : `${signedFixed(s.avgR, 2)}R`}
+            />
             <Metric label="Max drawdown" value={`${s.maxDrawdownPct.toFixed(2)}%`} />
             <Metric
               label="Fees + funding"
@@ -177,7 +178,7 @@ export default async function BacktestPage({ params }: { params: Promise<{ id: s
                     <dt className="text-ink-muted">{label}</dt>
                     <dd className="figures">
                       {x.trades} trades · win rate {pct(x.winRate)} · average{" "}
-                      {x.expectancyR === null ? "—" : `${x.expectancyR.toFixed(2)}R`}
+                      {x.expectancyR === null ? "—" : `${signedFixed(x.expectancyR, 2)}R`}
                     </dd>
                   </div>
                 ))}

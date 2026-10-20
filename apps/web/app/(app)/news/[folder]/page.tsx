@@ -159,6 +159,7 @@ export default async function NewsFolderPage({ params, searchParams }: Props) {
             impact={impact}
             initial={page.items}
             nextCursor={page.nextCursor}
+            renderedAt={Date.now()}
           />
         ) : (
           <p className="text-sm text-ink-muted">The news could not be loaded. Try again shortly.</p>

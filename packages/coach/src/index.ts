@@ -6,6 +6,7 @@ export * from "./facts.js";
 export * from "./grade.js";
 export * from "./help.js";
 export * from "./model.js";
+export * from "./paper-store.js";
 export * from "./prompts.js";
 export * from "./psychology.js";
 export * from "./service.js";

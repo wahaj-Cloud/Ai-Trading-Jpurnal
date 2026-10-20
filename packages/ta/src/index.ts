@@ -3,5 +3,6 @@ export * from "./backtest.js";
 export * from "./bias.js";
 export * from "./desk.js";
 export * from "./indicators.js";
+export * from "./ratings.js";
 export * from "./setups.js";
 export * from "./structure.js";

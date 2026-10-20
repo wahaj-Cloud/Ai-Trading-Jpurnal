@@ -239,3 +239,38 @@ describe("analyzeTrade", () => {
     ]);
   });
 });
+
+describe("order block lifecycle", () => {
+  it("records where a block was broken, so a breaker's life starts there", () => {
+    let s = 3;
+    const rand = () => {
+      s = (s * 16807) % 2147483647;
+      return s / 2147483647;
+    };
+    const cs: Candle[] = [];
+    let p = 100;
+    for (let i = 0; i < 600; i++) {
+      const o = p;
+      p *= 1 + (rand() - 0.5) * 0.02;
+      cs.push({
+        t: i * 900_000,
+        o,
+        h: Math.max(o, p) * (1 + rand() * 0.004),
+        l: Math.min(o, p) * (1 - rand() * 0.004),
+        c: p,
+        v: 1,
+      });
+    }
+    const zones = orderBlocks(cs);
+    const broken = zones.filter((z) => z.kind !== "ORDER_BLOCK");
+    expect(broken.length).toBeGreaterThan(0);
+    for (const z of broken) {
+      expect(z.brokenIndex).toBeGreaterThan(z.index);
+      const k = z.brokenIndex as number;
+      const breaking = cs[k] as Candle;
+      // The breaking close went through the block's far side.
+      expect(breaking.c < z.bottom || breaking.c > z.top).toBe(true);
+    }
+    for (const z of zones.filter((x) => x.kind === "ORDER_BLOCK")) expect(z.brokenIndex).toBeNull();
+  });
+});

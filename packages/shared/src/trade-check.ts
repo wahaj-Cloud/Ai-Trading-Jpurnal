@@ -9,6 +9,7 @@ import {
 } from "./desk.js";
 import type { TimeframeBiasDto } from "./flow.js";
 import type { LiquidationClusterDto } from "./market.js";
+import { signedFixed, signedPct } from "./numbers.js";
 
 /**
  * Trade Check: every reading a professional looks at before taking a position, for one market,
@@ -275,7 +276,7 @@ export const fmtPrice = (v: number) =>
   v.toLocaleString("en-US", {
     maximumFractionDigits: v >= 1000 ? 0 : v >= 10 ? 2 : v >= 1 ? 3 : 5,
   });
-const pct = (v: number, d = 2) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(d)}%`;
+const pct = (v: number, d = 2) => signedPct(v, d);
 const usd = (v: number) =>
   `$${new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(v)}`;
 const TF_NAME = { "1w": "Weekly", "1d": "Daily", "4h": "4-hour", "1h": "1-hour" } as const;
@@ -742,7 +743,7 @@ export function buildTradeCheck(input: TradeCheckInput): TradeCheckDto {
         key: "dvol",
         group: "options",
         label: "Implied volatility (DVOL)",
-        value: `${op.dvol.toFixed(1)}${op.dvolChange24h !== null ? ` (${op.dvolChange24h >= 0 ? "+" : "−"}${Math.abs(op.dvolChange24h).toFixed(1)} in 24h)` : ""}`,
+        value: `${op.dvol.toFixed(1)}${op.dvolChange24h !== null ? ` (${signedFixed(op.dvolChange24h, 1)} in 24h)` : ""}`,
         lean: "info",
         why: `Options price a typical daily move of about ${(op.dvol / Math.sqrt(365)).toFixed(1)}%.`,
       });
@@ -800,7 +801,7 @@ export function buildTradeCheck(input: TradeCheckInput): TradeCheckDto {
       key: "us10y",
       group: "macro",
       label: "US 10-year yield (1 week)",
-      value: `${y10.value.toFixed(2)}% · ${y10.change >= 0 ? "+" : "−"}${Math.abs(y10.change).toFixed(2)} pts`,
+      value: `${y10.value.toFixed(2)}% · ${signedFixed(y10.change, 2)} pts`,
       lean: band(
         y10.change,
         (v) => v <= -0.15,
@@ -842,7 +843,7 @@ export function buildTradeCheck(input: TradeCheckInput): TradeCheckDto {
       key: "vix",
       group: "macro",
       label: "VIX",
-      value: `${vix.value.toFixed(1)}${vix.change !== null ? ` (${vix.change >= 0 ? "+" : "−"}${Math.abs(vix.change).toFixed(1)} in a week)` : ""}`,
+      value: `${vix.value.toFixed(1)}${vix.change !== null ? ` (${signedFixed(vix.change, 1)} in a week)` : ""}`,
       lean: metal ? "info" : vix.value >= 25 ? "short" : "neutral",
       why: metal
         ? `Stock-market fear gauge (${asOf(vix)}); fear can send money into gold.`

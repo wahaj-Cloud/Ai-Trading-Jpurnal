@@ -24,7 +24,9 @@ import {
   ENGAGEMENT_QUEUE,
   EXCHANGE_CATALOG,
   type ExchangeId,
+  LIVE_ALIVE_KEY,
   MAINTENANCE_QUEUE,
+  MARKET_FAST_QUEUE,
   MARKET_QUEUE,
   SETUP_SCAN_QUEUE,
   SYNC_QUEUE,
@@ -41,8 +43,18 @@ import { runMarketContext, runMarketHistory } from "./market/context.js";
 import { runMarketDesk } from "./market/desk.js";
 import { startFlowCollector } from "./market/flow-collector.js";
 import { runLiquidationMaps } from "./market/liq-map.js";
+import { startLiveFlow } from "./market/live-flow.js";
+import { runOrderflow, runOrderflowFast } from "./market/orderflow.js";
 import { runMarketOverview } from "./market/overview.js";
+import { PaperBotEngine } from "./market/paper-bots.js";
 import { runMarketPulse } from "./market/pulse.js";
+import { runRatings } from "./market/ratings.js";
+import {
+  LiveBase,
+  LiveScalpAlerts,
+  runScalpReadouts,
+  stampEntryReadouts,
+} from "./market/scalp-readouts.js";
 import { initMonitoring } from "./monitoring.js";
 import { HeadlineCollector } from "./news/headlines.js";
 import { startLiveNews } from "./news/live.js";
@@ -292,6 +304,48 @@ async function main(): Promise<void> {
   } else {
     await market.removeJobScheduler("liquidation-maps");
   }
+  if (env.ORDER_FLOW_ENABLED) {
+    await market.upsertJobScheduler(
+      "order-flow",
+      { pattern: "1-59/5 * * * *" },
+      { name: "order-flow", opts: { removeOnComplete: true, removeOnFail: 50 } },
+    );
+    await market.add(
+      "order-flow",
+      {},
+      { jobId: `order-flow-boot-${Date.now()}`, removeOnComplete: true, removeOnFail: true },
+    );
+  } else {
+    await market.removeJobScheduler("order-flow");
+  }
+  // The 1-minute scan (5m to 1H windows and the scalping desk) runs on its own queue.
+  const fast = new Queue(MARKET_FAST_QUEUE, { connection });
+  if (env.ORDER_FLOW_ENABLED) {
+    await fast.upsertJobScheduler(
+      "order-flow-fast",
+      { pattern: "5 * * * * *" },
+      { name: "order-flow-fast", opts: { removeOnComplete: true, removeOnFail: 20 } },
+    );
+  } else {
+    await fast.removeJobScheduler("order-flow-fast");
+  }
+  const fastWorker = new Worker(
+    MARKET_FAST_QUEUE,
+    async () => {
+      const res = await runOrderflowFast(marketDeps);
+      if (res.failed > 0)
+        log.warn("order flow (1m) partly updated", { coins: res.coins, failed: res.failed });
+      // While the live engine runs it checks alerts every second; the minute run only records.
+      const liveAlive = (await redis.exists(LIVE_ALIVE_KEY).catch(() => 0)) === 1;
+      const r = await runScalpReadouts({ db, notify: (n) => notify(notifyDeps, n) }, res.scalp, {
+        alerts: !liveAlive,
+      });
+      if (r.alerts > 0) log.info("scalp alerts sent", r);
+      const g = await runRatings(marketDeps, res.scalp);
+      if (g.failed > 0) log.warn("indicator gauges partly updated", g);
+    },
+    { connection, concurrency: 1 },
+  );
   if (env.MARKET_OVERVIEW_ENABLED) {
     await market.upsertJobScheduler(
       "market-overview",
@@ -376,6 +430,12 @@ async function main(): Promise<void> {
         if (res.failed.length > 0) log.warn("market overview partly updated", res);
         return;
       }
+      if (job.name === "order-flow") {
+        const res = await runOrderflow(marketDeps);
+        const stamped = await stampEntryReadouts(db);
+        log.info("order flow updated", { ...res, stamped });
+        return;
+      }
       if (job.name === "liquidation-maps") {
         const res = await runLiquidationMaps(marketDeps);
         log.info("liquidation maps updated", res);
@@ -419,6 +479,9 @@ async function main(): Promise<void> {
   maintenanceWorker.on("error", onError("maintenance worker"));
   engagementWorker.on("error", onError("engagement worker"));
   marketWorker.on("error", onError("market worker"));
+  fastWorker.on("error", onError("fast market worker"));
+  fast.on("error", onError("fast market queue"));
+  fastWorker.on("failed", (_job, err) => log.warn("order flow (1m) failed", { err }));
   setupWorker.on("error", onError("setup worker"));
   backtestWorker.on("error", onError("backtest worker"));
   market.on("error", onError("market queue"));
@@ -457,14 +520,33 @@ async function main(): Promise<void> {
     : null;
 
   const flow = env.MARKET_FLOW_ENABLED ? startFlowCollector({ db, redis }) : null;
+  const liveBase = new LiveBase(db);
+  const liveAlerts = new LiveScalpAlerts({ db, notify: (n) => notify(notifyDeps, n) }, liveBase);
+  // Paper bots run on the live feed only: virtual money, never an order.
+  const paperBots = new PaperBotEngine({ db }, liveBase);
+  const liveFlow =
+    env.LIVE_FLOW_ENABLED && env.ORDER_FLOW_ENABLED
+      ? startLiveFlow({
+          db,
+          redis,
+          config: adapterConfig,
+          onTick: (t) =>
+            Promise.all([
+              liveAlerts.onTick(t).catch((err) => log.warn("live scalp alerts failed", { err })),
+              paperBots.onTick(t).catch((err) => log.warn("paper bots failed", { err })),
+            ]),
+        })
+      : null;
 
   log.info("worker started", {
     marketFlow: flow ? "on" : "off",
+    liveOrderFlow: liveFlow ? "on" : "off",
     headlines: headlines ? (env.FINNHUB_API_KEY ? "on" : "on, no Finnhub key") : "off",
     liveNews: liveNews ? "on" : "off",
     officialNews: official ? "on" : "off",
     marketPulse: env.MARKET_PULSE_ENABLED ? "on" : "off",
     liquidationMaps: env.LIQ_MAP_ENABLED ? "on" : "off",
+    orderFlow: env.ORDER_FLOW_ENABLED ? "on" : "off",
     marketDesk: env.MARKET_DESK_ENABLED ? "on" : "off",
     marketContext: env.MARKET_CONTEXT_ENABLED ? (env.FRED_API_KEY ? "on" : "on, no macro") : "off",
     marketOverview: env.MARKET_OVERVIEW_ENABLED
@@ -482,6 +564,7 @@ async function main(): Promise<void> {
     liveNews?.stop();
     official?.stop();
     await flow?.stop();
+    await liveFlow?.stop();
     await headlineRun?.stop();
     // Let running syncs finish their current step; cursors make any unfinished work resumable.
     await Promise.allSettled([
@@ -490,6 +573,7 @@ async function main(): Promise<void> {
       engagementWorker.close(),
       aiWorker.close(),
       marketWorker.close(),
+      fastWorker.close(),
       setupWorker.close(),
       backtestWorker.close(),
     ]);
@@ -499,6 +583,7 @@ async function main(): Promise<void> {
       maintenance.close(),
       engagement.close(),
       market.close(),
+      fast.close(),
       setupScan.close(),
       redis.quit(),
       db.$disconnect(),

@@ -7,6 +7,7 @@ import {
   FLOW_EXCHANGES,
   FLOW_FREE_SYMBOLS,
   FLOW_SYMBOLS,
+  FLOW_WINDOW_LABEL,
   FLOW_WINDOWS,
   type FlowFeedPage,
   type FlowSummaryDto,
@@ -24,6 +25,7 @@ import { Panel } from "@/features/analytics/metric";
 import { BiasChip, FlowChart, signedUsd, usdCompact } from "@/features/flow/views";
 import { AutoRefresh } from "@/features/labs/backtest-views";
 import { formatPrice } from "@/features/live/market";
+import { FreshnessBadge } from "@/features/live-flow/freshness";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
@@ -116,7 +118,15 @@ export default async function FlowPage({ searchParams }: { searchParams: SearchP
             liquidations from Binance, Bybit and OKX, with the trend on each timeframe.
           </p>
         </div>
-        <p className="flex flex-wrap gap-2 text-xs text-ink-faint">
+        <p className="flex flex-wrap items-center gap-2 text-xs text-ink-faint">
+          <FreshnessBadge
+            at={
+              s.sources
+                .map((x) => (x.lastAt ? Date.parse(x.lastAt) : 0))
+                .reduce((a, b) => Math.max(a, b), 0) || null
+            }
+            live={s.sources.some((x) => x.live)}
+          />
           {s.sources.map((src) => (
             <span key={src.exchange} className="flex items-center gap-1">
               <span
@@ -203,14 +213,16 @@ export default async function FlowPage({ searchParams }: { searchParams: SearchP
           <nav aria-label="Period" className="flex gap-2">
             {FLOW_WINDOWS.map((w) => (
               <Chip key={w} href={href({ w })} active={w === window}>
-                Last {w}
+                {FLOW_WINDOW_LABEL[w]}
               </Chip>
             ))}
           </nav>
 
           <div className="grid gap-4 md:grid-cols-3">
             <section className="surface grid content-start gap-2 rounded-[var(--radius-surface)] p-5">
-              <h2 className="text-sm text-ink-muted">Whale net flow · {window}</h2>
+              <h2 className="text-sm text-ink-muted">
+                Whale net flow · {FLOW_WINDOW_LABEL[window]}
+              </h2>
               <p
                 className={cn(
                   "figures text-3xl font-semibold",
@@ -230,7 +242,7 @@ export default async function FlowPage({ searchParams }: { searchParams: SearchP
               </p>
             </section>
             <section className="surface grid content-start gap-2 rounded-[var(--radius-surface)] p-5">
-              <h2 className="text-sm text-ink-muted">Liquidated · {window}</h2>
+              <h2 className="text-sm text-ink-muted">Liquidated · {FLOW_WINDOW_LABEL[window]}</h2>
               <p className="figures text-3xl font-semibold">{usdCompact(liqTotal)}</p>
               <p className="text-sm">
                 <span className="text-[#a78bfa]">Longs {usdCompact(s.liquidations.longUsd)}</span> ·{" "}
@@ -274,7 +286,7 @@ export default async function FlowPage({ searchParams }: { searchParams: SearchP
             </section>
           </div>
 
-          <Panel title={`Flow over the last ${window}`}>
+          <Panel title={`Flow over the last ${FLOW_WINDOW_LABEL[window]}`}>
             <FlowChart series={s.series} />
           </Panel>
 

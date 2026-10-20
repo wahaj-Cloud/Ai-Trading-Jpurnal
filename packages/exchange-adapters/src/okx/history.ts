@@ -242,7 +242,7 @@ export function okxRecord(raw: RawExchangePosition): ExchangePositionRecord {
     openedAt: new Date(Number(p.cTime)),
     closedAt: raw.closedAt,
     entryPrice: positive(p.openAvgPx),
-    exitPrice: exit && exit.gt(0) ? str(exit) : null,
+    exitPrice: exit?.gt(0) ? str(exit) : null,
     quantity: contracts && ctVal ? str(contracts.abs().times(ctVal)) : null,
     leverage: positive(p.lever),
     grossPnl: signed(p.pnl),

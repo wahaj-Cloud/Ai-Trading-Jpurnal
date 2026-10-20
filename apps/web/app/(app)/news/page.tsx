@@ -253,6 +253,7 @@ export default async function NewsPage({ searchParams }: { searchParams: SearchP
             impact="MEDIUM"
             initial={economyNews.items}
             nextCursor={economyNews.nextCursor}
+            renderedAt={Date.now()}
             compact
           />
         ) : (

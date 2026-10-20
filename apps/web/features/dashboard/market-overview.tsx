@@ -4,6 +4,7 @@ import { altcoinSeasonLabel, fearGreedLabel, type MarketOverviewDto } from "@atc
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { cn } from "@/lib/cn";
+import { useMounted } from "@/lib/use-mounted";
 import { getMarketOverviewAction } from "./market-actions";
 
 const REFRESH_MS = 5 * 60_000;
@@ -126,6 +127,7 @@ export function MarketOverview({ initial }: { initial: MarketOverviewDto }) {
   const { marketCap: mc, fearGreed: fg, altcoinSeason: alt } = data;
   const up = (mc?.change24hPct ?? 0) >= 0;
   const updated = mc?.updatedAt ?? fg?.updatedAt ?? alt?.updatedAt;
+  const local = useMounted();
 
   return (
     <div className="grid gap-2">
@@ -212,7 +214,7 @@ export function MarketOverview({ initial }: { initial: MarketOverviewDto }) {
           CoinMarketCap
         </a>
         {updated
-          ? ` · updated ${new Date(updated).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
+          ? ` · updated ${new Date(updated).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", ...(local ? {} : { timeZone: "UTC", timeZoneName: "short" }) })}`
           : ""}
       </p>
     </div>

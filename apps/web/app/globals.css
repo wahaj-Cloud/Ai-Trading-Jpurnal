@@ -290,6 +290,63 @@ html[data-preset="lavender"] {
   }
 }
 
+/*
+ * HUD panel: a faint measuring grid that fades out from the top-left, and a thin glowing line on
+ * the top edge. Layered under the content (isolation keeps the ::before behind the children).
+ */
+@utility hud {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--color-hi) 5%, transparent) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-hi) 5%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 28px 28px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 90% at 20% 0%, black, transparent 75%);
+    mask-image: radial-gradient(ellipse 80% 90% at 20% 0%, black, transparent 75%);
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    top: 0;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--color-glow), transparent);
+    opacity: 0.75;
+  }
+}
+
+/* A small green dot that pulses: the data on this panel refreshes by itself. */
+@utility live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--pnl-profit);
+  animation: live-pulse 2s ease-out infinite;
+}
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pnl-profit) 65%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
 @keyframes pop-in {
   from {
     opacity: 0;

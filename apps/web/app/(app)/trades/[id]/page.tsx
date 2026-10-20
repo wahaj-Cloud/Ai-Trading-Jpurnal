@@ -1,4 +1,16 @@
-import { EXCHANGE_CATALOG, PULSE_LINKS, pulseLink, type TradeDetailDto } from "@atc/shared";
+import {
+  ALIGNMENT_LABEL,
+  alignment,
+  EXCHANGE_CATALOG,
+  fixedMinus,
+  PULSE_LINKS,
+  pulseLink,
+  type TradeDetailDto,
+} from "@atc/shared";
+
+/** Binance name of a coin for the Cockpit link (gold and silver included). */
+const scalpSymbol = (base: string) => `${base.toUpperCase()}USDT`;
+
 import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -83,13 +95,31 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
               Planned setup
             </Link>
           )}
+          {t.entryReadout?.tf5 && (
+            <Link
+              href={`/cockpit?s=${scalpSymbol(t.baseAsset)}&tf=5m`}
+              title="Scalp Cockpit 5m readings in the minute you entered"
+              className={cn(
+                "figures rounded px-2 py-0.5 text-xs",
+                alignment(t.direction, t.entryReadout.tf5) === "with"
+                  ? "bg-profit/15 text-profit"
+                  : alignment(t.direction, t.entryReadout.tf5) === "against"
+                    ? "bg-loss/15 text-loss"
+                    : "bg-hi/10 text-ink-muted",
+              )}
+            >
+              5m readings at entry: {t.entryReadout.tf5.up} up, {t.entryReadout.tf5.down} down ·{" "}
+              {ALIGNMENT_LABEL[alignment(t.direction, t.entryReadout.tf5)].toLowerCase()}
+            </Link>
+          )}
           {t.btcCorrAtEntry !== null && (
             <Link
               href={`/market/${t.symbol}`}
               title="24-hour correlation of this coin to BTC when you entered"
               className="figures rounded bg-hi/10 px-2 py-0.5 text-xs text-ink-muted"
             >
-              {PULSE_LINKS[pulseLink(t.btcCorrAtEntry)]} ({t.btcCorrAtEntry.toFixed(2)}) at entry
+              {PULSE_LINKS[pulseLink(t.btcCorrAtEntry)]} ({fixedMinus(t.btcCorrAtEntry, 2)}) at
+              entry
             </Link>
           )}
         </div>

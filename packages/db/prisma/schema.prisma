@@ -74,6 +74,8 @@ model User {
   notifications    Notification[]
   setups           Setup[]
   setupAlerts      SetupAlert[]
+  scalpAlerts      ScalpAlert[]
+  paperBots        PaperBot[]
   whatIfScenarios  WhatIfScenario[]
   backtestRuns     BacktestRun[]
 
@@ -383,6 +385,9 @@ model Position {
   setupAlertId      String?           @map("setup_alert_id") @db.Uuid
   /// How closely the coin moved with BTC (24h) when the trade opened (Market Pulse).
   btcCorrAtEntry    Float?            @map("btc_corr_at_entry") @db.Real
+  /// Scalp Cockpit readings counted at entry: { at, tf5: {up, down, total}, tf15: {...} }, or
+  /// { none: true } when the market was not scanned then.
+  entryReadout      Json?             @map("entry_readout")
   btcBetaAtEntry    Float?            @map("btc_beta_at_entry") @db.Real
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -985,6 +990,7 @@ model Setup {
 
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   alerts    SetupAlert[]
+  paperBots PaperBot[]
   backtests BacktestRun[]
 
   @@index([userId, createdAt])
@@ -1174,4 +1180,119 @@ model MarketCapPoint {
   totalMarketCap Decimal  @map("total_market_cap") @db.Decimal(30, 2)
 
   @@map("market_cap_points")
+}
+
+/// "Tell me when this market has N readings one way" alerts (Scalp Cockpit).
+model ScalpAlert {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  symbol      String    @db.VarChar(30)
+  /// 5m | 15m
+  tf          String    @db.VarChar(4)
+  /// ANY | UP | DOWN
+  direction   String    @db.VarChar(4)
+  minCount    Int       @map("min_count") @db.SmallInt
+  noNews      Boolean   @default(true) @map("no_news")
+  enabled     Boolean   @default(true)
+  cooldownMin Int       @default(30) @map("cooldown_min") @db.SmallInt
+  /// Whether the condition held at the last check (alerts fire when it starts holding).
+  lastMet     Boolean   @default(false) @map("last_met")
+  lastFiredAt DateTime? @map("last_fired_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// One-tap trade plan sent with the alert: stop in typical 5-minute ranges, target in R, and
+  /// the money to risk (null = no size).
+  planStopRanges Float    @default(1.5) @map("plan_stop_ranges") @db.Real
+  planTargetR    Float    @default(2) @map("plan_target_r") @db.Real
+  planRiskUsd    Decimal? @map("plan_risk_usd") @db.Decimal(14, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([enabled])
+  @@map("scalp_alerts")
+}
+
+/// A paper-trading bot: virtual money, live market data, the trader's own rules. Never sends orders.
+model PaperBot {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  name         String   @db.VarChar(60)
+  symbol       String   @db.VarChar(30)
+  /// COCKPIT (count of Cockpit readings, live) | SETUP (a saved setup, on candle close)
+  source       String   @db.VarChar(8)
+  /// Cockpit: 5m | 15m. Setup: the setup's timeframe.
+  tf           String   @db.VarChar(4)
+  setupId      String?  @map("setup_id") @db.Uuid
+  /// Cockpit bots: ANY | UP | DOWN, readings needed, quiet around news.
+  direction    String   @default("ANY") @db.VarChar(4)
+  minCount     Int      @default(7) @map("min_count") @db.SmallInt
+  noNews       Boolean  @default(true) @map("no_news")
+  /// Exits: stop in typical ranges of the timeframe, target in R, longest hold.
+  stopRanges   Float    @default(1.5) @map("stop_ranges") @db.Real
+  targetR      Float    @default(2) @map("target_r") @db.Real
+  maxHoldMin   Int      @default(60) @map("max_hold_min")
+  /// Sizing and costs: share of equity risked, taker fee and slippage per fill (basis points).
+  riskPct      Float    @default(1) @map("risk_pct") @db.Real
+  feeBps       Float    @default(5) @map("fee_bps") @db.Real
+  slippageBps  Float    @default(2) @map("slippage_bps") @db.Real
+  startEquity  Float    @default(10000) @map("start_equity")
+  equity       Float    @default(10000)
+  enabled      Boolean  @default(true)
+  /// Whether the entry rule held at the last check (a bot enters when it starts holding).
+  lastMet      Boolean  @default(false) @map("last_met")
+  /// When the current run started (reset clears the trades and starts again).
+  startedAt    DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setup  Setup?       @relation(fields: [setupId], references: [id], onDelete: SetNull)
+  trades PaperTrade[]
+
+  @@index([userId])
+  @@index([enabled])
+  @@map("paper_bots")
+}
+
+/// One virtual trade of a paper bot.
+model PaperTrade {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  botId       String            @map("bot_id") @db.Uuid
+  symbol      String            @db.VarChar(30)
+  side        PositionDirection
+  entryAt     DateTime          @map("entry_at") @db.Timestamptz(3)
+  entryPrice  Float             @map("entry_price")
+  stop        Float
+  target      Float
+  qty         Float
+  riskUsd     Float             @map("risk_usd")
+  /// The Cockpit count when it entered ({ up, down, total }), or the setup's conditions.
+  entryNote   Json?             @map("entry_note")
+  exitAt      DateTime?         @map("exit_at") @db.Timestamptz(3)
+  exitPrice   Float?            @map("exit_price")
+  /// STOP | TARGET | TIME | MANUAL
+  exitReason  String?           @map("exit_reason") @db.VarChar(8)
+  fees        Float             @default(0)
+  funding     Float             @default(0)
+  pnl         Float?
+  rMultiple   Float?            @map("r_multiple")
+  /// Last funding time already charged (00:00, 08:00, 16:00 UTC).
+  fundedUntil DateTime?         @map("funded_until") @db.Timestamptz(3)
+  /// OPEN | CLOSED
+  status      String            @default("OPEN") @db.VarChar(6)
+
+  bot PaperBot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId, entryAt])
+  @@index([status])
+  @@map("paper_trades")
+}
+
+/// Every market's Scalp Cockpit counts and buy pressure, one row per minute (kept 8 days): stamps
+/// trades at entry and feeds the threshold review.
+model ScalpReadout {
+  at   DateTime @id @db.Timestamptz(3)
+  /// { SYMBOL: [up5, down5, total5, up15, down15, total15, p5m, p15m, p30m, p1h, price] }
+  data Json
+
+  @@map("scalp_readouts")
 }

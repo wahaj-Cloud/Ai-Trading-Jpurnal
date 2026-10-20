@@ -1,5 +1,6 @@
 "use client";
 
+import { signedPct } from "@atc/shared";
 import { useState } from "react";
 import {
   formatPrice,
@@ -9,7 +10,7 @@ import {
 } from "@/features/live/binance";
 import { cn } from "@/lib/cn";
 
-const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(2)}%`;
+const signed = (v: number) => signedPct(v, 2);
 
 /**
  * The desk's price, live from Binance's ticker stream (rolling 24h change, as on the exchange).

@@ -1,6 +1,7 @@
 "use client";
 
 import type { OpenPositionDto } from "@atc/shared";
+import { signedUsd } from "@atc/shared";
 import { Search, Star } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -34,8 +35,7 @@ function readFavs(): string[] {
   }
 }
 
-const usd = (v: number) =>
-  `${v >= 0 ? "+" : "−"}$${Math.abs(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const usd = (v: number) => signedUsd(v);
 const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 
 const STATUS_TEXT: Record<FeedStatus | "loading" | "error", string> = {

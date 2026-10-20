@@ -312,6 +312,8 @@ export const adminPlanUpdateSchema = z
     marketPulseAllWindows: z.number().int().min(0).max(1),
     liquidationMap: z.number().int().min(0).max(1),
     marketDesk: z.number().int().min(0).max(1),
+    scalpAlerts: limitInt,
+    paperBots: limitInt,
   })
   .strict();
 export type AdminPlanUpdate = z.infer<typeof adminPlanUpdateSchema>;

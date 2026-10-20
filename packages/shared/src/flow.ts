@@ -34,9 +34,20 @@ export const WHALE_MIN_USD: Record<FlowSymbol, number> = {
   XAGUSDT: 50_000,
 };
 
-export const FLOW_WINDOWS = ["1h", "4h", "24h"] as const;
+export const FLOW_WINDOWS = ["5m", "15m", "30m", "1h", "4h", "24h"] as const;
 export type FlowWindow = (typeof FLOW_WINDOWS)[number];
+export const FLOW_WINDOW_LABEL: Record<FlowWindow, string> = {
+  "5m": "5m",
+  "15m": "15m",
+  "30m": "30m",
+  "1h": "1H",
+  "4h": "4H",
+  "24h": "1D",
+};
 export const FLOW_WINDOW_MS: Record<FlowWindow, number> = {
+  "5m": 300_000,
+  "15m": 900_000,
+  "30m": 1_800_000,
   "1h": 3_600_000,
   "4h": 4 * 3_600_000,
   "24h": 24 * 3_600_000,

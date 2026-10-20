@@ -1,6 +1,7 @@
 "use client";
 
 import type { LiquidationMapDto, OpenPositionDto } from "@atc/shared";
+import { signedPct } from "@atc/shared";
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { cssVar } from "@/features/charts/time-series-chart";
 import { useThemeKey } from "@/features/theme/use-theme-key";
@@ -445,8 +446,7 @@ export function ProChart({
             </span>
             {legend.change !== null && (
               <span className={legend.change >= 0 ? "text-profit" : "text-loss"}>
-                {legend.change >= 0 ? "+" : "−"}
-                {Math.abs(legend.change * 100).toFixed(2)}%
+                {signedPct(legend.change * 100, 2)}
               </span>
             )}
             {settings.volume && (
