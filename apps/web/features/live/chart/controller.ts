@@ -1,6 +1,6 @@
 import type { LiquidationMapDto, OpenPositionDto } from "@atc/shared";
 import { signedUsd } from "@atc/shared";
-import { heikinAshi } from "@atc/ta/indicators";
+import { type Candle, heikinAshi } from "@atc/ta/indicators";
 import {
   AreaSeries,
   BarSeries,
@@ -23,6 +23,7 @@ import {
   type Time,
 } from "lightweight-charts";
 import { alpha } from "@/features/charts/time-series-chart";
+import { fetchCandles } from "../binance";
 import {
   INTERVAL_SECONDS,
   type LiveCandle,
@@ -37,7 +38,10 @@ import { type ChartPoint, TimeAxis } from "./geometry";
 import { HeatmapPrimitive } from "./heatmap";
 import type { ChartSettings, ChartType } from "./settings";
 import { computeStudies, type StudyLine, studyPanes, toTaCandles } from "./studies";
-import { chartZones, ZonesPrimitive } from "./zones";
+import { chartZones, sdChartZones, ZonesPrimitive } from "./zones";
+
+/** A higher timeframe's candles for its supply and demand zones are re-read this often. */
+const SD_REFRESH_MS = 60_000;
 
 export const PANE_HEIGHT = 130;
 const STUDY_THROTTLE_MS = 300;
@@ -137,6 +141,11 @@ export class ChartController {
   private lastLabelAt = 0;
   private precision = 2;
   private settings: ChartSettings;
+  /** Closed candles of the higher timeframe chosen for supply and demand zones (null = chart's). */
+  private sdSource: { tf: LiveInterval; rows: Candle[] } | null = null;
+  private sdKey = "";
+  private sdTimer: ReturnType<typeof setInterval> | null = null;
+  private sdAbort: AbortController | null = null;
 
   constructor(
     el: HTMLElement,
@@ -168,6 +177,7 @@ export class ChartController {
   }
 
   destroy(): void {
+    this.stopSdSource();
     // Detach first: the countdown's timer must stop before the chart is disposed.
     this.main.detachPrimitive(this.countdown);
     this.main.detachPrimitive(this.drawings);
@@ -296,6 +306,7 @@ export class ChartController {
     }
     this.main.applyOptions({ ...this.mainStyle(s.type, s), priceLineVisible: s.lastPriceLine });
     this.setWatermark(s.watermark);
+    this.syncSdSource();
     if (!initial) this.redrawAll();
     const last = this.rows.at(-1);
     if (last) this.updateCountdown(last);
@@ -542,14 +553,64 @@ export class ChartController {
   }
 
   /** Full redraw: main series, volume, indicator series and panels, overlays. */
-  /** Fair value gaps and order blocks from the candles (closed ones only: the forming candle can still change). */
+  /**
+   * Fair value gaps, order blocks and supply and demand zones from closed candles only (the
+   * forming candle can still change). Supply and demand come from the chart's own candles, or from
+   * the higher timeframe chosen in the settings, so a 4H zone is a 4H zone on any chart.
+   */
   private updateZones(): void {
     const z = this.settings.zones;
-    const closed = this.rows.slice(0, -1);
-    this.zones.set(z.fvg || z.ob ? chartZones(toTaCandles(closed), z) : [], {
-      up: this.settings.upColor,
-      down: this.settings.downColor,
-    });
+    const closed = toTaCandles(this.rows.slice(0, -1));
+    const out = z.fvg || z.ob ? chartZones(closed, z) : [];
+    const price = this.rows.at(-1)?.close;
+    if (z.sd && price !== undefined) {
+      const src = this.sdSource;
+      if (src) out.push(...sdChartZones(src.rows, price, src.tf));
+      else if (this.sdKey === "") out.push(...sdChartZones(closed, price, this.interval));
+    }
+    this.zones.set(out, { up: this.settings.upColor, down: this.settings.downColor });
+  }
+
+  /** The higher timeframe for supply and demand zones, if one is chosen and is above the chart's. */
+  private sdTimeframe(): LiveInterval | null {
+    const z = this.settings.zones;
+    if (!z.sd || z.sdTf === "chart") return null;
+    return INTERVAL_SECONDS[z.sdTf] > INTERVAL_SECONDS[this.interval] ? z.sdTf : null;
+  }
+
+  /** Loads (and every minute re-loads) the higher timeframe's closed candles when one is chosen. */
+  private syncSdSource(): void {
+    const tf = this.sdTimeframe();
+    const key = tf ?? "";
+    if (key === this.sdKey) return;
+    this.stopSdSource();
+    this.sdKey = key;
+    if (!tf) return;
+    const load = async () => {
+      this.sdAbort?.abort();
+      const ctrl = new AbortController();
+      this.sdAbort = ctrl;
+      try {
+        const rows = await fetchCandles(this.symbol, tf, 1000, ctrl.signal);
+        if (ctrl.signal.aborted || this.sdKey !== tf) return;
+        const now = Date.now();
+        this.sdSource = { tf, rows: toTaCandles(rows.filter((r) => r.closeTime < now)) };
+        this.updateZones();
+      } catch {
+        // Network or region block: the boxes stay as they were and the next refresh tries again.
+      }
+    };
+    void load();
+    this.sdTimer = setInterval(() => void load(), SD_REFRESH_MS);
+  }
+
+  private stopSdSource(): void {
+    if (this.sdTimer) clearInterval(this.sdTimer);
+    this.sdTimer = null;
+    this.sdAbort?.abort();
+    this.sdAbort = null;
+    this.sdSource = null;
+    this.sdKey = "";
   }
 
   private redrawAll(): void {

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@atc/db";
 import { afterEach, describe, expect, it } from "vitest";
+import { fakeSnapshotSql } from "../testing/fake-snapshots.js";
 import { FlowCollector } from "./flow-collector.js";
 
 /** Minimal stand-in for the platform WebSocket. */
@@ -30,6 +31,7 @@ class FakeSocket {
 
 function fakes() {
   const rows = { whales: [] as unknown[], liqs: [] as unknown[], status: [] as unknown[] };
+  const statusStore = new Map<string, unknown>();
   const db = {
     whaleTrade: {
       createMany: async (a: { data: unknown[] }) => rows.whales.push(...a.data),
@@ -39,7 +41,7 @@ function fakes() {
       createMany: async (a: { data: unknown[] }) => rows.liqs.push(...a.data),
       deleteMany: async () => ({}),
     },
-    marketSnapshot: { upsert: async (a: unknown) => rows.status.push(a) },
+    ...fakeSnapshotSql(statusStore),
   } as unknown as PrismaClient;
   let holder: string | null = null;
   const redis = {
@@ -57,7 +59,7 @@ function fakes() {
         { instId: "ETH-USDT-SWAP", ctVal: "0.1", ctType: "linear" },
       ],
     })) as typeof fetch;
-  return { rows, db, redis, fetchFn };
+  return { rows, db, redis, fetchFn, statusStore };
 }
 
 afterEach(() => {
@@ -140,7 +142,7 @@ describe("flow collector", () => {
       expect.objectContaining({ exchange: "BYBIT", side: "long", usd: "29500.00" }),
     ]);
     await a.saveStatus();
-    expect(JSON.stringify(f.rows.status)).toContain('"connected":true');
+    expect(JSON.stringify([...f.statusStore.values()])).toContain('"connected":true');
     await a.stop();
   });
 

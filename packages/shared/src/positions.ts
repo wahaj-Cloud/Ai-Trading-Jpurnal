@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { EXCHANGE_IDS, type ExchangeId } from "./exchanges.js";
 import type { EntryReadoutDto } from "./scalp-alerts.js";
+import type { EntryZoneDto } from "./zones.js";
 
 /** A journal trade as the API returns it. Money and sizes are decimal strings (never floats). */
 export interface PositionDto {
@@ -37,6 +38,8 @@ export interface PositionDto {
   btcCorrAtEntry: number | null;
   /** Scalp Cockpit counts in the minute the trade opened (kept for trades from the last 8 days on). */
   entryReadout: EntryReadoutDto | null;
+  /** 1H/4H supply and demand zones the entry price was inside (null = not recorded). */
+  entryZone: EntryZoneDto | null;
   /** Whether the trader has written a journal entry for this trade, and its rating. */
   reviewed: boolean;
   rating: number | null;

@@ -1,4 +1,5 @@
 import { planLimits } from "@atc/coach";
+import { snapshotsOf } from "@atc/db";
 import {
   ALIGNMENT_LABEL,
   type Alignment,
@@ -13,6 +14,7 @@ import {
   LIQ_MAP_FREE_SYMBOL,
   LIQ_MAP_SYMBOLS,
   type LiquidationClusterDto,
+  nearestCockpitZones,
   nearestLevels,
   RATING_REFRESH_MIN,
   RATING_TFS,
@@ -22,6 +24,11 @@ import {
   SESSIONS,
   sessionAt,
   USD_SETTLEMENT_ASSETS,
+  ZONE_STEP_MS,
+  ZONE_TFS,
+  ZONES_KEY,
+  type ZoneSet,
+  type ZoneTf,
 } from "@atc/shared";
 import { dec, str, ZERO } from "@atc/trade-engine";
 import { Injectable } from "@nestjs/common";
@@ -72,49 +79,63 @@ export class CockpitService {
     const base = baseOf(symbol);
     const isFlow = (FLOW_SYMBOLS as readonly string[]).includes(symbol);
     const isMap = (LIQ_MAP_SYMBOLS as readonly string[]).includes(symbol);
-    const [scalp, flowSummary, bias, limits, mapRow, corr, headlines, record, open, ratingsRow] =
-      await Promise.all([
-        this.orderflow.scalp(userId, now),
-        isFlow
-          ? this.flow.summary(
-              userId,
-              { symbol: symbol as (typeof FLOW_SYMBOLS)[number], window: q.tf },
-              now,
-            )
-          : Promise.resolve(null),
-        this.flow.bias(userId, now),
-        planLimits(db, userId),
-        isMap
-          ? db.liquidationMap.findUnique({
-              where: { symbol_window: { symbol, window: "24h" } },
-            })
-          : Promise.resolve(null),
-        symbol === "BTCUSDT"
-          ? Promise.resolve(null)
-          : db.marketCorrelation.findFirst({
-              where: { symbol, window: "24h" },
-              select: { corr: true },
-            }),
-        db.newsItem.findMany({
-          where: {
-            impact: "HIGH",
-            publishedAt: { gte: new Date(now.getTime() - 60 * 60_000), lte: now },
-          },
-          orderBy: { publishedAt: "desc" },
-          take: 8,
-          select: { title: true, publishedAt: true, why: true, url: true, clusterId: true },
-        }),
-        this.record(userId, base, now, q.tf),
-        db.openPosition.findMany({
-          where: {
+    const [
+      scalp,
+      flowSummary,
+      bias,
+      limits,
+      mapRow,
+      corr,
+      headlines,
+      record,
+      open,
+      ratingsRow,
+      zoneRows,
+    ] = await Promise.all([
+      this.orderflow.scalp(userId, now),
+      isFlow
+        ? this.flow.summary(
             userId,
-            account: { status: "ACTIVE" },
-            baseAsset: { in: [base, `1000${base}`], mode: "insensitive" },
-          },
-          select: { direction: true, entryPrice: true, unrealizedPnl: true, exchange: true },
-        }),
-        db.marketSnapshot.findUnique({ where: { key: RATINGS_KEY } }),
-      ]);
+            { symbol: symbol as (typeof FLOW_SYMBOLS)[number], window: q.tf },
+            now,
+          )
+        : Promise.resolve(null),
+      this.flow.bias(userId, now),
+      planLimits(db, userId),
+      isMap
+        ? db.liquidationMap.findUnique({
+            where: { symbol_window: { symbol, window: "24h" } },
+          })
+        : Promise.resolve(null),
+      symbol === "BTCUSDT"
+        ? Promise.resolve(null)
+        : db.marketCorrelation.findFirst({
+            where: { symbol, window: "24h" },
+            select: { corr: true },
+          }),
+      db.newsItem.findMany({
+        where: {
+          impact: "HIGH",
+          publishedAt: { gte: new Date(now.getTime() - 60 * 60_000), lte: now },
+        },
+        orderBy: { publishedAt: "desc" },
+        take: 8,
+        select: { title: true, publishedAt: true, why: true, url: true, clusterId: true },
+      }),
+      this.record(userId, base, now, q.tf),
+      db.openPosition.findMany({
+        where: {
+          userId,
+          account: { status: "ACTIVE" },
+          baseAsset: { in: [base, `1000${base}`], mode: "insensitive" },
+        },
+        select: { direction: true, entryPrice: true, unrealizedPnl: true, exchange: true },
+      }),
+      snapshotsOf(db).get(RATINGS_KEY),
+      // Only this market's zones, not the whole record.
+      db.$queryRaw<Array<{ m: unknown }>>`
+          SELECT data->'markets'->${symbol} AS m FROM market_snapshots WHERE key = ${ZONES_KEY}`,
+    ]);
 
     const locked: string[] = [];
     const coin = scalp.coins.find((c) => c.symbol === symbol) ?? null;
@@ -199,6 +220,14 @@ export class CockpitService {
         })
       : { rows: [], flags: [], tally: { up: 0, down: 0, neutral: 0 } };
     const levels = coin ? nearestLevels(coin) : { above: null, below: null };
+    // 1H and 4H supply/demand zones; a record three candles late is not shown as current.
+    const market = (zoneRows[0]?.m ?? null) as Partial<Record<ZoneTf, ZoneSet>> | null;
+    const freshZones: Partial<Record<ZoneTf, ZoneSet>> = {};
+    for (const tf of ZONE_TFS) {
+      const set = market?.[tf];
+      if (set && now.getTime() - Date.parse(set.asOf) <= 3 * ZONE_STEP_MS[tf]) freshZones[tf] = set;
+    }
+    const zones = coin ? nearestCockpitZones(freshZones, coin.price) : [];
 
     return {
       symbol,
@@ -222,6 +251,7 @@ export class CockpitService {
       levelBelow: levels.below,
       liqAbove,
       liqBelow,
+      zones,
       whales,
       liquidations,
       bias: biasFresh ? (biasRow?.bias ?? []) : [],

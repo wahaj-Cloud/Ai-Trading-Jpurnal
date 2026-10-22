@@ -174,6 +174,7 @@ const LIMIT_FIELDS: Array<{
   { name: "marketDesk", label: "Desk all markets (0/1)" },
   { name: "scalpAlerts", label: "Scalp alerts" },
   { name: "paperBots", label: "Paper bots" },
+  { name: "zoneAlerts", label: "Zone alerts" },
 ];
 
 /** One plan's price and limits; -1 means unlimited. */

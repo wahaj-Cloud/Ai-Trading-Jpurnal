@@ -5,6 +5,7 @@ import { type OrderflowWindow, REGIME_INFO, STRENGTH_LABEL } from "./orderflow.j
 import type { RatingDto, RatingTf } from "./ratings.js";
 import type { ScalpCoinDto, ScalpEventDto } from "./scalp.js";
 import type { Alignment } from "./scalp-alerts.js";
+import type { CockpitZoneDto } from "./zones.js";
 
 /**
  * Scalp Cockpit: everything the app knows about one market, read for a 5- or 15-minute trade on
@@ -119,6 +120,8 @@ export interface CockpitDto {
   /** Biggest estimated liquidation pools within 3% (shorts above, longs below). */
   liqAbove: (CockpitLevel & { usd: number }) | null;
   liqBelow: (CockpitLevel & { usd: number }) | null;
+  /** Nearest 1H and 4H supply zones above and demand zones below (two each per timeframe). */
+  zones: CockpitZoneDto[];
   /** Whale orders and real liquidations over the chosen timeframe (Market Flow markets). */
   whales: { buyUsd: number; sellUsd: number; buys: number; sells: number } | null;
   liquidations: { longUsd: number; shortUsd: number } | null;

@@ -1,5 +1,6 @@
 import { planLimits } from "@atc/coach";
 import type { Prisma } from "@atc/db";
+import { snapshotsOf } from "@atc/db";
 import {
   type AdapterConfig,
   computeLiquidationMap,
@@ -314,7 +315,7 @@ export class MarketService {
     const allowed: DeskSymbol[] = limits.marketDesk === 1 ? [...DESK_SYMBOLS] : [DESK_FREE_SYMBOL];
     if (!allowed.includes(q.symbol)) return { status: "locked", allowed };
     const [snaps, open, next] = await Promise.all([
-      this.prisma.client.marketSnapshot.findMany({ where: { key: { in: allowed.map(deskKey) } } }),
+      snapshotsOf(this.prisma.client).getMany(allowed.map(deskKey)),
       this.prisma.client.openPosition.findMany({
         where: { userId },
         select: { symbol: true, direction: true },
@@ -349,9 +350,7 @@ export class MarketService {
   async overview(): Promise<MarketOverviewDto> {
     const since = new Date(Date.now() - 7 * 86_400_000);
     const [snaps, points] = await Promise.all([
-      this.prisma.client.marketSnapshot.findMany({
-        where: { key: { in: ["global", "fear_greed", "altcoin_season"] } },
-      }),
+      snapshotsOf(this.prisma.client).getMany(["global", "fear_greed", "altcoin_season"]),
       this.prisma.client.marketCapPoint.findMany({
         where: { ts: { gte: since } },
         orderBy: { ts: "asc" },

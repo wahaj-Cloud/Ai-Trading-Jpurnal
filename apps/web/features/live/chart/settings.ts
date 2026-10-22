@@ -17,6 +17,10 @@ export const CHART_TYPE_LABELS: Record<ChartType, string> = {
   area: "Area",
 };
 
+/** Where supply and demand zones come from: the chart's timeframe, or a higher one. */
+export const SD_SOURCES = ["chart", "15m", "1h", "4h", "1d"] as const;
+export type SdSource = (typeof SD_SOURCES)[number];
+
 const color = z.string().regex(/^#[0-9a-f]{6}$/i);
 const period = (min: number, max: number, d: number) => z.number().int().min(min).max(max).catch(d);
 
@@ -68,10 +72,18 @@ export const chartSettingsSchema = z.object({
       signal: period(2, 100, 9),
     })
     .catch({ on: false, fast: 12, slow: 26, signal: 9 }),
-  /** Unfilled fair value gaps and live order blocks drawn as boxes. */
+  /**
+   * Unfilled fair value gaps and live order blocks drawn as boxes; supply and demand zones from
+   * the chart's own timeframe or a higher one.
+   */
   zones: z
-    .object({ fvg: z.boolean().catch(false), ob: z.boolean().catch(false) })
-    .catch({ fvg: false, ob: false }),
+    .object({
+      fvg: z.boolean().catch(false),
+      ob: z.boolean().catch(false),
+      sd: z.boolean().catch(true),
+      sdTf: z.enum(SD_SOURCES).catch("chart"),
+    })
+    .catch({ fvg: false, ob: false, sd: true, sdTf: "chart" }),
   /** Estimated liquidation map behind the candles. */
   liqMap: z
     .object({ on: z.boolean().catch(false), window: z.enum(["24h", "7d"]).catch("24h") })

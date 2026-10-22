@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@atc/db";
+import { snapshotsOf } from "@atc/db";
 import {
   type AdapterConfig,
   fetchBinanceDeltaCandles,
@@ -208,7 +209,7 @@ export class LiveFlowEngine {
    */
   async refreshUniverse(): Promise<void> {
     if (!this.leader) return;
-    const row = await this.deps.db.marketSnapshot.findUnique({ where: { key: SCALP_KEY } });
+    const row = await snapshotsOf(this.deps.db).get(SCALP_KEY);
     const snap = row?.data as unknown as ScalpSnapshot | undefined;
     if (!snap?.coins?.length) return;
     this.universe = snap.universe;

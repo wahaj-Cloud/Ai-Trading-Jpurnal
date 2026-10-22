@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@atc/db";
+import { writeSnapshot } from "@atc/db";
 import {
   type CmcOptions,
   fetchCmcAltcoinSeason,
@@ -30,11 +31,7 @@ export async function runMarketOverview(
   const failed: string[] = [];
   const save = async (key: string, data: unknown) => {
     const json = data as Prisma.InputJsonValue;
-    await deps.db.marketSnapshot.upsert({
-      where: { key },
-      create: { key, data: json, updatedAt: new Date(now) },
-      update: { data: json, updatedAt: new Date(now) },
-    });
+    await writeSnapshot(deps.db, key, json, new Date(now));
     saved.push(key);
   };
   const tasks: Array<[string, () => Promise<unknown>]> = [

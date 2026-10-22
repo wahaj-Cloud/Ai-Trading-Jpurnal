@@ -1,4 +1,5 @@
 import { planLimits } from "@atc/coach";
+import { snapshotsOf } from "@atc/db";
 import {
   type CockpitTf,
   type CreateScalpAlert,
@@ -83,7 +84,7 @@ export class ScalpAlertsService {
     const [limits, count, snap] = await Promise.all([
       planLimits(db, userId),
       db.scalpAlert.count({ where: { userId } }),
-      db.marketSnapshot.findUnique({ where: { key: SCALP_KEY } }),
+      snapshotsOf(db).get(SCALP_KEY),
     ]);
     if (limits.scalpAlerts !== UNLIMITED && count >= limits.scalpAlerts)
       throw new ForbiddenException(

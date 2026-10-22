@@ -98,6 +98,14 @@ export const setupConditionSchema = z.discriminatedUnion("type", [
     .strict(),
   z.object({ type: z.literal("volume_spike"), multiple: z.number().min(1.1).max(10) }).strict(),
   z.object({ type: z.literal("premium_discount"), zone: z.enum(["discount", "premium"]) }).strict(),
+  z
+    .object({
+      type: z.literal("sd_zone"),
+      side: z.enum(["demand", "supply"]),
+      /** Only a zone price has not come back to since it formed. */
+      fresh: z.boolean(),
+    })
+    .strict(),
 ]);
 export type SetupCondition = z.infer<typeof setupConditionSchema>;
 export type SetupConditionType = SetupCondition["type"];
@@ -243,6 +251,8 @@ export function describeCondition(c: SetupCondition): string {
       return `Volume ${n(c.multiple)}× average`;
     case "premium_discount":
       return `Price in the ${c.zone} half of the range`;
+    case "sd_zone":
+      return `Tap into a ${c.fresh ? "fresh " : ""}${c.side} zone`;
   }
 }
 
@@ -259,6 +269,7 @@ export const CONDITION_DEFAULTS: Record<SetupConditionType, SetupCondition> = {
   session: { type: "session", in: ["london"] },
   volume_spike: { type: "volume_spike", multiple: 1.5 },
   premium_discount: { type: "premium_discount", zone: "discount" },
+  sd_zone: { type: "sd_zone", side: "demand", fresh: true },
 };
 
 export const CONDITION_LABELS: Record<SetupConditionType, string> = {
@@ -273,6 +284,7 @@ export const CONDITION_LABELS: Record<SetupConditionType, string> = {
   session: "Session",
   volume_spike: "Volume spike",
   premium_discount: "Premium / discount",
+  sd_zone: "Supply / demand zone",
 };
 
 /** Every alert carries this line; alerts describe the trader's own rules, never advice. */

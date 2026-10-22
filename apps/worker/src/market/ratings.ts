@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@atc/db";
+import { snapshotsOf, writeSnapshot } from "@atc/db";
 import { type AdapterConfig, fetchBinanceLiveCandles } from "@atc/exchange-adapters";
 import {
   isPinned,
@@ -44,7 +45,7 @@ export async function runRatings(
   const symbols = scalp.coins
     .filter((c) => c.rank <= SCALP_BOOK_COINS || isPinned(c.symbol))
     .map((c) => c.symbol);
-  const row = await deps.db.marketSnapshot.findUnique({ where: { key: RATINGS_KEY } });
+  const row = await snapshotsOf(deps.db).get(RATINGS_KEY);
   const prev = (row?.data as RatingsSnapshot | undefined) ?? null;
   const minute = Math.floor(now / 60_000) % 60;
   // A symbol new to the list gets every timeframe at once.
@@ -74,10 +75,6 @@ export async function runRatings(
   for (const s of symbols) data[s] = { ...(prev?.[s] ?? {}) };
   for (const { s, tf, r } of results) (data[s] as NonNullable<RatingsSnapshot[string]>)[tf] = r;
   const json = data as unknown as Prisma.InputJsonValue;
-  await deps.db.marketSnapshot.upsert({
-    where: { key: RATINGS_KEY },
-    create: { key: RATINGS_KEY, data: json, updatedAt: new Date(now) },
-    update: { data: json, updatedAt: new Date(now) },
-  });
+  await writeSnapshot(deps.db, RATINGS_KEY, json, new Date(now));
   return { symbols: symbols.length, tfs: results.length, failed };
 }

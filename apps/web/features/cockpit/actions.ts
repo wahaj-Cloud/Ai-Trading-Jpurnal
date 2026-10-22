@@ -1,6 +1,13 @@
 "use server";
 
-import { createScalpAlertSchema, type ScalpAlertDto, updateScalpAlertSchema } from "@atc/shared";
+import {
+  createScalpAlertSchema,
+  createZoneAlertSchema,
+  type ScalpAlertDto,
+  updateScalpAlertSchema,
+  updateZoneAlertSchema,
+  type ZoneAlertDto,
+} from "@atc/shared";
 import { revalidatePath } from "next/cache";
 import { ApiError, apiFetch } from "@/lib/api";
 
@@ -48,5 +55,42 @@ export async function toggleScalpAlertAction(id: string, enabled: boolean): Prom
 export async function deleteScalpAlertAction(id: string): Promise<void> {
   if (!UUID.test(id)) return;
   await apiFetch(`/v1/scalp-alerts/${id}`, { method: "DELETE" });
+  revalidatePath("/cockpit");
+}
+
+export async function createZoneAlertAction(
+  _prev: AlertActionState,
+  form: FormData,
+): Promise<AlertActionState> {
+  const parsed = createZoneAlertSchema.safeParse({
+    symbol: form.get("symbol"),
+    tfs: form.getAll("tfs"),
+    side: form.get("side"),
+    freshOnly: form.get("freshOnly") === "on",
+    cooldownMin: form.get("cooldownMin"),
+  });
+  if (!parsed.success) return { status: "error", message: "Pick at least one timeframe." };
+  try {
+    await apiFetch<ZoneAlertDto>("/v1/zone-alerts", {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+  } catch (err) {
+    return { status: "error", message: message(err, "Could not save the alert. Try again.") };
+  }
+  revalidatePath("/cockpit");
+  return { status: "ok", message: "Zone alert saved. It is checked every few seconds." };
+}
+
+export async function toggleZoneAlertAction(id: string, enabled: boolean): Promise<void> {
+  if (!UUID.test(id)) return;
+  const body = updateZoneAlertSchema.parse({ enabled });
+  await apiFetch(`/v1/zone-alerts/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+  revalidatePath("/cockpit");
+}
+
+export async function deleteZoneAlertAction(id: string): Promise<void> {
+  if (!UUID.test(id)) return;
+  await apiFetch(`/v1/zone-alerts/${id}`, { method: "DELETE" });
   revalidatePath("/cockpit");
 }

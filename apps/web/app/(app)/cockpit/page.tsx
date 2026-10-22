@@ -11,6 +11,7 @@ import {
   type RatingTf,
   SCALP_PINNED,
   type ScalpAlertsPage,
+  type ZoneAlertsPage,
 } from "@atc/shared";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -18,6 +19,7 @@ import { Panel } from "@/features/analytics/metric";
 import { ScalpAlerts } from "@/features/cockpit/alerts";
 import { IndicatorGauges } from "@/features/cockpit/gauges";
 import { CockpitBoard } from "@/features/cockpit/live-board";
+import { ZoneAlerts } from "@/features/cockpit/zone-alerts";
 import { getExchangeAccounts } from "@/features/exchanges/load";
 import { BiasChip } from "@/features/flow/views";
 import { AutoRefresh } from "@/features/labs/backtest-views";
@@ -68,9 +70,10 @@ export default async function CockpitPage({ searchParams }: { searchParams: Sear
       ? "15m"
       : "5m";
   const q = parsed.success ? parsed.data : cockpitQuerySchema.parse({});
-  const [dto, alerts, accounts] = await Promise.all([
+  const [dto, alerts, zoneAlerts, accounts] = await Promise.all([
     apiFetch<CockpitDto>(`/v1/market/cockpit?symbol=${q.symbol}&tf=${q.tf}`),
     apiFetch<ScalpAlertsPage>("/v1/scalp-alerts").catch(() => null),
+    apiFetch<ZoneAlertsPage>("/v1/zone-alerts").catch(() => null),
     getExchangeAccounts().catch(() => null),
   ]);
   // A plan from an alert's link belongs to the market it was sent for.
@@ -371,10 +374,24 @@ export default async function CockpitPage({ searchParams }: { searchParams: Sear
             </Panel>
           </div>
 
-          {alerts && (
-            <Panel title="Alert me">
-              <ScalpAlerts symbol={q.symbol} tf={q.tf} page={alerts} readings={dto.rows.length} />
-            </Panel>
+          {(alerts || zoneAlerts) && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {alerts && (
+                <Panel title="Alert me: readings">
+                  <ScalpAlerts
+                    symbol={q.symbol}
+                    tf={q.tf}
+                    page={alerts}
+                    readings={dto.rows.length}
+                  />
+                </Panel>
+              )}
+              {zoneAlerts && (
+                <Panel title="Alert me: supply and demand zones">
+                  <ZoneAlerts symbol={q.symbol} page={zoneAlerts} />
+                </Panel>
+              )}
+            </div>
           )}
 
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">

@@ -1,4 +1,5 @@
 import { planLimits } from "@atc/coach";
+import { snapshotsOf } from "@atc/db";
 import {
   type BiasState,
   buildTradeCheck,
@@ -118,7 +119,7 @@ export class TradeCheckService {
       FLOW_STATUS_KEY,
     ];
     const [snaps, liq, nextEvent] = await Promise.all([
-      db.marketSnapshot.findMany({ where: { key: { in: keys } } }),
+      snapshotsOf(db).getMany(keys),
       db.liquidationMap.findUnique({
         where: { symbol_window: { symbol: q.symbol, window: "24h" } },
         select: { data: true, computedAt: true },

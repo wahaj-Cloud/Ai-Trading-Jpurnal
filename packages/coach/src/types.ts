@@ -22,6 +22,8 @@ export interface CoachTrade {
   plannedRewardRisk: number | null;
   /** Followed one of the trader's setup alerts. */
   planned?: boolean;
+  /** At entry: inside a 1H/4H supply or demand zone, and with or against it (null = not recorded). */
+  zone?: "with" | "against" | "mixed" | "none" | null;
   /** Coin's 24h correlation to BTC at entry (Market Pulse). */
   btcCorr?: number | null;
 }

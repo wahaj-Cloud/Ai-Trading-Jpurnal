@@ -35,3 +35,4 @@ export * from "./settings.js";
 export * from "./setups.js";
 export * from "./trade-check.js";
 export * from "./trade-plan.js";
+export * from "./zones.js";

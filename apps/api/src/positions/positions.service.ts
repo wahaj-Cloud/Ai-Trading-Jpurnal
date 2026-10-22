@@ -6,6 +6,7 @@ import { canonicalSymbol } from "@atc/exchange-adapters";
 import {
   type EmotionCode,
   type EntryReadoutDto,
+  type EntryZoneDto,
   type FillDto,
   type ImportResult,
   type ImportRow,
@@ -339,6 +340,7 @@ export function toDto(p: PositionWithAccount, review?: Review): PositionDto {
     planned: p.setupAlertId !== null,
     btcCorrAtEntry: p.btcCorrAtEntry ?? null,
     entryReadout: entryReadoutOf(p.entryReadout),
+    entryZone: entryZoneDtoOf(p.entryZone),
     reviewed: review !== undefined,
     rating: review?.rating ?? null,
   };
@@ -349,6 +351,13 @@ function entryReadoutOf(v: unknown): EntryReadoutDto | null {
   if (!v || typeof v !== "object" || "none" in v) return null;
   const r = v as EntryReadoutDto;
   return typeof r.at === "string" ? r : null;
+}
+
+/** The zones stamped at entry, or null when not recorded (or no zone record existed). */
+function entryZoneDtoOf(v: unknown): EntryZoneDto | null {
+  if (!v || typeof v !== "object" || "none" in v) return null;
+  const r = v as EntryZoneDto;
+  return typeof r.at === "string" && Array.isArray(r.zones) ? r : null;
 }
 
 function encodeCursor(at: Date, id: string): string {

@@ -16,6 +16,10 @@
       "types": "./dist/structure.d.ts",
       "default": "./dist/structure.js"
     },
+    "./supply-demand": {
+      "types": "./dist/supply-demand.d.ts",
+      "default": "./dist/supply-demand.js"
+    },
     "./ratings": {
       "types": "./dist/ratings.d.ts",
       "default": "./dist/ratings.js"

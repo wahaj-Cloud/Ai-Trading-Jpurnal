@@ -75,6 +75,7 @@ model User {
   setups           Setup[]
   setupAlerts      SetupAlert[]
   scalpAlerts      ScalpAlert[]
+  zoneAlerts       ZoneAlert[]
   paperBots        PaperBot[]
   whatIfScenarios  WhatIfScenario[]
   backtestRuns     BacktestRun[]
@@ -388,6 +389,9 @@ model Position {
   /// Scalp Cockpit readings counted at entry: { at, tf5: {up, down, total}, tf15: {...} }, or
   /// { none: true } when the market was not scanned then.
   entryReadout      Json?             @map("entry_readout")
+  /// 1H and 4H supply/demand zones the entry price was inside: { at, zones: [{ tf, side, fresh }] },
+  /// or { none: true } when the market had no zone record then.
+  entryZone         Json?             @map("entry_zone")
   btcBetaAtEntry    Float?            @map("btc_beta_at_entry") @db.Real
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1295,4 +1299,44 @@ model ScalpReadout {
   data Json
 
   @@map("scalp_readouts")
+}
+
+/// "Tell me when Gold reaches a fresh 4H demand zone": checked every second on the live price.
+model ZoneAlert {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  symbol      String    @db.VarChar(30)
+  /// Zone timeframes watched: 1h, 4h.
+  tfs         String[]
+  /// ANY | SUPPLY | DEMAND
+  side        String    @default("ANY") @db.VarChar(6)
+  freshOnly   Boolean   @default(true) @map("fresh_only")
+  /// The same zone does not alert again within this many minutes.
+  cooldownMin Int       @default(120) @map("cooldown_min") @db.SmallInt
+  enabled     Boolean   @default(true)
+  /// The zone of the last alert ("4h:demand:<start ms>") and when it was sent.
+  lastZoneKey String?   @map("last_zone_key") @db.VarChar(60)
+  lastFiredAt DateTime? @map("last_fired_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([enabled])
+  @@map("zone_alerts")
+}
+
+/// Each market's standing supply/demand zones per timeframe, recorded when a candle closes
+/// (kept 8 days, for stamping trades with the zone they were entered at).
+model ZoneHistory {
+  symbol String   @db.VarChar(30)
+  tf     String   @db.VarChar(4)
+  /// Close time of the newest candle the zones were found on.
+  at     DateTime @db.Timestamptz(3)
+  /// [{ side, top, bottom, t, tests }]
+  zones  Json
+
+  @@id([symbol, tf, at])
+  @@index([at])
+  @@map("zone_history")
 }

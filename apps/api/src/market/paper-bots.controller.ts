@@ -1,5 +1,6 @@
 import { planLimits, settlePaperTrade } from "@atc/coach";
 import type { PrismaClient } from "@atc/db";
+import { snapshotsOf } from "@atc/db";
 import {
   type CreatePaperBot,
   createPaperBotSchema,
@@ -142,7 +143,7 @@ export class PaperBotsService {
       : [];
     const now = Date.now();
     const [snap, setups, tick] = await Promise.all([
-      this.db.marketSnapshot.findUnique({ where: { key: SCALP_KEY } }),
+      snapshotsOf(this.db).get(SCALP_KEY),
       this.db.setup.findMany({
         where: { userId, deletedAt: null, exchange: { in: [...SETUP_EXCHANGES] } },
         orderBy: { createdAt: "asc" },
@@ -251,7 +252,7 @@ export class PaperBotsService {
     let data: Parameters<PrismaClient["paperBot"]["create"]>[0]["data"];
     let setupName: string | null = null;
     if (input.source === "COCKPIT") {
-      const snap = await this.db.marketSnapshot.findUnique({ where: { key: SCALP_KEY } });
+      const snap = await snapshotsOf(this.db).get(SCALP_KEY);
       const coin = (snap?.data as ScalpSnapshot | undefined)?.coins?.find(
         (c) => c.symbol === input.symbol,
       );

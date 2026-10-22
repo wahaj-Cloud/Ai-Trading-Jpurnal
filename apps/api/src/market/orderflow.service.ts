@@ -1,4 +1,5 @@
 import { planLimits } from "@atc/coach";
+import { snapshotsOf } from "@atc/db";
 import {
   type AcrossCell,
   isPinned,
@@ -91,7 +92,7 @@ export class OrderflowService {
   async scalp(userId: string, now = new Date()): Promise<ScalpResponse> {
     const [limits, row, held, events] = await Promise.all([
       planLimits(this.prisma.client, userId),
-      this.prisma.client.marketSnapshot.findUnique({ where: { key: SCALP_KEY } }),
+      snapshotsOf(this.prisma.client).get(SCALP_KEY),
       this.held(userId),
       this.scalpEvents(now),
     ]);
@@ -128,7 +129,7 @@ export class OrderflowService {
   async get(userId: string, q: OrderflowQuery): Promise<OrderflowResponse> {
     const [limits, row, held] = await Promise.all([
       planLimits(this.prisma.client, userId),
-      this.prisma.client.marketSnapshot.findUnique({ where: { key: orderflowKey(q.window) } }),
+      snapshotsOf(this.prisma.client).get(orderflowKey(q.window)),
       this.held(userId),
     ]);
     const snap = row?.data as OrderflowWindowSnapshot | undefined;

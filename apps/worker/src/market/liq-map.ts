@@ -56,6 +56,7 @@ export async function runLiquidationMaps(
           const computedAt = new Date(now);
           const json = data as unknown as Prisma.InputJsonValue;
           await deps.db.liquidationMap.upsert({
+            select: { symbol: true },
             where: { symbol_window: { symbol: job.symbol, window: job.window } },
             create: { symbol: job.symbol, window: job.window, data: json, computedAt },
             update: { data: json, computedAt },
@@ -78,6 +79,7 @@ export async function runLiquidationMaps(
     errors: errors.slice(0, 30),
   };
   await deps.db.liquidationMap.upsert({
+    select: { symbol: true },
     where: { symbol_window: LIQ_MAP_STATUS_KEY },
     create: {
       ...LIQ_MAP_STATUS_KEY,

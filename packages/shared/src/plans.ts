@@ -37,6 +37,8 @@ export const planLimitsSchema = z.object({
   scalpAlerts: z.number().int().min(-1).optional(),
   /** Paper bots (virtual money, never send orders) the user can keep (-1 = no limit). */
   paperBots: z.number().int().min(-1).optional(),
+  /** Supply/demand zone alerts the user can keep (-1 = no limit). */
+  zoneAlerts: z.number().int().min(-1).optional(),
 });
 export type StoredPlanLimits = z.infer<typeof planLimitsSchema>;
 export type PlanLimits = Required<StoredPlanLimits>;
@@ -129,6 +131,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketDesk: 0,
     scalpAlerts: 1,
     paperBots: 1,
+    zoneAlerts: 1,
   },
   PRO: {
     aiBudgetUsd: 3,
@@ -144,6 +147,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketDesk: 1,
     scalpAlerts: 5,
     paperBots: 3,
+    zoneAlerts: 5,
   },
   PREMIUM: {
     aiBudgetUsd: 7,
@@ -159,6 +163,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketDesk: 1,
     scalpAlerts: 20,
     paperBots: 10,
+    zoneAlerts: 20,
   },
   ENTERPRISE: {
     aiBudgetUsd: UNLIMITED,
@@ -174,6 +179,7 @@ export const PLAN_DEFAULTS: Record<PlanCodeId, Pick<PlanLimits, OptionalLimit>> 
     marketDesk: 1,
     scalpAlerts: UNLIMITED,
     paperBots: UNLIMITED,
+    zoneAlerts: UNLIMITED,
   },
 };
 
@@ -197,6 +203,7 @@ export function resolveLimits(code: PlanCodeId, raw: unknown): PlanLimits {
       whatIf: 0,
       backtestRunsPerMonth: 0,
       paperBots: 0,
+      zoneAlerts: 0,
     };
   }
   const filled = { ...parsed.data } as PlanLimits;

@@ -327,6 +327,29 @@ function ConditionEditor({
           onChange={(v) => onChange({ ...c, zone: v })}
         />
       );
+    case "sd_zone":
+      return (
+        <div className="flex flex-wrap gap-2">
+          <Pick
+            label="Zone"
+            value={c.side}
+            options={[
+              ["demand", "Demand (below price)"],
+              ["supply", "Supply (above price)"],
+            ]}
+            onChange={(v) => onChange({ ...c, side: v })}
+          />
+          <Pick
+            label="Which"
+            value={c.fresh ? "fresh" : "any"}
+            options={[
+              ["fresh", "Fresh only (first return)"],
+              ["any", "Fresh or tested"],
+            ]}
+            onChange={(v) => onChange({ ...c, fresh: v === "fresh" })}
+          />
+        </div>
+      );
   }
 }
 

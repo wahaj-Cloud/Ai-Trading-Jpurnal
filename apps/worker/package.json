@@ -9,7 +9,7 @@
     "dev": "concurrently -k -n tsc,worker \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --env-file-if-exists=.env --watch dist/main.js\"",
     "start": "node dist/main.js",
     "test": "vitest run",
-    "test:integration": "node test/sync.itest.mjs && node test/live-flow.itest.mjs && node test/paper.itest.mjs"
+    "test:integration": "node test/sync.itest.mjs && node test/live-flow.itest.mjs && node test/paper.itest.mjs && node test/zones.itest.mjs && node test/egress.itest.mjs"
   },
   "dependencies": {
     "@atc/analytics": "workspace:*",

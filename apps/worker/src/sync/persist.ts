@@ -71,6 +71,7 @@ export async function saveBatch(
     await db.$transaction(
       batch.positions.slice(i, i + CHUNK).map((p) =>
         db.exchangePosition.upsert({
+          select: { id: true },
           where: { accountId_externalId: { accountId, externalId: p.externalId } },
           create: {
             accountId,

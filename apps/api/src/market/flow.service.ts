@@ -1,5 +1,5 @@
 import { planLimits } from "@atc/coach";
-import { Prisma } from "@atc/db";
+import { Prisma, snapshotsOf } from "@atc/db";
 import {
   DESK_FREE_SYMBOL,
   DESK_NAMES,
@@ -211,9 +211,7 @@ export class FlowService {
     const allowed: DeskSymbol[] = all ? [...DESK_SYMBOLS] : [DESK_FREE_SYMBOL];
     const since = new Date(now.getTime() - FLOW_WINDOW_MS["24h"]);
     const [snaps, whales, liqs] = await Promise.all([
-      this.prisma.client.marketSnapshot.findMany({
-        where: { key: { in: allowed.map(deskKey) } },
-      }),
+      snapshotsOf(this.prisma.client).getMany(allowed.map(deskKey)),
       this.prisma.client.$queryRaw<{ symbol: string; side: string; usd: unknown }[]>`
         SELECT symbol, side, SUM(usd) AS usd FROM whale_trades
          WHERE symbol IN (${Prisma.join(allowed)}) AND at >= ${since} GROUP BY 1, 2`,

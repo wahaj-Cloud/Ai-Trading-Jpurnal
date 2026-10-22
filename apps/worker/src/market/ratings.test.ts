@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@atc/db";
-import type { RatingsSnapshot, ScalpSnapshot } from "@atc/shared";
+import { RATINGS_KEY, type RatingsSnapshot, type ScalpSnapshot } from "@atc/shared";
 import { describe, expect, it } from "vitest";
+import { fakeSnapshotSql } from "../testing/fake-snapshots.js";
 import { dueTimeframes, runRatings } from "./ratings.js";
 
 const NOW = Date.UTC(2026, 9, 20, 10, 15, 20); // minute 15: every timeframe is due
@@ -35,16 +36,10 @@ function fakeFetch(calls: string[]) {
   }) as typeof fetch;
 }
 function fakeDb(initial?: RatingsSnapshot) {
-  let saved: RatingsSnapshot | undefined = initial;
-  const db = {
-    marketSnapshot: {
-      findUnique: async () => (saved ? { data: saved } : null),
-      upsert: async (a: { create: { data: RatingsSnapshot } }) => {
-        saved = a.create.data;
-      },
-    },
-  } as unknown as PrismaClient;
-  return { db, get: () => saved as RatingsSnapshot };
+  const store = new Map<string, unknown>();
+  if (initial) store.set(RATINGS_KEY, initial);
+  const db = { ...fakeSnapshotSql(store) } as unknown as PrismaClient;
+  return { db, get: () => store.get(RATINGS_KEY) as RatingsSnapshot };
 }
 const scalp = (symbols: Array<[string, number]>) =>
   ({ coins: symbols.map(([symbol, rank]) => ({ symbol, rank })) }) as unknown as ScalpSnapshot;

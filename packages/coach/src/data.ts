@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
 import { isValidTimeZone, tradeRisk } from "@atc/analytics";
 import type { Prisma, PrismaClient } from "@atc/db";
-import { type PlanLimits, resolveLimits, subscriptionInForce, UNLIMITED } from "@atc/shared";
+import {
+  type PlanLimits,
+  resolveLimits,
+  subscriptionInForce,
+  UNLIMITED,
+  zoneAlignment,
+} from "@atc/shared";
 import type { CoachTrade } from "./types.js";
 
 const s = (v: Prisma.Decimal | null) => (v === null ? null : v.toString());
@@ -127,10 +133,18 @@ const positionSelect = {
   quoteAsset: true,
   setupAlertId: true,
   btcCorrAtEntry: true,
+  entryZone: true,
 } satisfies Prisma.PositionSelect;
 
 type PositionRow = Prisma.PositionGetPayload<{ select: typeof positionSelect }>;
 type JournalRow = Prisma.JournalEntryGetPayload<object>;
+
+function zoneOf(direction: "LONG" | "SHORT", v: unknown): CoachTrade["zone"] {
+  if (!v || typeof v !== "object") return null;
+  if ("none" in v) return null;
+  const e = v as { zones?: Array<{ side: "supply" | "demand"; tf: "1h" | "4h"; fresh: boolean }> };
+  return Array.isArray(e.zones) ? zoneAlignment(direction, { zones: e.zones }) : null;
+}
 
 function toCoachTrade(
   p: PositionRow,
@@ -166,6 +180,7 @@ function toCoachTrade(
     rMultiple: risk.rMultiple,
     plannedRewardRisk: risk.plannedRewardRisk,
     planned: p.setupAlertId !== null,
+    zone: zoneOf(p.direction, p.entryZone),
     btcCorr: p.btcCorrAtEntry,
     journal: j
       ? {

@@ -2,6 +2,7 @@ import type { PrismaClient } from "@atc/db";
 import type { OrderflowWindowSnapshot, ScalpSnapshot } from "@atc/shared";
 import type { Redis } from "ioredis";
 import { beforeEach, describe, expect, it } from "vitest";
+import { fakeSnapshotSql } from "../testing/fake-snapshots.js";
 import { resetOrderflowCache, runOrderflow, runOrderflowFast, VWAP_KEY } from "./orderflow.js";
 
 const M1 = 60_000;
@@ -101,19 +102,7 @@ function fakeFetch(fail: string[] = [], calls: string[] = []) {
 function fakeDb() {
   const saved = new Map<string, unknown>();
   const db = {
-    marketSnapshot: {
-      upsert: (a: { where: { key: string }; create: { data: unknown } }) => {
-        saved.set(a.where.key, a.create.data);
-        return Promise.resolve();
-      },
-      findMany: (a: { where: { key: { in: string[] } } }) =>
-        Promise.resolve(
-          a.where.key.in.filter((k) => saved.has(k)).map((key) => ({ key, data: saved.get(key) })),
-        ),
-      findUnique: (a: { where: { key: string } }) =>
-        Promise.resolve(saved.has(a.where.key) ? { data: saved.get(a.where.key) } : null),
-    },
-    $transaction: (ops: Promise<unknown>[]) => Promise.all(ops),
+    ...fakeSnapshotSql(saved),
   } as unknown as PrismaClient;
   return { db, saved };
 }

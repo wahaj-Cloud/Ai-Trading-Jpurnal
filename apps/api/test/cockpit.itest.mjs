@@ -23,6 +23,7 @@ await db.marketSnapshot.deleteMany({
   where: { OR: [{ key: "scalp:latest" }, { key: { startsWith: "desk:" } }] },
 });
 await db.newsItem.deleteMany({ where: { source: "TEST" } });
+
 await db.economicEvent.deleteMany({ where: { id: { startsWith: "ck-" } } });
 
 const frame = (strength, pressure, regime = "neutral", rel = 1, oi = 0.1) => ({
@@ -483,6 +484,59 @@ const lockedGauges = await svc.get(free.id, { symbol: "C5USDT", tf: "5m" }, NOW)
 assert.equal(lockedGauges.ratings, null);
 await db.marketSnapshot.deleteMany({ where: { key: "ratings:latest" } });
 console.log("✓ indicator gauges: fresh timeframes shown, stale ones left out");
+
+// Supply/demand zones on the levels ladder: nearest per timeframe, a stale record left out.
+{
+  const price = b5.coin.price;
+  const H = 3_600_000;
+  const z = (side, lo, hi, tests, t) => ({ side, bottom: price * lo, top: price * hi, tests, t });
+  await db.marketSnapshot.upsert({
+    where: { key: "zones:latest" },
+    create: { key: "zones:latest", updatedAt: NOW, data: {} },
+    update: { data: {} },
+  });
+  await db.marketSnapshot.update({
+    where: { key: "zones:latest" },
+    data: {
+      data: {
+        computedAt: NOW.toISOString(),
+        markets: {
+          BTCUSDT: {
+            "1h": {
+              asOf: new Date(Math.floor(NOW.getTime() / H) * H).toISOString(),
+              zones: [
+                z("supply", 1.01, 1.012, 0, 1),
+                z("supply", 1.03, 1.032, 0, 2),
+                z("supply", 1.05, 1.052, 1, 3),
+                z("demand", 0.99, 0.992, 2, 4),
+                z("demand", 0.999, 1.001, 0, 5), // price inside
+              ],
+            },
+            // Last refreshed 20 hours ago: not shown as current.
+            "4h": {
+              asOf: new Date(NOW.getTime() - 20 * H).toISOString(),
+              zones: [z("supply", 1.02, 1.03, 0, 9)],
+            },
+          },
+        },
+      },
+    },
+  });
+  const withZones = await svc.get(prem.id, { symbol: "BTCUSDT", tf: "5m" }, NOW);
+  assert.deepEqual(
+    withZones.zones.map((x) => [x.tf, x.side, x.tests, Number(x.distPct.toFixed(6))]),
+    [
+      ["1h", "supply", 0, 1],
+      ["1h", "supply", 0, 3],
+      ["1h", "demand", 0, 0],
+      ["1h", "demand", 2, Number(((0.992 - 1) * 100).toFixed(6))],
+    ],
+  );
+  const noZones = await svc.get(prem.id, { symbol: "ETHUSDT", tf: "5m" }, NOW);
+  assert.deepEqual(noZones.zones, []);
+  await db.marketSnapshot.deleteMany({ where: { key: "zones:latest" } });
+  console.log("✓ levels ladder: nearest 1H/4H zones each side, a stale record left out");
+}
 
 await db.economicEvent.deleteMany({ where: { id: { startsWith: "ck-" } } });
 await db.newsItem.deleteMany({ where: { source: "TEST" } });

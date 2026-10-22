@@ -6,6 +6,9 @@ import {
   PULSE_LINKS,
   pulseLink,
   type TradeDetailDto,
+  ZONE_ALIGNMENT_LABEL,
+  ZONE_TF_LABEL,
+  zoneAlignment,
 } from "@atc/shared";
 
 /** Binance name of a coin for the Cockpit link (gold and silver included). */
@@ -111,6 +114,29 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
               5m readings at entry: {t.entryReadout.tf5.up} up, {t.entryReadout.tf5.down} down ·{" "}
               {ALIGNMENT_LABEL[alignment(t.direction, t.entryReadout.tf5)].toLowerCase()}
             </Link>
+          )}
+          {t.entryZone && (
+            <span
+              title="1H and 4H supply/demand zones your entry price was inside"
+              className={cn(
+                "figures rounded px-2 py-0.5 text-xs",
+                zoneAlignment(t.direction, t.entryZone) === "with"
+                  ? "bg-profit/15 text-profit"
+                  : zoneAlignment(t.direction, t.entryZone) === "against"
+                    ? "bg-loss/15 text-loss"
+                    : "bg-hi/10 text-ink-muted",
+              )}
+            >
+              {t.entryZone.zones.length === 0
+                ? "Not at a 1H/4H zone"
+                : `Entered in ${t.entryZone.zones
+                    .map(
+                      (z) => `${z.fresh ? "a fresh " : "a "}${ZONE_TF_LABEL[z.tf]} ${z.side} zone`,
+                    )
+                    .join(
+                      " and ",
+                    )} · ${ZONE_ALIGNMENT_LABEL[zoneAlignment(t.direction, t.entryZone)].replace(/^At a zone, /, "").toLowerCase()}`}
+            </span>
           )}
           {t.btcCorrAtEntry !== null && (
             <Link

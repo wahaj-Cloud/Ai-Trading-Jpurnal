@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@atc/db";
 import type { MarketDeskDto } from "@atc/shared";
 import { describe, expect, it } from "vitest";
+import { fakeSnapshotSql } from "../testing/fake-snapshots.js";
 import { runMarketDesk } from "./desk.js";
 
 const H = 3_600_000;
@@ -84,7 +85,11 @@ function fakeFetch(opts: { goldDown?: boolean } = {}) {
 }
 
 function fakeDb(existing: Record<string, unknown> = {}) {
-  const store = new Map<string, unknown>(Object.entries(existing));
+  const store = new Map<string, unknown>([
+    ["fear_greed", { value: 72 }],
+    ["global", { btcDominance: 57.3 }],
+    ...Object.entries(existing),
+  ]);
   const db = {
     economicEvent: {
       findMany: async () => [
@@ -108,16 +113,7 @@ function fakeDb(existing: Record<string, unknown> = {}) {
         previous: null,
       }),
     },
-    marketSnapshot: {
-      findMany: async () => [
-        { key: "fear_greed", data: { value: 72 } },
-        { key: "global", data: { btcDominance: 57.3 } },
-        ...[...store].map(([key, data]) => ({ key, data })),
-      ],
-      upsert: async (a: { where: { key: string }; create: { data: unknown } }) => {
-        store.set(a.where.key, a.create.data);
-      },
-    },
+    ...fakeSnapshotSql(store),
     liquidationMap: {
       findUnique: async () => ({
         data: { clusters: [{ side: "short", price: 160, usd: 5e8 }] },

@@ -314,6 +314,7 @@ export const adminPlanUpdateSchema = z
     marketDesk: z.number().int().min(0).max(1),
     scalpAlerts: limitInt,
     paperBots: limitInt,
+    zoneAlerts: limitInt,
   })
   .strict();
 export type AdminPlanUpdate = z.infer<typeof adminPlanUpdateSchema>;

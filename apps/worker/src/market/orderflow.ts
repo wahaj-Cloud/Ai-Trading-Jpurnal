@@ -1,4 +1,5 @@
-import type { Prisma, PrismaClient } from "@atc/db";
+import type { PrismaClient } from "@atc/db";
+import { snapshotsOf, writeSnapshot } from "@atc/db";
 import {
   type AdapterConfig,
   type FuturesListing,
@@ -83,14 +84,12 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (x: T) => 
   return out;
 }
 
-const saveJson = (db: PrismaClient, key: string, value: unknown, at: Date) => {
-  const data = value as Prisma.InputJsonValue;
-  return db.marketSnapshot.upsert({
-    where: { key },
-    create: { key, data, updatedAt: at },
-    update: { data, updatedAt: at },
+/** Several snapshots in one transaction (pages never see half an update), cached for this process. */
+async function saveAll(db: PrismaClient, rows: Array<{ key: string; value: unknown }>, at: Date) {
+  await db.$transaction(async (tx) => {
+    for (const r of rows) await writeSnapshot(tx, r.key, r.value, at, db);
   });
-};
+}
 
 /**
  * The 100 most traded contracts listed for at least two days, most traded first, plus gold and
@@ -201,23 +200,25 @@ export async function runOrderflow(
     ok.map(({ coin, candles }) => [coin.symbol, atr(aggregate(candles, M5, 12))] as const),
   );
   const computedAt = new Date(now);
-  await deps.db.$transaction([
-    ...windows.map((w) => {
-      const row: OrderflowWindowSnapshot = {
-        computedAt: computedAt.toISOString(),
-        asOf: new Date(asOf).toISOString(),
-        universe: universe.length,
-        ...w,
-      };
-      return saveJson(deps.db, orderflowKey(w.window), row, computedAt);
-    }),
-    saveJson(
-      deps.db,
-      VWAP_KEY,
-      { asOf: new Date(asOf).toISOString(), vwap, levels, atr1h } satisfies LevelsRow,
-      computedAt,
-    ),
-  ]);
+  await saveAll(
+    deps.db,
+    [
+      ...windows.map((w) => ({
+        key: orderflowKey(w.window),
+        value: {
+          computedAt: computedAt.toISOString(),
+          asOf: new Date(asOf).toISOString(),
+          universe: universe.length,
+          ...w,
+        } satisfies OrderflowWindowSnapshot,
+      })),
+      {
+        key: VWAP_KEY,
+        value: { asOf: new Date(asOf).toISOString(), vwap, levels, atr1h } satisfies LevelsRow,
+      },
+    ],
+    computedAt,
+  );
   return { coins: ok.length, failed, ms: Date.now() - started };
 }
 
@@ -336,8 +337,8 @@ export async function runOrderflowFast(
 
   // The scalping snapshot joins these windows with the latest 4H/1D rows and VWAPs.
   const [slowRows, vwapRow] = await Promise.all([
-    deps.db.marketSnapshot.findMany({ where: { key: { in: SLOW_WINDOWS.map(orderflowKey) } } }),
-    deps.db.marketSnapshot.findUnique({ where: { key: VWAP_KEY } }),
+    snapshotsOf(deps.db).getMany(SLOW_WINDOWS.map(orderflowKey)),
+    snapshotsOf(deps.db).get(VWAP_KEY),
   ]);
   const slow = slowRows
     .map((r) => r.data as unknown as OrderflowWindowSnapshot)
@@ -395,17 +396,21 @@ export async function runOrderflowFast(
     universe: universe.length,
     coins: scalpCoins,
   };
-  await deps.db.$transaction([
-    ...windows.map((w) => {
-      const row: OrderflowWindowSnapshot = {
-        computedAt: computedAt.toISOString(),
-        asOf: new Date(asOf).toISOString(),
-        universe: universe.length,
-        ...w,
-      };
-      return saveJson(deps.db, orderflowKey(w.window), row, computedAt);
-    }),
-    saveJson(deps.db, SCALP_KEY, scalp, computedAt),
-  ]);
+  await saveAll(
+    deps.db,
+    [
+      ...windows.map((w) => ({
+        key: orderflowKey(w.window),
+        value: {
+          computedAt: computedAt.toISOString(),
+          asOf: new Date(asOf).toISOString(),
+          universe: universe.length,
+          ...w,
+        } satisfies OrderflowWindowSnapshot,
+      })),
+      { key: SCALP_KEY, value: scalp },
+    ],
+    computedAt,
+  );
   return { coins: ok.length, failed, books: books.size, ms: Date.now() - started, scalp };
 }

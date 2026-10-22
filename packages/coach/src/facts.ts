@@ -8,6 +8,7 @@ import {
   PULSE_MIN_GROUP,
   pulseLink,
   USD_SETTLEMENT_ASSETS,
+  ZONE_ALIGNMENT_LABEL,
 } from "@atc/shared";
 import type { GradeResult } from "./grade.js";
 import type { CoachTrade } from "./types.js";
@@ -156,6 +157,16 @@ export function edgeFacts(trades: readonly CoachTrade[], usesSetups: boolean): s
         usd.filter((t) => !t.planned),
       ),
     );
+  }
+  const zoned = usd.filter((t) => t.zone !== null && t.zone !== undefined);
+  if (zoned.length) {
+    out.push(
+      "BY SUPPLY/DEMAND ZONE AT ENTRY (1H and 4H zones; with = long in demand or short in supply; context, not a signal)",
+    );
+    for (const code of ["with", "against", "mixed", "none"] as const) {
+      const group = zoned.filter((t) => t.zone === code);
+      if (group.length) out.push(line(ZONE_ALIGNMENT_LABEL[code], group));
+    }
   }
   const linked = usd.filter((t) => t.btcCorr !== null && t.btcCorr !== undefined);
   if (linked.length) {

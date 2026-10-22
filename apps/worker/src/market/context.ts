@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@atc/db";
+import { writeSnapshot } from "@atc/db";
 import {
   type AdapterConfig,
   type DeliveryContract,
@@ -73,11 +74,7 @@ async function settle<T>(what: string, symbol: string, p: Promise<T>): Promise<T
 
 async function save(db: PrismaClient, key: string, data: unknown, now: number) {
   const json = data as Prisma.InputJsonValue;
-  await db.marketSnapshot.upsert({
-    where: { key },
-    create: { key, data: json, updatedAt: new Date(now) },
-    update: { data: json, updatedAt: new Date(now) },
-  });
+  await writeSnapshot(db, key, json, new Date(now));
 }
 
 /** Previous day and week ranges and the daily 50/200 EMAs, from closed candles. */

@@ -8,6 +8,7 @@ import {
   type ExchangeId,
   nearestLevels,
   type PlanSnapshot,
+  zoneDistPct,
 } from "@atc/shared";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Panel } from "@/features/analytics/metric";
@@ -104,6 +105,7 @@ export function CockpitBoard({
       levelBelow: lvls.below,
       liqAbove: dist(dto.liqAbove),
       liqBelow: dist(dto.liqBelow),
+      zones: dto.zones.map((z) => ({ ...z, distPct: zoneDistPct(coin.price, z) })),
     };
   }, [dto, liveCoin, lv, now, tf, headlines]);
 
@@ -166,11 +168,15 @@ export function CockpitBoard({
       {gauges}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Panel title="Levels and liquidation pools">
-          <Ladder dto={view} />
+        <Panel title="Levels, zones and liquidation pools">
+          <div id="levels" className="scroll-mt-24">
+            <Ladder dto={view} />
+          </div>
           <p className="mt-2 text-xs text-ink-faint">
-            Nearest of today's high/low, the Asia range, the 24h high/low and VWAP; purple are the
-            biggest estimated liquidation pools within 3%. "Ranges" = typical 5-minute ranges away.
+            Nearest of today's high/low, the Asia range, the 24h high/low and VWAP; red and green
+            are the nearest 1H and 4H supply zones above and demand zones below (shown at their near
+            edge; fresh = price has not come back yet); purple are the biggest estimated liquidation
+            pools within 3%. "Ranges" = typical 5-minute ranges away.
           </p>
         </Panel>
         {bigMoney}

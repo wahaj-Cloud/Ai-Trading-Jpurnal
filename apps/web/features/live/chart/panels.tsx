@@ -11,7 +11,10 @@ import {
   COLOR_PRESETS,
   DEFAULT_SETTINGS,
   type MaConfig,
+  SD_SOURCES,
+  type SdSource,
 } from "./settings";
+import { tfLabel } from "./zones";
 
 type Update = (next: ChartSettings) => void;
 
@@ -208,6 +211,37 @@ export function IndicatorsPanel({
                 onChange={(v) => onChange({ ...s, bollinger: { ...s.bollinger, mult: v } })}
               />
             </div>
+          )}
+        </Section>
+
+        <Section title="Supply and demand zones">
+          <Toggle
+            label="Supply and demand zones"
+            hint="Where price paused just before a strong move away: supply (red) above the price, demand (green) below. The 3 nearest each side, from closed candles. Fresh = price has not come back yet. A record of where price reacted, not a signal."
+            checked={s.zones.sd}
+            onChange={(v) => onChange({ ...s, zones: { ...s.zones, sd: v } })}
+          />
+          {s.zones.sd && (
+            <label className="grid gap-1 pb-2 text-xs text-ink-muted">
+              Zones from
+              <select
+                value={s.zones.sdTf}
+                onChange={(e) =>
+                  onChange({ ...s, zones: { ...s.zones, sdTf: e.target.value as SdSource } })
+                }
+                className="h-9 rounded-[var(--radius-control)] border border-rule bg-canvas px-2 text-sm text-ink"
+              >
+                {SD_SOURCES.map((tf) => (
+                  <option key={tf} value={tf}>
+                    {tf === "chart" ? "This chart's timeframe" : `${tfLabel(tf)} candles`}
+                  </option>
+                ))}
+              </select>
+              <span className="text-ink-faint">
+                Each timeframe has its own zones, found on its own candles. A higher timeframe shows
+                its zones on this chart (ignored if it is not higher than the chart).
+              </span>
+            </label>
           )}
         </Section>
 

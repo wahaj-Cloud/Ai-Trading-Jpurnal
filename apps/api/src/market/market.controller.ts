@@ -60,6 +60,7 @@ import { OrderflowService } from "./orderflow.service.js";
 import { PaperBotsController, PaperBotsService } from "./paper-bots.controller.js";
 import { ScalpAlertsController, ScalpAlertsService } from "./scalp-alerts.controller.js";
 import { TradeCheckService } from "./trade-check.service.js";
+import { ZoneAlertsController, ZoneAlertsService } from "./zone-alerts.controller.js";
 
 const symbolParam = z
   .string()
@@ -218,7 +219,7 @@ export class MarketController {
 }
 
 @Module({
-  controllers: [MarketController, ScalpAlertsController, PaperBotsController],
+  controllers: [MarketController, ScalpAlertsController, ZoneAlertsController, PaperBotsController],
   providers: [
     MarketService,
     FlowService,
@@ -227,6 +228,7 @@ export class MarketController {
     CockpitService,
     ScalpAlertsService,
     PaperBotsService,
+    ZoneAlertsService,
     LiveFlowService,
   ],
 })

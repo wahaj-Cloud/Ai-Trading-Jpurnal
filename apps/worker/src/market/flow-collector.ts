@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@atc/db";
+import { writeSnapshot } from "@atc/db";
 import {
   type LiquidationEvent,
   okxInstrument,
@@ -371,13 +372,9 @@ export class FlowCollector {
       exchanges: this.status,
     };
     const json = data as unknown as Prisma.InputJsonValue;
-    await this.deps.db.marketSnapshot
-      .upsert({
-        where: { key: FLOW_STATUS_KEY },
-        create: { key: FLOW_STATUS_KEY, data: json, updatedAt: new Date(this.now()) },
-        update: { data: json, updatedAt: new Date(this.now()) },
-      })
-      .catch((err) => log.warn("flow status save failed", { err: (err as Error).message }));
+    await writeSnapshot(this.deps.db, FLOW_STATUS_KEY, json, new Date(this.now())).catch((err) =>
+      log.warn("flow status save failed", { err: (err as Error).message }),
+    );
   }
 
   async cleanup(): Promise<void> {

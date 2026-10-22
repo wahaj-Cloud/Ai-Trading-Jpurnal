@@ -131,6 +131,7 @@ export async function updatePlanAction(
     marketDesk: num(form.get("marketDesk")),
     scalpAlerts: num(form.get("scalpAlerts")),
     paperBots: num(form.get("paperBots")),
+    zoneAlerts: num(form.get("zoneAlerts")),
   });
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

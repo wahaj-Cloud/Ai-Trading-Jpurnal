@@ -1,5 +1,6 @@
 import { planLimits } from "@atc/coach";
 import type { Prisma, PrismaClient } from "@atc/db";
+import { snapshotsOf } from "@atc/db";
 import {
   applyLiveToScalpCoin,
   type BiasState,
@@ -88,7 +89,7 @@ export async function loadInputs(db: PrismaClient, now: number): Promise<Inputs>
       SELECT 'liq', symbol, side, CASE WHEN at >= ${new Date(now - 5 * M)} THEN 5 ELSE 15 END,
              SUM(usd), COUNT(*)
         FROM liquidation_events WHERE at >= ${new Date(now - 15 * M)} AND at <= ${new Date(now)} GROUP BY 1, 2, 3, 4`,
-    db.marketSnapshot.findMany({ where: { key: { in: DESK_SYMBOLS.map(deskKey) } } }),
+    snapshotsOf(db).getMany(DESK_SYMBOLS.map(deskKey)),
   ]);
   const flow = new Map<string, Record<CockpitTf, Flow>>();
   for (const s of FLOW_SYMBOLS) {
@@ -207,6 +208,7 @@ export async function runScalpReadouts(
   const at = new Date(Math.floor(Date.parse(scalp.asOf) / M) * M);
   const json = data as unknown as Prisma.InputJsonValue;
   await deps.db.scalpReadout.upsert({
+    select: { at: true },
     where: { at },
     create: { at, data: json },
     update: { data: json },
@@ -361,7 +363,7 @@ export class LiveBase {
         try {
           const [inputs, row] = await Promise.all([
             loadInputs(this.db, now),
-            this.db.marketSnapshot.findUnique({ where: { key: SCALP_KEY } }),
+            snapshotsOf(this.db).get(SCALP_KEY),
           ]);
           this.inputs = { at: now, value: inputs };
           this.snap = { at: now, value: (row?.data as unknown as ScalpSnapshot) ?? null };

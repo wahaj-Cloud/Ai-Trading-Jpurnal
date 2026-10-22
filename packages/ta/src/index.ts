@@ -6,3 +6,4 @@ export * from "./indicators.js";
 export * from "./ratings.js";
 export * from "./setups.js";
 export * from "./structure.js";
+export * from "./supply-demand.js";

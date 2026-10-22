@@ -1,6 +1,6 @@
 import { AnthropicModel } from "@atc/coach";
 import { CredentialVault, loadKeyRing } from "@atc/crypto";
-import { createPrismaClient } from "@atc/db";
+import { createPrismaClient, redisSnapshotMirror, setSnapshotMirror, snapshotsOf } from "@atc/db";
 import {
   type AdapterConfig,
   createAdapterRegistry,
@@ -28,6 +28,8 @@ import {
   MAINTENANCE_QUEUE,
   MARKET_FAST_QUEUE,
   MARKET_QUEUE,
+  SCALP_KEY,
+  type ScalpSnapshot,
   SETUP_SCAN_QUEUE,
   SYNC_QUEUE,
   type SyncJobData,
@@ -55,6 +57,7 @@ import {
   runScalpReadouts,
   stampEntryReadouts,
 } from "./market/scalp-readouts.js";
+import { runZoneScan, stampEntryZones, ZoneAlerts } from "./market/zones.js";
 import { initMonitoring } from "./monitoring.js";
 import { HeadlineCollector } from "./news/headlines.js";
 import { startLiveNews } from "./news/live.js";
@@ -72,6 +75,8 @@ async function main(): Promise<void> {
   // family 0: resolve both IPv4 and IPv6 (Railway private networking can be IPv6-only).
   const connection = { url: env.REDIS_URL, maxRetriesPerRequest: null, family: 0 };
   const redis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null, family: 0 });
+  // Market snapshots are also kept in Redis, where the API reads them without database transfer.
+  setSnapshotMirror(redisSnapshotMirror(redis));
   const db = createPrismaClient(env.DATABASE_URL);
   // Parsed at boot: a wrong key ring stops the deploy instead of failing every sync.
   const vault = new CredentialVault(
@@ -452,6 +457,13 @@ async function main(): Promise<void> {
     { every: 60_000 },
     { name: "scan-setups", opts: { removeOnComplete: true, removeOnFail: 50 } },
   );
+  // Shared by the live engine (every second) and the minute fallback below.
+  const liveBase = new LiveBase(db);
+  const zoneAlerts = new ZoneAlerts({
+    db,
+    notify: (n) => notify(notifyDeps, n),
+    limits: (userId, now) => liveBase.limits(userId, now),
+  });
   const setupWorker = new Worker(
     SETUP_SCAN_QUEUE,
     async () => {
@@ -462,6 +474,21 @@ async function main(): Promise<void> {
         notify: (n) => notify(notifyDeps, n),
       });
       if (res.alerts > 0) log.info("setup alerts sent", res);
+      if (!env.ORDER_FLOW_ENABLED) return;
+      // Supply/demand zones on 1H and 4H (re-read only after a candle closes), trade stamps,
+      // and zone alerts on the scan's price while the live feed is down.
+      const z = await runZoneScan({ db, config: adapterConfig });
+      if (z.refreshed > 0 || z.failed > 0) log.info("zones updated", z);
+      const stamped = await stampEntryZones(db);
+      if (stamped > 0) log.info("trades stamped with entry zones", { stamped });
+      if ((await redis.exists(LIVE_ALIVE_KEY).catch(() => 0)) !== 1) {
+        const row = await snapshotsOf(db).get(SCALP_KEY);
+        const coins = (row?.data as unknown as ScalpSnapshot | null)?.coins ?? [];
+        const sent = await zoneAlerts.check(
+          new Map(coins.map((c) => [c.symbol, { price: c.price, rank: c.rank }])),
+        );
+        if (sent > 0) log.info("zone alerts sent", { sent });
+      }
     },
     { connection, concurrency: 1 },
   );
@@ -520,7 +547,6 @@ async function main(): Promise<void> {
     : null;
 
   const flow = env.MARKET_FLOW_ENABLED ? startFlowCollector({ db, redis }) : null;
-  const liveBase = new LiveBase(db);
   const liveAlerts = new LiveScalpAlerts({ db, notify: (n) => notify(notifyDeps, n) }, liveBase);
   // Paper bots run on the live feed only: virtual money, never an order.
   const paperBots = new PaperBotEngine({ db }, liveBase);
@@ -534,6 +560,9 @@ async function main(): Promise<void> {
             Promise.all([
               liveAlerts.onTick(t).catch((err) => log.warn("live scalp alerts failed", { err })),
               paperBots.onTick(t).catch((err) => log.warn("paper bots failed", { err })),
+              zoneAlerts
+                .check(new Map(t.coins.map((c) => [c.s, { price: c.p, rank: c.r }])))
+                .catch((err) => log.warn("zone alerts failed", { err })),
             ]),
         })
       : null;

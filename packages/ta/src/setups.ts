@@ -7,6 +7,7 @@ import {
 } from "@atc/shared";
 import { type Candle, ema, rsi, sessionVwap } from "./indicators.js";
 import { marketStructure, rangePosition, type StructureResult, swings } from "./structure.js";
+import { zoneTapAt } from "./supply-demand.js";
 
 /**
  * The one evaluator behind My Setup Alerts, the setup preview and Strategy Lab. A rule is checked on
@@ -267,6 +268,9 @@ function check(cond: SetupCondition, r: WindowReadings): boolean {
       if (pos === null) return false;
       return cond.zone === "discount" ? pos < 0.5 : pos > 0.5;
     }
+    case "sd_zone":
+      // Zones of the setup's own timeframe, found in the same window (no look-ahead).
+      return zoneTapAt(r.w, cond.side, cond.fresh) !== null;
   }
 }
 

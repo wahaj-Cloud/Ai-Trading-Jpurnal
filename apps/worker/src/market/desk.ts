@@ -1,5 +1,6 @@
 import { type CoachModel, writeDeskSummary } from "@atc/coach";
 import type { Prisma, PrismaClient } from "@atc/db";
+import { snapshotsOf, writeSnapshot } from "@atc/db";
 import {
   type AdapterConfig,
   fetchBinanceFlowCandles,
@@ -113,9 +114,7 @@ export async function runMarketDesk(
       },
       orderBy: { startsAt: "asc" },
     }),
-    deps.db.marketSnapshot.findMany({
-      where: { key: { in: ["fear_greed", "global", ...DESK_SYMBOLS.map(deskKey)] } },
-    }),
+    snapshotsOf(deps.db).getMany(["fear_greed", "global", ...DESK_SYMBOLS.map(deskKey)]),
   ]);
   const snap = new Map(snapshots.map((s) => [s.key, s.data as Record<string, unknown>]));
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -199,11 +198,7 @@ export async function runMarketDesk(
       }
       const data: MarketDeskDto = { ...desk, summary, summaryAt, bias };
       const json = data as unknown as Prisma.InputJsonValue;
-      await deps.db.marketSnapshot.upsert({
-        where: { key: deskKey(symbol) },
-        create: { key: deskKey(symbol), data: json, updatedAt: new Date(now) },
-        update: { data: json, updatedAt: new Date(now) },
-      });
+      await writeSnapshot(deps.db, deskKey(symbol), json, new Date(now));
       saved.push(symbol);
     } catch (err) {
       failed.push(symbol);

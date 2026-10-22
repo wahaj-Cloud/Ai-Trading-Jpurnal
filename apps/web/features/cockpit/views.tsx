@@ -9,6 +9,7 @@ import {
   READOUT_GROUP_LABEL,
   type ReadoutGroup,
   STRENGTH_LABEL,
+  ZONE_TF_LABEL,
 } from "@atc/shared";
 import { formatPrice } from "@/features/live/market";
 import { pct, usd } from "@/features/orderflow/format";
@@ -147,8 +148,12 @@ export function Ladder({ dto }: { dto: CockpitDto }) {
     label: string;
     price: number;
     dist: number;
-    kind: "level" | "liq" | "now";
+    kind: "level" | "liq" | "now" | "supply" | "demand";
     usd?: number;
+    /** Zones: the far edge, whether price is inside, fresh or tested. */
+    far?: number;
+    inside?: boolean;
+    note?: string;
   }> = [];
   const push = (
     l: { label: string; price: number; distPct: number; usd?: number } | null,
@@ -160,8 +165,22 @@ export function Ladder({ dto }: { dto: CockpitDto }) {
   push(dto.levelBelow, "level");
   push(dto.liqAbove, "liq");
   push(dto.liqBelow, "liq");
+  // Zones sit at their near edge (supply: bottom, demand: top).
+  for (const z of dto.zones) {
+    items.push({
+      label: `${ZONE_TF_LABEL[z.tf]} ${z.side} zone`,
+      note: z.tests === 0 ? "fresh" : `tested ${z.tests}×`,
+      price: z.side === "supply" ? z.bottom : z.top,
+      far: z.side === "supply" ? z.top : z.bottom,
+      dist: z.distPct,
+      kind: z.side,
+      inside: z.distPct === 0,
+    });
+  }
   items.push({ label: "Price now", price: coin.price, dist: 0, kind: "now" });
-  items.sort((a, b) => b.price - a.price);
+  // Highest first; a zone the price is inside sits next to the price.
+  const at = (x: (typeof items)[number]) => (x.inside ? coin.price : x.price);
+  items.sort((a, b) => at(b) - at(a));
   const atr = coin.volatility.atr5m;
   return (
     <ul className="grid gap-1">
@@ -173,21 +192,36 @@ export function Ladder({ dto }: { dto: CockpitDto }) {
             x.kind === "now" ? "bg-coach/15 font-semibold" : "bg-hi/[0.03]",
           )}
         >
-          <span className={cn(x.kind === "liq" && "text-[#a78bfa]")}>
+          <span
+            className={cn(
+              x.kind === "liq" && "text-[#a78bfa]",
+              x.kind === "supply" && "text-loss",
+              x.kind === "demand" && "text-profit",
+            )}
+          >
             {x.label}
+            {x.note && <span className="ml-1 text-xs text-ink-faint">· {x.note}</span>}
             {x.usd ? (
               <span className="ml-1 text-xs text-ink-faint">
                 ({usd(x.usd).replace("+", "")} est.)
               </span>
             ) : null}
           </span>
-          <span>
-            {formatPrice(x.price)}
-            {x.kind !== "now" && (
-              <span className={cn("ml-2 text-xs", x.dist > 0 ? "text-profit" : "text-loss")}>
-                {pct(x.dist)}
-                {atr ? ` · ${(Math.abs(x.price - coin.price) / atr).toFixed(1)} ranges` : ""}
-              </span>
+          <span className="grid justify-items-end">
+            <span>
+              {x.far === undefined
+                ? formatPrice(x.price)
+                : `${formatPrice(Math.min(x.price, x.far))}–${formatPrice(Math.max(x.price, x.far))}`}
+            </span>
+            {x.inside ? (
+              <span className="text-xs text-coach">price inside</span>
+            ) : (
+              x.kind !== "now" && (
+                <span className={cn("text-xs", x.dist > 0 ? "text-profit" : "text-loss")}>
+                  {pct(x.dist)}
+                  {atr ? ` · ${(Math.abs(x.price - coin.price) / atr).toFixed(1)} ranges` : ""}
+                </span>
+              )
             )}
           </span>
         </li>
