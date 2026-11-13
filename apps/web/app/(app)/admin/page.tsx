@@ -16,6 +16,47 @@ function Stat({ label, value, hint }: { label: string; value: string | number; h
   );
 }
 
+const ago = (iso: string) => {
+  const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+  return m < 60
+    ? `${m} min ago`
+    : m < 2880
+      ? `${Math.round(m / 60)} h ago`
+      : `${Math.round(m / 1440)} days ago`;
+};
+
+/** The worker's database check: green when fine, a red banner with the reason when not. */
+function DatabaseHealth({ db }: { db: AdminOverviewDto["database"] }) {
+  if (!db)
+    return (
+      <p className="rounded-[var(--radius-control)] border border-rule px-4 py-3 text-sm text-ink-muted">
+        Database check: no recent report from the worker. If this lasts, check the worker service on
+        Railway.
+      </p>
+    );
+  if (db.ok)
+    return (
+      <p className="rounded-[var(--radius-control)] border border-profit/30 bg-profit/[0.06] px-4 py-3 text-sm">
+        <span className="font-medium text-profit">Database healthy</span>
+        <span className="text-ink-muted"> · checked {ago(db.checkedAt)}</span>
+      </p>
+    );
+  return (
+    <div
+      role="alert"
+      className="rounded-[var(--radius-control)] border border-loss/40 bg-loss/[0.08] px-4 py-3 text-sm"
+    >
+      <p className="font-medium text-loss">Database problem since {ago(db.since)}</p>
+      <p className="mt-1 text-ink-muted">{db.message}</p>
+      {db.problem === "quota" && (
+        <p className="mt-1 text-ink-muted">
+          Open the Neon console, check Usage, and upgrade the plan. The worker resumes by itself.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default async function AdminOverview() {
   const o = await apiFetch<AdminOverviewDto>("/v1/admin/overview");
   const paid = o.subscriptions
@@ -25,6 +66,7 @@ export default async function AdminOverview() {
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
+      <DatabaseHealth db={o.database ?? null} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Users"

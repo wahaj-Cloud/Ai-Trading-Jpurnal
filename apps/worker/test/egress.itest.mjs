@@ -115,6 +115,9 @@ const user = await writer.user.create({
 });
 await writer.scalpAlert.deleteMany({});
 await writer.zoneAlert.deleteMany({});
+// Market desks left by other suites are read once by the alerts (macro context): not part of what
+// this hour measures, so start without them.
+await writer.marketSnapshot.deleteMany({ where: { key: { startsWith: "desk:" } } });
 await writer.scalpAlert.create({
   data: { userId: user.id, symbol: "XAUUSDT", tf: "5m", direction: "ANY", minCount: 12 },
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CardZones } from "./zones.js";
 
 /**
  * Order Flow: for the most traded futures coins, which side is pushing (aggressive buying vs
@@ -199,6 +200,8 @@ export interface OrderflowResponse extends OrderflowWindowDto {
   mine: string[];
   /** The shown coins on every window, from the scans current with this one. */
   across: OrderflowAcross;
+  /** Nearest current 1H/4H supply and demand per shown coin (coins outside the zone scan absent). */
+  zones: Record<string, CardZones>;
 }
 
 export const orderflowQuerySchema = z

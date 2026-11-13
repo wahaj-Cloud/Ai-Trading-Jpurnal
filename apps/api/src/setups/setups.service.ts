@@ -3,6 +3,7 @@ import type { Prisma } from "@atc/db";
 import { fetchBinanceRecentCandles, fetchBinanceUniverse } from "@atc/exchange-adapters";
 import {
   SETUP_RULE_VERSION,
+  SETUP_SECTORS,
   SETUP_WINDOW,
   type SetupAlertDto,
   type SetupAlertsPage,
@@ -13,6 +14,7 @@ import {
   type SetupPatch,
   type SetupPreviewDto,
   type SetupPreviewInput,
+  type SetupSector,
   type SetupsListDto,
   type SetupTimeframe,
   setupRuleSchema,
@@ -93,6 +95,9 @@ export class SetupsService {
           name: r.name,
           exchange: r.exchange as SetupExchange,
           symbols: r.symbols,
+          sectors: (r.sectors ?? []).filter((x): x is SetupSector =>
+            (SETUP_SECTORS as readonly string[]).includes(x),
+          ),
           timeframe: r.timeframe as SetupTimeframe,
           rule: rule.data,
           cooldownMinutes: r.cooldownMinutes,
@@ -153,6 +158,7 @@ export class SetupsService {
           name: input.name,
           exchange: input.exchange,
           symbols: input.symbols,
+          sectors: input.sectors,
           timeframe: input.timeframe,
           rule: input.rule,
           ruleVersion: SETUP_RULE_VERSION,
@@ -164,14 +170,19 @@ export class SetupsService {
   }
 
   async update(userId: string, id: string, patch: SetupPatch): Promise<SetupDto> {
-    await this.owned(userId, id);
+    const row = await this.owned(userId, id);
     if (patch.symbols) await this.assertSymbols(patch.symbols);
+    const symbols = patch.symbols ?? row.symbols;
+    const sectors = patch.sectors ?? row.sectors ?? [];
+    if (symbols.length + sectors.length === 0)
+      throw new BadRequestException("Pick at least one coin or sector");
     await this.prisma.client.setup.update({
       where: { id },
       data: {
         ...(patch.name !== undefined && { name: patch.name }),
         ...(patch.exchange !== undefined && { exchange: patch.exchange }),
         ...(patch.symbols !== undefined && { symbols: patch.symbols }),
+        ...(patch.sectors !== undefined && { sectors: patch.sectors }),
         ...(patch.timeframe !== undefined && { timeframe: patch.timeframe }),
         ...(patch.rule !== undefined && { rule: patch.rule, ruleVersion: SETUP_RULE_VERSION }),
         ...(patch.cooldownMinutes !== undefined && { cooldownMinutes: patch.cooldownMinutes }),

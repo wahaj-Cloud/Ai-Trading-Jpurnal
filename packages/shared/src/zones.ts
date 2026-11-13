@@ -157,6 +157,74 @@ export function zoneDistPct(price: number, z: Pick<StoredZone, "top" | "bottom">
   return ((price < z.bottom ? z.bottom : z.top) / price - 1) * 100;
 }
 
+/** The timeframes whose zones are current: a record three candles late is not shown. */
+export function currentZoneSets(
+  market: Partial<Record<ZoneTf, ZoneSet>> | null | undefined,
+  now: number,
+): Partial<Record<ZoneTf, ZoneSet>> {
+  const out: Partial<Record<ZoneTf, ZoneSet>> = {};
+  for (const tf of ZONE_TFS) {
+    const set = market?.[tf];
+    if (set && now - Date.parse(set.asOf) <= 3 * ZONE_STEP_MS[tf]) out[tf] = set;
+  }
+  return out;
+}
+
+/** A zone on a market-map card. Distances are worked out in the page from the live price. */
+export interface CardZone {
+  tf: ZoneTf;
+  top: number;
+  bottom: number;
+  fresh: boolean;
+}
+
+export interface CardZones {
+  /** Nearest 1H/4H supply at or above the price, and demand at or below it. */
+  supply: CardZone | null;
+  demand: CardZone | null;
+}
+
+/**
+ * The nearest supply above and demand below across 1H and 4H, for a market-map card. Ties on
+ * distance go to the higher timeframe.
+ */
+export function cardZones(
+  market: Partial<Record<ZoneTf, ZoneSet>> | null | undefined,
+  price: number,
+): CardZones {
+  const near = nearestCockpitZones(market ?? undefined, price, 1);
+  const pick = (side: ZoneSide): CardZone | null => {
+    const z = near
+      .filter((x) => x.side === side)
+      .sort(
+        (a, b) =>
+          Math.abs(a.distPct) - Math.abs(b.distPct) ||
+          ZONE_STEP_MS[b.tf as ZoneTf] - ZONE_STEP_MS[a.tf as ZoneTf],
+      )[0];
+    return z ? { tf: z.tf as ZoneTf, top: z.top, bottom: z.bottom, fresh: z.tests === 0 } : null;
+  };
+  return { supply: pick("supply"), demand: pick("demand") };
+}
+
+/**
+ * Of a card's two zones, the one nearer the live price, with its signed distance (+ above, −
+ * below, 0 inside). Null when neither is known.
+ */
+export function nearestCardZone(
+  zones: CardZones | undefined,
+  price: number,
+): (CardZone & { side: ZoneSide; distPct: number }) | null {
+  if (!zones || !(price > 0)) return null;
+  const both = [
+    zones.supply && { ...zones.supply, side: "supply" as const },
+    zones.demand && { ...zones.demand, side: "demand" as const },
+  ]
+    .filter((z): z is CardZone & { side: ZoneSide } => z !== null)
+    .map((z) => ({ ...z, distPct: zoneDistPct(price, z) }))
+    .sort((a, b) => Math.abs(a.distPct) - Math.abs(b.distPct));
+  return both[0] ?? null;
+}
+
 /** The nearest supply above and demand below on each timeframe (up to `perSide` each). */
 export function nearestCockpitZones(
   market: Partial<Record<ZoneTf, ZoneSet>> | undefined,

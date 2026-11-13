@@ -449,7 +449,7 @@ export function CoinDetail({
   const desk = (DESK_SYMBOLS as readonly string[]).includes(coin.symbol);
   return (
     <section
-      id="coin"
+      id="coin-flow"
       aria-label={`${coinName(coin.symbol)} order flow`}
       className="surface hud grid scroll-mt-24 gap-5 rounded-[var(--radius-surface)] p-5 ring-1 ring-coach/40 sm:p-6"
     >

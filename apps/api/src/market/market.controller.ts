@@ -1,7 +1,9 @@
 import {
   type CockpitDto,
   type CockpitQuery,
+  type CoinCandlesDto,
   cockpitQuerySchema,
+  coinCandlesSymbolSchema,
   type DeskEventDto,
   type DeskQuery,
   deskQuerySchema,
@@ -52,6 +54,7 @@ import { z } from "zod";
 import { CurrentUser, Public } from "../auth/decorators.js";
 import type { AuthenticatedUser } from "../common/request.types.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
+import { CandlesService } from "./candles.service.js";
 import { CockpitService } from "./cockpit.service.js";
 import { FlowService } from "./flow.service.js";
 import { LiveFlowService } from "./live-flow.service.js";
@@ -77,6 +80,7 @@ export class MarketController {
     private readonly orderflow: OrderflowService,
     private readonly cockpitService: CockpitService,
     private readonly live: LiveFlowService,
+    private readonly candles: CandlesService,
   ) {}
 
   /** A two-minute ticket the browser uses to open the live stream (plan included). */
@@ -204,6 +208,15 @@ export class MarketController {
     return this.market.liquidationMap(user.id, q);
   }
 
+  /** Closed 15m, 1H and 4H candles for a coin's card (shared cache; works where Binance is blocked). */
+  @Get("candles/:symbol")
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
+  coinCandles(
+    @Param("symbol", new ZodValidationPipe(coinCandlesSymbolSchema)) symbol: string,
+  ): Promise<CoinCandlesDto> {
+    return this.candles.coin(symbol);
+  }
+
   @Get("pulse/me")
   myTrades(@CurrentUser() user: AuthenticatedUser): Promise<PulseMyTradesDto> {
     return this.market.myTrades(user.id);
@@ -230,6 +243,7 @@ export class MarketController {
     PaperBotsService,
     ZoneAlertsService,
     LiveFlowService,
+    CandlesService,
   ],
 })
 export class MarketModule {}

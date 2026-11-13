@@ -71,3 +71,47 @@ export async function saveDashboardLayoutAction(layout: DashboardLayout): Promis
   revalidatePath("/dashboard");
   return { ok: true };
 }
+
+/** App preferences: start page, Order Flow timeframe, reduced motion, trading defaults. */
+export async function saveAppPrefsAction(
+  _prev: ProfileFormState,
+  formData: FormData,
+): Promise<ProfileFormState> {
+  const num = (k: string) => {
+    const v = String(formData.get(k) ?? "").replace(/[,\s$%]/g, "");
+    return v === "" ? null : Number(v);
+  };
+  const parsed = updateProfileSchema.safeParse({
+    appPrefs: {
+      startPage: formData.get("startPage") || undefined,
+      orderflowWindow: formData.get("orderflowWindow") || undefined,
+      reduceMotion: formData.get("reduceMotion") === "on",
+      accountSizeUsd: num("accountSizeUsd"),
+      riskPct: num("riskPct"),
+    },
+  });
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[1] ?? issue.path[0] ?? "form");
+      fieldErrors[key] ??=
+        key === "accountSizeUsd"
+          ? "Enter an amount above 0"
+          : key === "riskPct"
+            ? "Between 0.01% and 10%"
+            : issue.message;
+    }
+    return { status: "error", message: "Check the highlighted fields.", fieldErrors };
+  }
+  try {
+    await apiFetch<MeResponse>("/v1/me", { method: "PATCH", body: JSON.stringify(parsed.data) });
+  } catch (err) {
+    const message =
+      err instanceof ApiError && err.status < 500 && err.body?.message
+        ? err.body.message
+        : "Your changes were not saved. Try again in a moment.";
+    return { status: "error", message };
+  }
+  revalidatePath("/", "layout");
+  return { status: "saved", message: "Preferences saved." };
+}

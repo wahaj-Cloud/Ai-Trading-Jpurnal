@@ -28,6 +28,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { AuditService } from "../audit/audit.service.js";
 import { transactionAmount } from "../billing/paddle.js";
 import { ENV, type Env } from "../config/env.js";
+import { readDbHealth } from "../health/health.controller.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 const PAGE = 50;
@@ -343,6 +344,17 @@ export class AdminService {
         ),
       },
       signups: signups.map((s) => ({ date: s.day, count: Number(s.count) })),
+      database: await readDbHealth(this.prisma).then((h) =>
+        h
+          ? {
+              ok: h.ok,
+              problem: h.problem,
+              message: h.message,
+              since: h.since,
+              checkedAt: h.checkedAt,
+            }
+          : null,
+      ),
     };
   }
 

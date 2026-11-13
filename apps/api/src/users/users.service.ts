@@ -2,6 +2,7 @@ import { Prisma } from "@atc/db";
 import {
   type MeResponse,
   normalizeLayout,
+  readAppPrefs,
   resolveLimits,
   type UpdateProfileInput,
 } from "@atc/shared";
@@ -246,6 +247,7 @@ export class UsersService {
       settings: {
         pnlColorScheme: user.settings?.pnlColorScheme === "colorblind" ? "colorblind" : "standard",
         dashboardLayout: normalizeLayout(user.settings?.dashboardLayout ?? null),
+        appPrefs: readAppPrefs(user.settings?.appPrefs),
       },
       plan: {
         code: plan.code,
@@ -266,14 +268,25 @@ export class UsersService {
     input: UpdateProfileInput,
     meta: RequestMeta,
   ): Promise<MeResponse> {
-    const { pnlColorScheme, dashboardLayout, ...userFields } = input;
+    const { pnlColorScheme, dashboardLayout, appPrefs, ...userFields } = input;
     // Stored normalised, so only known widgets (each once) are ever kept.
     const layout = dashboardLayout ? normalizeLayout(dashboardLayout) : undefined;
-    const settings = {
-      ...(pnlColorScheme && { pnlColorScheme }),
-      ...(layout && { dashboardLayout: layout as unknown as Prisma.InputJsonValue }),
-    };
     await this.prisma.client.$transaction(async (tx) => {
+      // Preferences are merged with what is stored, so a form can save only its own fields.
+      const merged = appPrefs
+        ? {
+            ...readAppPrefs(
+              (await tx.userSettings.findUnique({ where: { userId }, select: { appPrefs: true } }))
+                ?.appPrefs,
+            ),
+            ...appPrefs,
+          }
+        : undefined;
+      const settings = {
+        ...(pnlColorScheme && { pnlColorScheme }),
+        ...(layout && { dashboardLayout: layout as unknown as Prisma.InputJsonValue }),
+        ...(merged && { appPrefs: merged as unknown as Prisma.InputJsonValue }),
+      };
       if (Object.keys(userFields).length > 0) {
         await tx.user.update({ where: { id: userId }, data: userFields });
       }

@@ -11,7 +11,8 @@ export function orderflowHref(
 ) {
   const p = new URLSearchParams();
   const merged = {
-    w: q.window === "1h" ? undefined : q.window,
+    // Always explicit: the page opens on the trader's own default when no timeframe is given.
+    w: q.window,
     sort: q.sort === "volume" ? undefined : q.sort,
     mx: q.mx === "all" ? undefined : q.mx,
     ...patch,

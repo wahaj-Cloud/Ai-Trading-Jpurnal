@@ -27,6 +27,7 @@ import {
   SectionHead,
   StandOuts,
 } from "./insights";
+import { MarketMap } from "./market-map";
 import {
   CoinDetail,
   CoinsTable,
@@ -35,6 +36,7 @@ import {
   TABLE_SORTS,
   type TableSort,
 } from "./views";
+import { CoinXray } from "./xray";
 
 function Chip({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
   return (
@@ -70,12 +72,15 @@ export function OrderflowBoard({
   sort,
   mx,
   selectedSymbol,
+  timeZone,
 }: {
   initial: OrderflowResponse;
   window: OrderflowWindow;
   sort: TableSort;
   mx: MatrixFilter;
   selectedSymbol: string | null;
+  /** The trader's time zone, for replay times. */
+  timeZone: string;
 }) {
   const live = useLiveView({ view: "orderflow", w: window, enabled: initial.coins.length > 0 });
   const lv = live.data;
@@ -189,6 +194,16 @@ export function OrderflowBoard({
           )}
 
           {selected && (
+            <CoinXray
+              coin={selected}
+              coins={data.coins}
+              cells={across[selected.symbol] ?? {}}
+              window={window}
+              held={mine.has(selected.symbol)}
+              closeHref={base()}
+            />
+          )}
+          {selected && (
             <CoinDetail
               coin={selected}
               window={window}
@@ -203,12 +218,43 @@ export function OrderflowBoard({
           )}
 
           <section
+            aria-labelledby="map-now"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4"
+          >
+            <SectionHead
+              id="map-now"
+              eyebrow="1 · Market map"
+              title={`The whole market · last ${label}`}
+              tells={
+                <>
+                  Each line is one coin&apos;s move since the start of the period: green lines end
+                  up, red ones down, and the blue line is the middle coin. The strip on top places
+                  every coin by its move now. Sectors on the left show which groups lead; click one
+                  to bring it forward. Below, every coin as a card, risers above the zero line and
+                  fallers below, with who is behind the move.
+                </>
+              }
+            />
+            <MarketMap
+              coins={data.coins}
+              window={window}
+              label={label}
+              asOf={data.asOf}
+              zones={data.zones ?? {}}
+              timeZone={timeZone}
+              coinHref={coinHref}
+              selected={selected?.symbol ?? null}
+              mine={mine}
+            />
+          </section>
+
+          <section
             aria-labelledby="flow-now"
             className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4"
           >
             <SectionHead
               id="flow-now"
-              eyebrow="1 · Live flow"
+              eyebrow="2 · Live flow"
               title={`Flow through now · last ${label}`}
               tells={
                 <>
@@ -238,7 +284,7 @@ export function OrderflowBoard({
           >
             <SectionHead
               id="patterns"
-              eyebrow="2 · Positions"
+              eyebrow="3 · Positions"
               title="Who is behind the moves"
               tells="Price change and open-interest change together show whether a move comes from new money (build-ups) or from traders closing (covering, unwinding). Moves backed by new money have more fuel behind them; closing moves can run out once the closing is done."
               action={
@@ -260,7 +306,7 @@ export function OrderflowBoard({
           >
             <SectionHead
               id="standouts"
-              eyebrow="3 · Stand-outs"
+              eyebrow="4 · Stand-outs"
               title={`What stands out · last ${label}`}
               tells="The extremes: where the hurry is strongest, where the most money moved, where trading is unusually busy, where price is ignoring the orders, and which side is crowded."
             />
@@ -273,7 +319,7 @@ export function OrderflowBoard({
           >
             <SectionHead
               id="matrix"
-              eyebrow="4 · Every timeframe"
+              eyebrow="5 · Every timeframe"
               title="Flow across timeframes"
               tells="Each coin's buy pressure on 5m, 15m, 30m, 1H, 4H and 1D side by side. When 5m, 15m and 1H all point the same way, short-term and hourly flow agree; when they pull apart, the quick move is going against the bigger one."
             />
@@ -293,7 +339,7 @@ export function OrderflowBoard({
           <section aria-labelledby="map" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
             <SectionHead
               id="map"
-              eyebrow="5 · Map"
+              eyebrow="6 · Positioning"
               title={`Positioning map · last ${label}`}
               tells="Every coin placed by its price change (across) and open-interest change (up). The corner a coin sits in is its pattern; the further from the centre, the stronger it is. Big bubbles are the most traded coins."
             />
@@ -308,7 +354,7 @@ export function OrderflowBoard({
           >
             <SectionHead
               id="every-coin"
-              eyebrow="6 · Every coin"
+              eyebrow="7 · Every coin"
               title="Every coin, every figure"
               tells="All the numbers in one table. Sort by what you care about; Activity is the trading pace against usual (2.5× or more is unusual), Note flags absorption."
               action={
@@ -342,7 +388,7 @@ export function OrderflowBoard({
           >
             <SectionHead
               id="glossary"
-              eyebrow="7 · Learn"
+              eyebrow="8 · Learn"
               title="What each number tells us"
               tells="What every figure on this page is, what it tells you, and where it can mislead."
             />

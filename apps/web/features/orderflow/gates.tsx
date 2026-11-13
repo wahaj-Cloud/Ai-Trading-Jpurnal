@@ -33,7 +33,7 @@ interface Props {
 const TOP = 12;
 const MAX_LINES = 70;
 
-interface Colors {
+export interface Colors {
   ink: string;
   muted: string;
   faint: string;
@@ -43,7 +43,7 @@ interface Colors {
   accent: string;
   card: string;
 }
-function readColors(el: Element): Colors {
+export function readColors(el: Element): Colors {
   const cs = getComputedStyle(el);
   const v = (n: string, d: string) => cs.getPropertyValue(n).trim() || d;
   const dark = document.documentElement.dataset.mode !== "light";
@@ -60,7 +60,7 @@ function readColors(el: Element): Colors {
 }
 
 /** Converts any CSS colour to rgba with the given alpha (canvas-safe). */
-function alpha(color: string, a: number, ctx: CanvasRenderingContext2D): string {
+export function alpha(color: string, a: number, ctx: CanvasRenderingContext2D): string {
   ctx.fillStyle = color;
   const c = ctx.fillStyle; // normalised: #rrggbb or rgba(...)
   if (c.startsWith("#")) {

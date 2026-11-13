@@ -22,6 +22,7 @@ import {
   SCALP_KEY,
   type ScalpSnapshot,
   SETUP_EXCHANGES,
+  sectorOf,
   setupRuleSchema,
   UNLIMITED,
   type UpdatePaperBot,
@@ -147,7 +148,7 @@ export class PaperBotsService {
       this.db.setup.findMany({
         where: { userId, deletedAt: null, exchange: { in: [...SETUP_EXCHANGES] } },
         orderBy: { createdAt: "asc" },
-        select: { id: true, name: true, timeframe: true, symbols: true },
+        select: { id: true, name: true, timeframe: true, symbols: true, sectors: true },
       }),
       this.live.latestTick().catch(() => null),
     ]);
@@ -163,7 +164,16 @@ export class PaperBotsService {
       .map((c) => c.symbol);
     return {
       markets,
-      setups,
+      // A sector setup offers its sector's coins among this plan's markets as well.
+      setups: setups.map(({ sectors, ...s }) => ({
+        ...s,
+        symbols: [
+          ...new Set([
+            ...s.symbols,
+            ...markets.filter((m) => (sectors ?? []).includes(sectorOf(m))),
+          ]),
+        ],
+      })),
       live: tick !== null && now - tick.at < 15_000,
       items: bots.map((b) => {
         const mine = trades.filter((t) => t.botId === b.id);
@@ -275,7 +285,10 @@ export class PaperBotsService {
         throw new BadRequestException("Paper bots run on Binance setups.");
       if (!setupRuleSchema.safeParse(setup.rule).success)
         throw new BadRequestException("This setup needs saving again before a bot can use it.");
-      if (!setup.symbols.includes(input.symbol))
+      if (
+        !setup.symbols.includes(input.symbol) &&
+        !(setup.sectors ?? []).includes(sectorOf(input.symbol))
+      )
         throw new BadRequestException("Pick one of the setup's markets.");
       setupName = setup.name;
       const { source, ...rest } = input;

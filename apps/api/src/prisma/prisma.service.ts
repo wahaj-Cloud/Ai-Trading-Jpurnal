@@ -12,7 +12,17 @@ import { ENV, type Env } from "../config/env.js";
 export class PrismaService implements OnModuleDestroy {
   readonly client: PrismaClient;
   /** Market snapshots are read from Redis first (written there by the worker): no database transfer. */
-  private readonly mirror: Redis | null = null;
+  private mirror: Redis | null = null;
+
+  /** The shared Redis connection (null in tests unless one is attached), for small status reads. */
+  get redis(): Redis | null {
+    return this.mirror;
+  }
+
+  /** Tests: attach a Redis connection for status reads. */
+  attachRedis(redis: Redis | null): void {
+    this.mirror = redis;
+  }
 
   constructor(@Inject(ENV) env: Env) {
     this.client = createPrismaClient(env.DATABASE_URL);

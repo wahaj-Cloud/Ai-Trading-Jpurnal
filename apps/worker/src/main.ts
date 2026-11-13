@@ -39,6 +39,7 @@ import { Redis } from "ioredis";
 import { processAiJob } from "./ai/process.js";
 import { queueAutoReviews, scheduleCoachNotes } from "./ai/schedule.js";
 import { processBacktest } from "./backtest/process.js";
+import { waitUntilDatabaseReady, watchDatabase } from "./db-health.js";
 import { loadEnv } from "./env.js";
 import { log } from "./logger.js";
 import { runMarketContext, runMarketHistory } from "./market/context.js";
@@ -78,6 +79,10 @@ async function main(): Promise<void> {
   // Market snapshots are also kept in Redis, where the API reads them without database transfer.
   setSnapshotMirror(redisSnapshotMirror(redis));
   const db = createPrismaClient(env.DATABASE_URL);
+  // A database that refuses connections (e.g. over its plan's allowance) is waited out, not
+  // crashed on: Railway stops restarting a service that keeps crashing.
+  await waitUntilDatabaseReady(db, redis);
+  const stopDbWatch = watchDatabase(db, redis);
   // Parsed at boot: a wrong key ring stops the deploy instead of failing every sync.
   const vault = new CredentialVault(
     await loadKeyRing({
@@ -606,6 +611,7 @@ async function main(): Promise<void> {
       setupWorker.close(),
       backtestWorker.close(),
     ]);
+    stopDbWatch();
     await Promise.allSettled([
       syncQueue.close(),
       aiQueue.close(),

@@ -1,14 +1,22 @@
 import { isValidTimeZone, localParts, startOfLocalDay } from "@atc/analytics";
 import { enterPaperTrade, planLimits } from "@atc/coach";
 import type { PrismaClient } from "@atc/db";
-import { type AdapterConfig, fetchBinanceRecentCandles } from "@atc/exchange-adapters";
+import {
+  type AdapterConfig,
+  fetchBinanceRecentCandles,
+  fetchBinanceUniverse,
+} from "@atc/exchange-adapters";
 import { type NewNotification, notify } from "@atc/notify";
 import {
   SETUP_ALERT_DISCLAIMER,
+  SETUP_SECTORS,
   SETUP_WINDOW,
   type SetupExchange,
   type SetupRule,
+  type SetupSector,
   type SetupTimeframe,
+  sectorOf,
+  sectorSymbols,
   setupRuleSchema,
 } from "@atc/shared";
 import { atr, evaluateSetupAt, SETUP_MIN_CANDLES, TIMEFRAME_MS } from "@atc/ta";
@@ -27,7 +35,49 @@ export interface ScanDeps {
   redis: Pick<Redis, "get" | "set">;
   config: AdapterConfig;
   notify: (n: NewNotification) => ReturnType<typeof notify>;
+  /** The exchange's listings with 24h traded value, for setups that watch sectors. */
+  listings?: () => Promise<ReadonlyArray<{ symbol: string; quoteVolume: number }>>;
   now?: () => number;
+}
+
+const LISTINGS_TTL_MS = 60 * 60_000;
+let listingsCache: {
+  at: number;
+  list: ReadonlyArray<{ symbol: string; quoteVolume: number }>;
+} | null = null;
+
+/** Binance listings, fetched at most hourly; the last good list is kept if a fetch fails. */
+async function cachedListings(
+  deps: ScanDeps,
+  now: number,
+): Promise<ReadonlyArray<{ symbol: string; quoteVolume: number }>> {
+  if (deps.listings) return deps.listings();
+  if (listingsCache && now - listingsCache.at < LISTINGS_TTL_MS) return listingsCache.list;
+  try {
+    const list = await fetchBinanceUniverse(deps.config.binance ?? {});
+    listingsCache = { at: now, list };
+  } catch (err) {
+    log.warn("listings for sector setups unavailable", { err });
+  }
+  return listingsCache?.list ?? [];
+}
+
+/**
+ * The coins a setup watches: its own, plus each sector's most traded coins, plus any coin a paper
+ * bot trades on it (so a bot on a quieter sector coin still gets its candles).
+ */
+export function setupMarkets(
+  s: { symbols: string[]; sectors: string[]; paperBots: Array<{ symbol: string }> },
+  listings: ReadonlyArray<{ symbol: string; quoteVolume: number }>,
+): string[] {
+  const sectors = (s.sectors ?? []).filter((x): x is SetupSector =>
+    (SETUP_SECTORS as readonly string[]).includes(x),
+  );
+  const out = new Set(s.symbols);
+  for (const sector of sectors) for (const sym of sectorSymbols(sector, listings)) out.add(sym);
+  for (const b of s.paperBots)
+    if (sectors.includes(sectorOf(b.symbol) as SetupSector)) out.add(b.symbol);
+  return [...out];
 }
 
 interface ActiveSetup {
@@ -62,6 +112,7 @@ export async function scanSetups(deps: ScanDeps): Promise<{ groups: number; aler
       name: true,
       exchange: true,
       symbols: true,
+      sectors: true,
       timeframe: true,
       rule: true,
       cooldownMinutes: true,
@@ -69,6 +120,9 @@ export async function scanSetups(deps: ScanDeps): Promise<{ groups: number; aler
       paperBots: { where: { enabled: true }, select: { id: true, symbol: true } },
     },
   });
+  const listings = setups.some((s) => (s.sectors ?? []).length > 0)
+    ? await cachedListings(deps, now)
+    : [];
   const groups = new Map<
     string,
     { exchange: SetupExchange; symbol: string; tf: SetupTimeframe; setups: ActiveSetup[] }
@@ -78,7 +132,7 @@ export async function scanSetups(deps: ScanDeps): Promise<{ groups: number; aler
     if (!rule.success || s.exchange !== "BINANCE") continue;
     const tf = s.timeframe as SetupTimeframe;
     if (!TIMEFRAME_MS[tf]) continue;
-    for (const symbol of s.symbols) {
+    for (const symbol of setupMarkets(s, listings)) {
       const bots = s.paperBots.filter((b) => b.symbol === symbol).map((b) => b.id);
       if (!s.isActive && bots.length === 0) continue;
       const key = `${s.exchange}:${symbol}:${tf}`;

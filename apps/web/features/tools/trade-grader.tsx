@@ -3,6 +3,7 @@
 import { CheckCircle2, CircleAlert, CircleX } from "lucide-react";
 import { useState } from "react";
 import { NumField, useNum } from "@/features/calculators/calculators";
+import { useTradingDefaults } from "@/features/settings/trading-defaults";
 import { cn } from "@/lib/cn";
 import { type CheckStatus, fmtPrice, gradeTradePlan } from "./grade-plan";
 
@@ -25,7 +26,7 @@ const STATUS_ICON: Record<CheckStatus, { icon: typeof CheckCircle2; cls: string 
 /** Grade a planned futures trade (rules only, runs in the browser). */
 export function TradeGrader({ compact = false }: { compact?: boolean }) {
   const [side, setSide] = useState<"LONG" | "SHORT">("LONG");
-  const balance = useNum("1000");
+  const balance = useNum(useTradingDefaults({ balance: "1000", risk: "1" }).balance);
   const entry = useNum("60000");
   const stop = useNum("59100");
   const target = useNum("62100");

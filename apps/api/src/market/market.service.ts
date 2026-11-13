@@ -387,16 +387,18 @@ export class MarketService {
       }
     }
     return {
-      marketCap: g
-        ? {
-            usd: g.totalMarketCapUsd,
-            change24hPct: change,
-            volume24hUsd: g.totalVolume24hUsd,
-            btcDominance: g.btcDominance,
-            sparkline,
-            updatedAt: g.updatedAt,
-          }
-        : null,
+      // A provider reading without the total (partial response) shows no card rather than "$NaN".
+      marketCap:
+        g && Number.isFinite(g.totalMarketCapUsd) && g.totalMarketCapUsd > 0
+          ? {
+              usd: g.totalMarketCapUsd,
+              change24hPct: change,
+              volume24hUsd: g.totalVolume24hUsd,
+              btcDominance: g.btcDominance,
+              sparkline,
+              updatedAt: g.updatedAt,
+            }
+          : null,
       fearGreed: fg ?? null,
       altcoinSeason: alt ?? null,
     };

@@ -84,9 +84,30 @@ export async function savePrefsAction(_prev: FormState, form: FormData): Promise
   const email = Object.fromEntries(
     NOTIFICATION_KIND_CODES.map((k: NotificationKind) => [k, form.get(`email-${k}`) === "on"]),
   );
+  // Pause: "keep" leaves a running pause as it is, "0" ends it, a number of hours starts one.
+  const pause = String(form.get("pause") ?? "keep");
+  const hours = Number(pause);
+  const pausedUntil =
+    pause === "keep"
+      ? (() => {
+          const cur = String(form.get("pausedUntil") ?? "");
+          return cur && Date.parse(cur) > Date.now() ? cur : null;
+        })()
+      : hours > 0
+        ? new Date(Date.now() + Math.min(hours, 24) * 3_600_000).toISOString()
+        : null;
   const parsed = notificationPrefsSchema.safeParse({
     email,
     reminderHour: Number(form.get("reminderHour")),
+    quietHours:
+      form.get("quiet") === "on"
+        ? {
+            start: Number(form.get("quietStart")),
+            end: Number(form.get("quietEnd")),
+            allowRisk: form.get("quietAllowRisk") === "on",
+          }
+        : null,
+    pausedUntil,
   });
   if (!parsed.success) return issues(parsed.error.issues);
   try {

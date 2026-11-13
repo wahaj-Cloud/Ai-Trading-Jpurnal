@@ -7,7 +7,7 @@ export const metadata = { title: "Sign in" };
 export default function SignInPage() {
   return (
     <AuthShell mode="sign-in">
-      <SignIn appearance={authAppearance} fallbackRedirectUrl="/dashboard" signUpUrl="/sign-up" />
+      <SignIn appearance={authAppearance} fallbackRedirectUrl="/start" signUpUrl="/sign-up" />
     </AuthShell>
   );
 }

@@ -124,6 +124,8 @@ export class SnapshotCache {
 
   /** Keys found in Postgres at the last check. */
   private readonly present = new Set<string>();
+  /** Downloads in flight, by "key@version". */
+  private readonly loading = new Map<string, Promise<void>>();
 
   private async fromDb(keys: readonly string[]): Promise<void> {
     const vers = await this.db.$queryRaw<Array<{ key: string; ver: string }>>`
@@ -137,17 +139,32 @@ export class SnapshotCache {
       }
     }
     const stale = keys.filter((k) => current.has(k) && this.entries.get(k)?.ver !== current.get(k));
-    if (stale.length) {
-      this.stats.misses += stale.length;
-      const rows = await this.db.$queryRaw<
-        Array<{ key: string; ver: string; data: unknown; updatedAt: Date }>
-      >`
-        SELECT key, xmin::text AS ver, data, updated_at AS "updatedAt"
-          FROM market_snapshots WHERE key = ANY(${stale}::text[])`;
-      for (const r of rows)
-        this.entries.set(r.key, { ver: r.ver, data: deepFreeze(r.data), updatedAt: r.updatedAt });
+    // Readers asking at the same moment (e.g. alerts and paper bots on one tick) share one
+    // download of a new version instead of each fetching it.
+    const joining = stale.filter((k) => this.loading.has(`${k}@${current.get(k)}`));
+    const fetch = stale.filter((k) => !joining.includes(k));
+    if (fetch.length) {
+      this.stats.misses += fetch.length;
+      const job = (async () => {
+        const rows = await this.db.$queryRaw<
+          Array<{ key: string; ver: string; data: unknown; updatedAt: Date }>
+        >`
+          SELECT key, xmin::text AS ver, data, updated_at AS "updatedAt"
+            FROM market_snapshots WHERE key = ANY(${fetch}::text[])`;
+        for (const r of rows)
+          this.entries.set(r.key, { ver: r.ver, data: deepFreeze(r.data), updatedAt: r.updatedAt });
+      })();
+      const tags = fetch.map((k) => `${k}@${current.get(k)}`);
+      for (const t of tags) this.loading.set(t, job);
+      try {
+        await job;
+      } finally {
+        for (const t of tags) this.loading.delete(t);
+      }
     }
-    this.stats.hits += keys.length - stale.length;
+    if (joining.length)
+      await Promise.all(joining.map((k) => this.loading.get(`${k}@${current.get(k)}`)));
+    this.stats.hits += keys.length - fetch.length;
   }
 }
 

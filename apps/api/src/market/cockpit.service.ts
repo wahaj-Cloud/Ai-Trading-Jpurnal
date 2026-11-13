@@ -8,6 +8,7 @@ import {
   type CockpitDto,
   type CockpitQuery,
   type CockpitTf,
+  currentZoneSets,
   DESK_SYMBOLS,
   type EntryCount,
   FLOW_SYMBOLS,
@@ -24,8 +25,6 @@ import {
   SESSIONS,
   sessionAt,
   USD_SETTLEMENT_ASSETS,
-  ZONE_STEP_MS,
-  ZONE_TFS,
   ZONES_KEY,
   type ZoneSet,
   type ZoneTf,
@@ -222,12 +221,9 @@ export class CockpitService {
     const levels = coin ? nearestLevels(coin) : { above: null, below: null };
     // 1H and 4H supply/demand zones; a record three candles late is not shown as current.
     const market = (zoneRows[0]?.m ?? null) as Partial<Record<ZoneTf, ZoneSet>> | null;
-    const freshZones: Partial<Record<ZoneTf, ZoneSet>> = {};
-    for (const tf of ZONE_TFS) {
-      const set = market?.[tf];
-      if (set && now.getTime() - Date.parse(set.asOf) <= 3 * ZONE_STEP_MS[tf]) freshZones[tf] = set;
-    }
-    const zones = coin ? nearestCockpitZones(freshZones, coin.price) : [];
+    const zones = coin
+      ? nearestCockpitZones(currentZoneSets(market, now.getTime()), coin.price)
+      : [];
 
     return {
       symbol,

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TIMEFRAMES } from "./coach.js";
+import { SETUP_SECTORS, type SetupSector } from "./market-map.js";
 
 /**
  * My Setup Alerts: a trader's own setup, saved as data (never code). The builder writes a rule,
@@ -127,23 +128,48 @@ const symbol = z
   .toUpperCase()
   .regex(/^[A-Z0-9]{2,20}USDT$/, "Use a USDT futures symbol such as BTCUSDT");
 
+const setupShape = {
+  name: z.string().trim().min(1).max(60),
+  exchange: z.enum(SETUP_EXCHANGES),
+  symbols: z
+    .array(symbol)
+    .max(10)
+    .transform((s) => [...new Set(s)]),
+  /** Whole sectors to watch: each adds its most traded coins (see `sectorSymbols`). */
+  sectors: z
+    .array(z.enum(SETUP_SECTORS))
+    .max(3)
+    .transform((s) => [...new Set(s)]),
+  timeframe: z.enum(SETUP_TIMEFRAMES),
+  rule: setupRuleSchema,
+  cooldownMinutes: z.number().int().min(0).max(1440),
+};
+
+const NOTHING_WATCHED = "Pick at least one coin or sector";
 export const setupInputSchema = z
   .object({
-    name: z.string().trim().min(1).max(60),
-    exchange: z.enum(SETUP_EXCHANGES).default("BINANCE"),
-    symbols: z
-      .array(symbol)
-      .min(1)
-      .max(10)
-      .transform((s) => [...new Set(s)]),
-    timeframe: z.enum(SETUP_TIMEFRAMES),
-    rule: setupRuleSchema,
-    cooldownMinutes: z.number().int().min(0).max(1440).default(60),
+    ...setupShape,
+    exchange: setupShape.exchange.default("BINANCE"),
+    sectors: setupShape.sectors.default([]),
+    cooldownMinutes: setupShape.cooldownMinutes.default(60),
   })
-  .strict();
+  .strict()
+  .refine((s) => s.symbols.length + s.sectors.length > 0, {
+    message: NOTHING_WATCHED,
+    path: ["symbols"],
+  });
 export type SetupInput = z.infer<typeof setupInputSchema>;
 
-export const setupPatchSchema = setupInputSchema.partial().strict();
+/** A patch; when it sets both lists it must still watch something (the service checks the rest). */
+export const setupPatchSchema = z
+  .object(setupShape)
+  .partial()
+  .strict()
+  .refine(
+    (p) =>
+      p.symbols === undefined || p.sectors === undefined || p.symbols.length + p.sectors.length > 0,
+    { message: NOTHING_WATCHED, path: ["symbols"] },
+  );
 export type SetupPatch = z.infer<typeof setupPatchSchema>;
 
 export const setupPreviewSchema = z
@@ -161,6 +187,7 @@ export interface SetupDto {
   name: string;
   exchange: SetupExchange;
   symbols: string[];
+  sectors: SetupSector[];
   timeframe: SetupTimeframe;
   rule: SetupRule;
   cooldownMinutes: number;

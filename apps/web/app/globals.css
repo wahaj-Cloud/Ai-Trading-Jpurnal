@@ -198,6 +198,16 @@ html[data-preset="lavender"] {
   }
 }
 
+/* Settings → App → Reduce motion: the same, chosen in the app (for screens without the OS switch). */
+[data-motion="reduce"] *,
+[data-motion="reduce"] *::before,
+[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 /*
  * Liquid glass panel: a blurred, saturated view of what's behind, a faint diagonal sheen, a rim
  * of light that is brightest on the top-left and bottom-right edges, and a deep soft shadow.

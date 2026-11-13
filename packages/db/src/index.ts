@@ -6,6 +6,7 @@ import { meterClient } from "./meter.js";
 export * from "../generated/prisma/client.js";
 export { egressReport, meterClient } from "./meter.js";
 export * from "./snapshots.js";
+export * from "./wait.js";
 
 export function createPrismaClient(connectionString: string): PrismaClient {
   const adapter = new PrismaPg({ connectionString });

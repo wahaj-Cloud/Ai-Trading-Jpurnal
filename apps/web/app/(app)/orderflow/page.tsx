@@ -13,6 +13,7 @@ import { OrderflowBoard } from "@/features/orderflow/live-board";
 import { TABLE_SORTS, type TableSort } from "@/features/orderflow/views";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { getMe } from "@/lib/me";
 
 export const metadata = { title: "Order Flow" };
 
@@ -29,8 +30,9 @@ const MATRIX_FILTERS = ["all", "aligned", "conflict"] as const;
  */
 export default async function OrderflowPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
+  const me = await getMe();
   const q = orderflowQuerySchema.safeParse({ window: one(raw.w) });
-  const window = q.success ? q.data.window : "1h";
+  const window = q.success && raw.w ? q.data.window : me.settings.appPrefs.orderflowWindow;
   const sortParam = one(raw.sort);
   const sort: TableSort = TABLE_SORTS.some((s) => s.id === sortParam)
     ? (sortParam as TableSort)
@@ -89,6 +91,7 @@ export default async function OrderflowPage({ searchParams }: { searchParams: Se
         sort={sort}
         mx={mx}
         selectedSymbol={selectedSymbol ?? null}
+        timeZone={me.timezone}
       />
       <p className="text-xs text-ink-faint">{ORDERFLOW_DISCLAIMER}</p>
     </div>

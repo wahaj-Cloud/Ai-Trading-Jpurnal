@@ -4,14 +4,19 @@ import {
   CONDITION_DEFAULTS,
   CONDITION_LABELS,
   describeCondition,
+  SECTOR_SETUP_MAX_COINS,
+  SECTORS,
+  SETUP_SECTORS,
   SETUP_SESSIONS,
   SETUP_TIMEFRAMES,
   type SetupCondition,
   type SetupConditionType,
   type SetupDto,
   type SetupPreviewDto,
+  type SetupSector,
   type SetupTimeframe,
   SWEEP_TARGETS,
+  sectorExamples,
 } from "@atc/shared";
 import { Eye, Plus, Save, X } from "lucide-react";
 import { type ReactNode, useRef, useState, useTransition } from "react";
@@ -353,10 +358,63 @@ function ConditionEditor({
   }
 }
 
+/**
+ * Whole sectors a setup watches (up to three), e.g. "only AI coins": each adds its most traded
+ * coins on Binance, refreshed hourly, so new listings join without editing the setup.
+ */
+function SectorPicker({
+  value,
+  onChange,
+}: {
+  value: SetupSector[];
+  onChange: (v: SetupSector[]) => void;
+}) {
+  const toggle = (s: SetupSector) =>
+    onChange(value.includes(s) ? value.filter((x) => x !== s) : [...value, s].slice(-3));
+  return (
+    <fieldset className="grid min-w-0 gap-2">
+      <legend className="text-sm font-medium">Or watch whole sectors (up to 3)</legend>
+      <p className="text-xs text-ink-faint">
+        Each sector adds its {SECTOR_SETUP_MAX_COINS} most traded coins on Binance, kept up to date
+        every hour.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {SETUP_SECTORS.map((s) => {
+          const on = value.includes(s);
+          return (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(s)}
+              title={`e.g. ${sectorExamples(s).join(", ")}`}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs transition-colors",
+                on
+                  ? "border-coach/60 bg-coach/15 text-ink"
+                  : "border-rule text-ink-muted hover:bg-hi/[0.06] hover:text-ink",
+              )}
+            >
+              {SECTORS[s]}
+            </button>
+          );
+        })}
+      </div>
+      {value.length > 0 && (
+        <p className="text-xs text-ink-muted">
+          Watching{" "}
+          {value.map((s) => `${SECTORS[s]} (${sectorExamples(s, 3).join(", ")}…)`).join(" · ")}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
 /** No-code setup builder with a live preview on recent candles. */
 export function SetupBuilder({ setup }: { setup?: SetupDto }) {
   const [name, setName] = useState(setup?.name ?? "");
   const [symbols, setSymbols] = useState(setup?.symbols.join(", ") ?? "BTCUSDT");
+  const [sectors, setSectors] = useState<SetupSector[]>(setup?.sectors ?? []);
   const [timeframe, setTimeframe] = useState<SetupTimeframe>(setup?.timeframe ?? "15m");
   const [direction, setDirection] = useState<"long" | "short">(setup?.rule.direction ?? "long");
   // Each condition gets a local key so React keeps editors stable when one is removed.
@@ -383,11 +441,15 @@ export function SetupBuilder({ setup }: { setup?: SetupDto }) {
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
   const rule = { version: 1 as const, direction, all: conditions };
+  // A sector-only setup previews on the sector's best-known coin.
+  const previewSymbol =
+    symbolList[0] ?? (sectors[0] ? `${sectorExamples(sectors[0], 1)[0]}USDT` : "");
+  const watching = symbolList.length + sectors.length > 0;
 
   const runPreview = () =>
     start(async () => {
       setMessage(null);
-      const res = await previewSetupAction({ symbol: symbolList[0] ?? "", timeframe, rule });
+      const res = await previewSetupAction({ symbol: previewSymbol, timeframe, rule });
       if (res.ok) setPreview(res.data);
       else setMessage(res.message);
     });
@@ -397,6 +459,7 @@ export function SetupBuilder({ setup }: { setup?: SetupDto }) {
       const res = await saveSetupAction(setup?.id ?? null, {
         name,
         symbols: symbolList,
+        sectors,
         timeframe,
         rule,
         cooldownMinutes: cooldown,
@@ -417,7 +480,11 @@ export function SetupBuilder({ setup }: { setup?: SetupDto }) {
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <Field label="Coins (up to 10)" htmlFor="su-symbols" hint="Binance USDT perpetuals">
+          <Field
+            label="Coins (up to 10)"
+            htmlFor="su-symbols"
+            hint={sectors.length ? "Optional with a sector" : "Binance USDT perpetuals"}
+          >
             <Input id="su-symbols" value={symbols} onChange={(e) => setSymbols(e.target.value)} />
           </Field>
           <Field label="Timeframe" htmlFor="su-tf">
@@ -444,6 +511,7 @@ export function SetupBuilder({ setup }: { setup?: SetupDto }) {
             </Select>
           </Field>
         </div>
+        <SectorPicker value={sectors} onChange={setSectors} />
       </section>
 
       <section
@@ -525,16 +593,12 @@ export function SetupBuilder({ setup }: { setup?: SetupDto }) {
               type="button"
               variant="secondary"
               onClick={runPreview}
-              disabled={pending || !symbolList.length}
+              disabled={pending || !previewSymbol}
             >
               <Eye className="h-4 w-4" aria-hidden="true" />
-              Preview on {symbolList[0] ?? "a coin"}
+              Preview on {previewSymbol || "a coin"}
             </Button>
-            <Button
-              type="button"
-              onClick={save}
-              disabled={pending || !name.trim() || !symbolList.length}
-            >
+            <Button type="button" onClick={save} disabled={pending || !name.trim() || !watching}>
               <Save className="h-4 w-4" aria-hidden="true" />
               {setup ? "Save changes" : "Save and start alerts"}
             </Button>

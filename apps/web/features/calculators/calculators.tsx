@@ -2,6 +2,7 @@
 
 import { type ReactNode, useId, useState } from "react";
 import { Field, Input, Select } from "@/components/ui/field";
+import { useTradingDefaults } from "@/features/settings/trading-defaults";
 import { cn } from "@/lib/cn";
 import {
   expectancy,
@@ -113,8 +114,9 @@ function Card({ title, blurb, children }: { title: string; blurb: string; childr
 const twoCols = "grid gap-3 sm:grid-cols-2";
 
 export function PositionSizeCalc() {
-  const balance = useNum("10000");
-  const risk = useNum("1");
+  const d = useTradingDefaults({ balance: "10000", risk: "1" });
+  const balance = useNum(d.balance);
+  const risk = useNum(d.risk);
   const entry = useNum("60000");
   const stop = useNum("59400");
   const lev = useNum("10");
@@ -312,7 +314,7 @@ export function KellyCalc() {
 export function RuinCalc() {
   const wr = useNum("50");
   const rr = useNum("1.5");
-  const risk = useNum("2");
+  const risk = useNum(useTradingDefaults({ balance: "", risk: "2" }).risk);
   const ruin = useNum("50");
   const r = riskOfRuin(wr.value, rr.value, risk.value, ruin.value);
   return (

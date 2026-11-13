@@ -2,6 +2,9 @@ import { planLimits } from "@atc/coach";
 import { snapshotsOf } from "@atc/db";
 import {
   type AcrossCell,
+  type CardZones,
+  cardZones,
+  currentZoneSets,
   isPinned,
   ORDERFLOW_WINDOWS,
   type OrderflowAcross,
@@ -16,6 +19,8 @@ import {
   type ScalpResponse,
   type ScalpSnapshot,
   UNLIMITED,
+  ZONES_KEY,
+  type ZonesSnapshot,
 } from "@atc/shared";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -62,6 +67,27 @@ export class OrderflowService {
       const w = row.key.slice("orderflow:".length) as OrderflowWindow;
       const cells = out[row.symbol];
       if (cells) cells[w] = { p: row.p, s: row.s, r: row.r } as AcrossCell;
+    }
+    return out;
+  }
+
+  /**
+   * Nearest current 1H/4H supply and demand for each coin, from the worker's zone scan (one cached
+   * snapshot read; it changes once an hour).
+   */
+  private async zones(
+    coins: ReadonlyArray<{ symbol: string; price: number }>,
+    now: number,
+  ): Promise<Record<string, CardZones>> {
+    const row = await snapshotsOf(this.prisma.client).get(ZONES_KEY);
+    const markets = (row?.data as ZonesSnapshot | undefined)?.markets;
+    if (!markets) return {};
+    const out: Record<string, CardZones> = {};
+    for (const c of coins) {
+      const sets = currentZoneSets(markets[c.symbol], now);
+      if (Object.keys(sets).length === 0) continue;
+      const z = cardZones(sets, c.price);
+      if (z.supply || z.demand) out[c.symbol] = z;
     }
     return out;
   }
@@ -126,7 +152,7 @@ export class OrderflowService {
     };
   }
 
-  async get(userId: string, q: OrderflowQuery): Promise<OrderflowResponse> {
+  async get(userId: string, q: OrderflowQuery, now = new Date()): Promise<OrderflowResponse> {
     const [limits, row, held] = await Promise.all([
       planLimits(this.prisma.client, userId),
       snapshotsOf(this.prisma.client).get(orderflowKey(q.window)),
@@ -148,6 +174,7 @@ export class OrderflowService {
         hidden: 0,
         mine: [],
         across: {},
+        zones: {},
       };
     }
     const cap = limits.marketPulseCoins ?? UNLIMITED;
@@ -156,6 +183,13 @@ export class OrderflowService {
       cap === UNLIMITED
         ? snap.coins
         : snap.coins.filter((c) => c.rank <= cap || isPinned(c.symbol));
+    const [across, zones] = await Promise.all([
+      this.across(
+        coins.map((c) => c.symbol),
+        snap.computedAt,
+      ),
+      this.zones(coins, now.getTime()),
+    ]);
     return {
       window: snap.window,
       coins,
@@ -169,10 +203,8 @@ export class OrderflowService {
       limit: cap === UNLIMITED ? null : cap,
       hidden: snap.coins.length - coins.length,
       mine: snap.coins.filter((c) => held.has(c.symbol)).map((c) => c.symbol),
-      across: await this.across(
-        coins.map((c) => c.symbol),
-        snap.computedAt,
-      ),
+      across,
+      zones,
     };
   }
 }

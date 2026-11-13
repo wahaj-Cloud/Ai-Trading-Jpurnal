@@ -4,6 +4,7 @@ import type { PaperBotsPage } from "@atc/shared";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { coinName } from "@/features/orderflow/format";
+import { useTradingDefaults } from "@/features/settings/trading-defaults";
 import { cn } from "@/lib/cn";
 import { createPaperBotAction, type PaperActionState } from "./actions";
 
@@ -50,6 +51,10 @@ function Num({
 
 /** New paper bot: on a Cockpit count of readings, or on one of the trader's saved setups. */
 export function CreateBotForm({ page }: { page: PaperBotsPage }) {
+  // Saved trading defaults (Settings), kept inside what a bot accepts.
+  const d = useTradingDefaults({ balance: "10000", risk: "1" });
+  const startRisk = Math.min(5, Math.max(0.1, Number(d.risk) || 1));
+  const startEquity = Math.min(10_000_000, Math.max(100, Number(d.balance) || 10_000));
   const [state, action, pending] = useActionState<PaperActionState, FormData>(
     createPaperBotAction,
     { status: "idle" },
@@ -218,7 +223,7 @@ export function CreateBotForm({ page }: { page: PaperBotsPage }) {
           <Num
             name="riskPct"
             label="Risk per trade"
-            defaultValue={1}
+            defaultValue={startRisk}
             min={0.1}
             max={5}
             step={0.1}
@@ -227,7 +232,7 @@ export function CreateBotForm({ page }: { page: PaperBotsPage }) {
           <Num
             name="startEquity"
             label="Virtual balance"
-            defaultValue={10000}
+            defaultValue={startEquity}
             min={100}
             max={10000000}
             step="any"

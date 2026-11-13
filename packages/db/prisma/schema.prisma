@@ -92,6 +92,8 @@ model UserSettings {
   defaultRiskPerTrade Decimal? @map("default_risk_per_trade") @db.Decimal(10, 4)
   /// Dashboard widget order and visibility: [{ id, hidden }]. Null means the default layout.
   dashboardLayout     Json?    @map("dashboard_layout")
+  /// App preferences (start page, Order Flow timeframe, reduced motion, account size, risk %).
+  appPrefs            Json     @default("{}") @map("app_prefs")
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -983,6 +985,8 @@ model Setup {
   name            String    @db.VarChar(60)
   exchange        Exchange
   symbols         String[]
+  /// Sectors watched as well as the coins (market-map sector keys, e.g. "ai").
+  sectors         String[]  @default([])
   timeframe       String    @db.VarChar(4)
   rule            Json
   ruleVersion     Int       @map("rule_version") @db.SmallInt

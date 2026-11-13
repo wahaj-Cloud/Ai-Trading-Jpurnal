@@ -10,6 +10,7 @@ import {
 import { loadCoachTrades, userTimeZone } from "@atc/coach";
 import { Prisma, type PrismaClient } from "@atc/db";
 import {
+  emailHeld,
   emailWanted,
   type GoalDto,
   type GoalMetric,
@@ -70,12 +71,16 @@ export async function notify(
   const { db } = deps;
   const settings = await db.userSettings.findUnique({
     where: { userId: n.userId },
-    select: { notificationPrefs: true },
+    select: { notificationPrefs: true, user: { select: { timezone: true } } },
   });
   const wantsEmail =
     deps.email.enabled &&
     n.allowEmail !== false &&
     emailWanted(settings?.notificationPrefs, n.kind);
+  // Quiet hours or a pause: the email waits (sent by deliverPendingEmails once they end).
+  const held =
+    wantsEmail &&
+    emailHeld(settings?.notificationPrefs, n.kind, nowOf(deps), settings?.user.timezone ?? "UTC");
   let row: NotificationRow;
   try {
     row = await db.notification.create({
@@ -93,7 +98,7 @@ export async function notify(
     if ((err as { code?: string }).code === "P2002") return null; // already notified
     throw err;
   }
-  if (wantsEmail) await deliver(deps, row);
+  if (wantsEmail && !held) await deliver(deps, row);
   return row;
 }
 
@@ -123,19 +128,47 @@ async function deliver(deps: NotifyDeps, row: NotificationRow): Promise<void> {
   }
 }
 
-/** Retries emails that failed temporarily (called on every scheduler tick). */
+/** A fresh email not yet tried is being sent inline; older untried ones were held. */
+const HELD_AFTER_MS = 2 * 60_000;
+
+/**
+ * Retries emails that failed temporarily and sends held ones whose quiet hours or pause have
+ * ended (called on every scheduler tick). Emails over a day old are not sent.
+ */
 export async function deliverPendingEmails(deps: NotifyDeps): Promise<number> {
+  const now = nowOf(deps);
   const pending = await deps.db.notification.findMany({
     where: {
       emailStatus: "PENDING",
-      createdAt: { gte: new Date(nowOf(deps).getTime() - 86_400_000) },
-      // Only rows whose first attempt already happened (new ones are sent inline).
-      emailAttempts: { gt: 0 },
+      createdAt: { gte: new Date(now.getTime() - 86_400_000) },
+      OR: [
+        { emailAttempts: { gt: 0 } },
+        { emailAttempts: 0, createdAt: { lt: new Date(now.getTime() - HELD_AFTER_MS) } },
+      ],
     },
+    orderBy: { createdAt: "asc" },
     take: 100,
   });
-  for (const row of pending) await deliver(deps, row);
-  return pending.length;
+  if (pending.length === 0) return 0;
+  const prefs = new Map(
+    (
+      await deps.db.userSettings.findMany({
+        where: { userId: { in: [...new Set(pending.map((p) => p.userId))] } },
+        select: { userId: true, notificationPrefs: true, user: { select: { timezone: true } } },
+      })
+    ).map((s) => [s.userId, s]),
+  );
+  let sent = 0;
+  for (const row of pending) {
+    const p = prefs.get(row.userId);
+    if (
+      emailHeld(p?.notificationPrefs, row.kind as NotificationKind, now, p?.user.timezone ?? "UTC")
+    )
+      continue;
+    await deliver(deps, row);
+    sent++;
+  }
+  return sent;
 }
 
 // ─── Risk ───

@@ -1,6 +1,7 @@
 // Contract between API and web. Changing a shape here is a breaking change for both apps.
 import type { DashboardLayout } from "./dashboard.js";
 import type { PlanLimits } from "./plans.js";
+import type { AppPrefs } from "./settings.js";
 
 export type PlanCode = "FREE" | "PRO" | "PREMIUM" | "ENTERPRISE";
 
@@ -20,6 +21,8 @@ export interface MeResponse {
     pnlColorScheme: "standard" | "colorblind";
     /** Complete, normalised: every widget appears exactly once. */
     dashboardLayout: DashboardLayout;
+    /** How the app behaves (start page, defaults); complete, with defaults filled in. */
+    appPrefs: AppPrefs;
   };
   plan: { code: PlanCode; name: string; limits: PlanLimits; status: string };
   onboarding: {

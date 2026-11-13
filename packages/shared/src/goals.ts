@@ -145,9 +145,67 @@ export const notificationPrefsSchema = z
       .default({}),
     /** Local hour (0-23) for the daily journal reminder. */
     reminderHour: z.number().int().min(0).max(23).default(21),
+    /**
+     * No emails between these local hours (start inclusive, end exclusive; may wrap midnight).
+     * Held emails go out when the quiet hours end. In-app notifications always appear.
+     */
+    quietHours: z
+      .object({
+        start: z.number().int().min(0).max(23),
+        end: z.number().int().min(0).max(23),
+        /** Risk warnings (daily loss limit and the like) still come through. */
+        allowRisk: z.boolean().default(true),
+      })
+      .refine((q) => q.start !== q.end, { message: "Start and end must differ" })
+      .nullable()
+      .default(null),
+    /** Emails paused until this moment (at most a day ahead); held emails go out after it. */
+    pausedUntil: z.iso.datetime().nullable().default(null),
   })
   .strict();
 export type NotificationPrefs = z.output<typeof notificationPrefsSchema>;
+
+/** Longest pause offered. Held emails older than a day are not sent at all. */
+export const MAX_EMAIL_PAUSE_MS = 24 * 3_600_000;
+
+function localHour(at: Date, timeZone: string): number {
+  try {
+    const h = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      hourCycle: "h23",
+      timeZone,
+    }).format(at);
+    return Number(h) % 24;
+  } catch {
+    return at.getUTCHours();
+  }
+}
+
+/** True when `hour` falls inside quiet hours `start`–`end` (wrapping midnight when start > end). */
+export const inQuietHours = (hour: number, start: number, end: number) =>
+  start < end ? hour >= start && hour < end : hour >= start || hour < end;
+
+/**
+ * Whether an email of this kind should wait right now (quiet hours or a pause). Risk warnings
+ * pass through quiet hours when the trader allowed it; a pause holds everything but account
+ * emails (billing, security).
+ */
+export function emailHeld(
+  prefs: unknown,
+  kind: NotificationKind,
+  at: Date,
+  timeZone: string,
+): boolean {
+  if (kind === "ACCOUNT") return false;
+  const parsed = notificationPrefsSchema.safeParse(prefs ?? {});
+  if (!parsed.success) return false;
+  const p = parsed.data;
+  if (p.pausedUntil && Date.parse(p.pausedUntil) > at.getTime()) return true;
+  const q = p.quietHours;
+  if (!q) return false;
+  if (kind === "RISK_WARNING" && q.allowRisk) return false;
+  return inQuietHours(localHour(at, timeZone), q.start, q.end);
+}
 
 /** Defaults: safety-relevant and summary emails on, daily nudges off. */
 export const DEFAULT_EMAIL_PREFS: Record<NotificationKind, boolean> = {

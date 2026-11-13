@@ -129,6 +129,28 @@ assert.equal(pb.tf, "15m");
 assert.equal(pb.setupName, "EMA climb");
 console.log("✓ a setup bot uses the trader's own setup, one of its markets and its timeframe");
 
+// A setup that watches a sector offers that sector's coins, and a bot may trade any of them.
+const sectorSetup = await db.setup.create({
+  data: {
+    userId: pro.id,
+    name: "Metals pullback",
+    exchange: "BINANCE",
+    symbols: ["BTCUSDT"],
+    sectors: ["metals"],
+    timeframe: "1h",
+    rule: setup.rule,
+    ruleVersion: 1,
+  },
+});
+const listed = (await svc.list(pro.id)).setups.find((x) => x.id === sectorSetup.id);
+assert.deepEqual(listed.symbols, ["BTCUSDT", "XAUUSDT"], "own coin, then the sector's markets");
+await assert.rejects(svc.create(pro.id, sb(sectorSetup.id, "ETHUSDT")), /setup's markets/);
+const xag = await svc.create(pro.id, sb(sectorSetup.id, "XAGUSDT"));
+assert.equal(xag.tf, "1h");
+await svc.remove(pro.id, xag.id);
+await db.setup.delete({ where: { id: sectorSetup.id } });
+console.log("✓ a sector setup's bot can trade any coin in the sector, nothing outside it");
+
 // 3. Results from stored trades: stats, balance line, breakdowns.
 const t = (h, side, pnl, r, reason) => ({
   botId: pb.id,

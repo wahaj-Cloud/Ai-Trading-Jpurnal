@@ -8,8 +8,10 @@ import { useMounted } from "@/lib/use-mounted";
 import { getMarketOverviewAction } from "./market-actions";
 
 const REFRESH_MS = 5 * 60_000;
-const usdCompact = (v: number) =>
-  `$${new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(v)}`;
+const usdCompact = (v: number | null | undefined) =>
+  typeof v === "number" && Number.isFinite(v)
+    ? `$${new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(v)}`
+    : "—";
 
 /** Fear & Greed colours, red (fear) to teal (greed). */
 const FG_STOPS = ["#ef4444", "#f59e0b", "#eab308", "#84cc16", "#2dd4bf"];

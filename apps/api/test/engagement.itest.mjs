@@ -192,6 +192,91 @@ assert.equal(email.sent.length, 0);
 assert.equal((await svc.prefs(alice.id)).reminderHour, 20);
 console.log("✓ preferences respected");
 
+// 5b. Quiet hours and pauses: the email waits (in-app shows at once) and goes out afterwards.
+{
+  await db.user.update({ where: { id: alice.id }, data: { timezone: "Asia/Karachi" } });
+  const night = new Date(Date.UTC(2026, 10, 12, 18, 30)); // 23:30 in Karachi
+  const morning = new Date(Date.UTC(2026, 10, 13, 2, 10)); // 07:10 in Karachi
+  await svc.savePrefs(
+    alice.id,
+    notificationPrefsSchema.parse({
+      email: { SETUP_ALERT: true, RISK_WARNING: true },
+      quietHours: { start: 22, end: 7, allowRisk: true },
+    }),
+  );
+  const at = (d) => ({ ...deps, now: () => d });
+  email.sent.length = 0;
+  const alert = await notify(at(night), {
+    userId: alice.id,
+    kind: "SETUP_ALERT",
+    title: "Night alert",
+    body: "b",
+    dedupeKey: "quiet:1",
+  });
+  await notify(at(night), {
+    userId: alice.id,
+    kind: "RISK_WARNING",
+    title: "Night risk",
+    body: "b",
+    dedupeKey: "quiet:2",
+  });
+  assert.deepEqual(
+    email.sent.map((m) => m.subject),
+    ["Night risk"],
+    "risk warnings come through quiet hours",
+  );
+  assert.equal(
+    (await db.notification.findUnique({ where: { id: alert.id } })).emailStatus,
+    "PENDING",
+  );
+  // Rows are created with the real clock; place the held one in the night it was sent.
+  await db.notification.update({ where: { id: alert.id }, data: { createdAt: night } });
+  await deliverPendingEmails(at(new Date(night.getTime() + 30 * 60_000)));
+  assert.equal(email.sent.length, 1, "still quiet at midnight");
+  await deliverPendingEmails(at(morning));
+  assert.ok(
+    email.sent.some((m) => m.subject === "Night alert"),
+    "sent once quiet hours end",
+  );
+  assert.equal((await db.notification.findUnique({ where: { id: alert.id } })).emailStatus, "SENT");
+
+  // A pause holds everything except account emails, until it ends.
+  await svc.savePrefs(
+    alice.id,
+    notificationPrefsSchema.parse({
+      email: { SETUP_ALERT: true },
+      pausedUntil: new Date(morning.getTime() + 3_600_000).toISOString(),
+    }),
+  );
+  email.sent.length = 0;
+  const paused = await notify(at(morning), {
+    userId: alice.id,
+    kind: "SETUP_ALERT",
+    title: "Paused alert",
+    body: "b",
+    dedupeKey: "pause:1",
+  });
+  await notify(at(morning), {
+    userId: alice.id,
+    kind: "ACCOUNT",
+    title: "Billing",
+    body: "b",
+    dedupeKey: "pause:2",
+  });
+  assert.deepEqual(
+    email.sent.map((m) => m.subject),
+    ["Billing"],
+  );
+  await db.notification.update({ where: { id: paused.id }, data: { createdAt: morning } });
+  await deliverPendingEmails(at(new Date(morning.getTime() + 3_600_001)));
+  assert.ok(email.sent.some((m) => m.subject === "Paused alert"));
+  await db.user.update({ where: { id: alice.id }, data: { timezone: "UTC" } });
+  await svc.savePrefs(alice.id, notificationPrefsSchema.parse({ reminderHour: 20 }));
+  console.log(
+    "✓ quiet hours and pauses hold emails, risk and account emails pass, sent afterwards",
+  );
+}
+
 // 6. In-app list: paging, unread count, mark read; other users see nothing.
 const page = await svc.notifications(alice.id);
 assert.ok(page.unread >= 5);

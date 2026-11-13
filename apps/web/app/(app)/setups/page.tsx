@@ -1,5 +1,6 @@
 import {
   describeCondition,
+  SECTORS,
   SETUP_ALERT_DISCLAIMER,
   type SetupAlertsPage,
   type SetupsListDto,
@@ -100,7 +101,9 @@ export default async function SetupsPage({
                     </span>
                     {!s.isActive && <span className="text-xs text-ink-faint">paused</span>}
                   </p>
-                  <p className="mt-1 text-sm text-ink-muted">{s.symbols.join(", ")}</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {[...s.symbols, ...s.sectors.map((x) => `${SECTORS[x]} coins`)].join(", ")}
+                  </p>
                   <p className="mt-1 text-xs text-ink-faint">
                     {s.rule.all.map(describeCondition).join(" · ")}
                   </p>

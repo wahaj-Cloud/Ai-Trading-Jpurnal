@@ -371,6 +371,51 @@ await scanSetups({
 assert.equal(await db.paperTrade.count({ where: { botId: sbot.id } }), 1);
 console.log("✓ setup bots enter at the matching candle's close, alerts stay off");
 
+// 10. A setup that watches a sector: the scanner checks the sector's most traded coins.
+const asked = [];
+const sectorFetch = async (input) => {
+  asked.push(new URL(String(input)).searchParams.get("symbol"));
+  return fakeFetch(input);
+};
+const metals = await db.setup.create({
+  data: {
+    userId: user.id,
+    name: "Metals climb",
+    exchange: "BINANCE",
+    symbols: [],
+    sectors: ["metals"],
+    timeframe: "1h",
+    rule: setup.rule,
+    ruleVersion: 1,
+    isActive: true,
+    cooldownMinutes: 0,
+  },
+});
+await db.setup.update({ where: { id: setup.id }, data: { deletedAt: new Date() } });
+kv.clear();
+sent.length = 0;
+const sectorRes = await scanSetups({
+  db,
+  redis: redisFake,
+  config: { binance: { fetch: sectorFetch } },
+  notify: async (n) => sent.push(n),
+  listings: async () => [
+    { symbol: "BTCUSDT", quoteVolume: 9e9 },
+    { symbol: "XAGUSDT", quoteVolume: 2e8 },
+    { symbol: "XAUUSDT", quoteVolume: 5e8 },
+  ],
+  now: () => SCAN_NOW + 60_000,
+});
+assert.ok(asked.includes("XAGUSDT") && asked.includes("XAUUSDT"), "the sector's coins are fetched");
+assert.ok(sectorRes.alerts >= 2);
+const alerted = await db.setupAlert.findMany({
+  where: { setupId: metals.id },
+  select: { symbol: true },
+});
+assert.deepEqual(alerted.map((a) => a.symbol).sort(), ["XAGUSDT", "XAUUSDT"]);
+assert.equal(sent.filter((n) => n.title.includes("Metals climb")).length, 2);
+console.log("✓ a sector setup scans and alerts on the sector's coins");
+
 if (process.env.DUMP_PAPER)
   writeFileSync(
     process.env.DUMP_PAPER,

@@ -169,6 +169,7 @@ const fetchFn = async (input) => {
 };
 
 await db.$executeRawUnsafe("TRUNCATE users CASCADE");
+
 await db.marketSnapshot.deleteMany({
   where: { OR: [{ key: { startsWith: "orderflow:" } }, { key: "scalp:latest" }] },
 });
@@ -532,6 +533,88 @@ assert.ok(
   "a 30-minute-old scan is left out of the matrix",
 );
 console.log("✓ a failed scan leaves the last good figures; stale 4H/1D are not shown as current");
+
+// Zones on the market-map cards: the nearest current 1H/4H supply at/above and demand at/below the
+// scanned price, worked out here independently; a 4H record three candles late is left out.
+{
+  const of1h = (await db.marketSnapshot.findUnique({ where: { key: "orderflow:1h" } })).data;
+  const coinOf = (s) => of1h.coins.find((c) => c.symbol === s);
+  const btc = coinOf("BTCUSDT").price;
+  const xau = coinOf("XAUUSDT").price;
+  const fresh1h = new Date(NOW - 20 * M1).toISOString();
+  const fresh4h = new Date(NOW - 3 * 3_600_000).toISOString();
+  const stale4h = new Date(NOW - 13 * 3_600_000).toISOString();
+  const zone = (side, lo, hi, tests = 0, t = 1) => ({
+    side,
+    bottom: lo,
+    top: hi,
+    tests,
+    t,
+  });
+  const markets = {
+    BTCUSDT: {
+      "1h": {
+        asOf: fresh1h,
+        zones: [
+          zone("supply", btc * 1.02, btc * 1.03, 1, 1),
+          zone("demand", btc * 0.97, btc * 0.98, 0, 2),
+          zone("supply", btc * 0.9, btc * 0.91, 0, 3), // below price: not supply above
+        ],
+      },
+      "4h": {
+        asOf: fresh4h,
+        zones: [
+          zone("supply", btc * 1.01, btc * 1.015, 0, 4),
+          zone("demand", btc * 0.995, btc * 1.001, 2, 5), // price inside
+        ],
+      },
+    },
+    XAUUSDT: {
+      "1h": { asOf: fresh1h, zones: [zone("supply", xau * 1.004, xau * 1.006, 0, 6)] },
+      "4h": { asOf: stale4h, zones: [zone("demand", xau * 0.999, xau * 0.9995, 0, 7)] },
+    },
+  };
+  await db.marketSnapshot.upsert({
+    where: { key: "zones:latest" },
+    create: {
+      key: "zones:latest",
+      updatedAt: new Date(),
+      data: { computedAt: new Date(NOW).toISOString(), markets },
+    },
+    update: { updatedAt: new Date(), data: { computedAt: new Date(NOW).toISOString(), markets } },
+  });
+  const withZones = await svc.get(pro.id, { window: "1h" }, new Date(NOW));
+  const near = (sets, price, side) => {
+    let best = null;
+    for (const [tf, set] of Object.entries(sets)) {
+      for (const z of set.zones) {
+        if (z.side !== side) continue;
+        if (side === "supply" ? z.top < price : z.bottom > price) continue;
+        const d =
+          price >= z.bottom && price <= z.top
+            ? 0
+            : Math.abs(((price < z.bottom ? z.bottom : z.top) / price - 1) * 100);
+        const rank = tf === "4h" ? 1 : 0;
+        if (!best || d < best.d - 1e-12 || (Math.abs(d - best.d) < 1e-12 && rank > best.rank))
+          best = { d, rank, z: { tf, top: z.top, bottom: z.bottom, fresh: z.tests === 0 } };
+      }
+    }
+    return best?.z ?? null;
+  };
+  assert.deepEqual(withZones.zones.BTCUSDT, {
+    supply: near(markets.BTCUSDT, btc, "supply"),
+    demand: near(markets.BTCUSDT, btc, "demand"),
+  });
+  assert.equal(withZones.zones.BTCUSDT.demand.tf, "4h", "price inside the 4H demand");
+  assert.equal(withZones.zones.BTCUSDT.supply.tf, "4h");
+  assert.deepEqual(withZones.zones.XAUUSDT, {
+    supply: near({ "1h": markets.XAUUSDT["1h"] }, xau, "supply"),
+    demand: null,
+  });
+  assert.equal(Object.keys(withZones.zones).length, 2, "coins outside the zone scan are absent");
+  await db.marketSnapshot.delete({ where: { key: "zones:latest" } });
+  console.log("✓ market-map cards carry the nearest current 1H/4H zones; stale records left out");
+}
 
 await db.marketSnapshot.deleteMany({
   where: { OR: [{ key: { startsWith: "orderflow:" } }, { key: "scalp:latest" }] },

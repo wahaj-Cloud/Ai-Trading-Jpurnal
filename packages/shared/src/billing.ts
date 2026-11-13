@@ -100,6 +100,8 @@ export interface AdminOverviewDto {
     tokensThisMonth: number;
   };
   signups: { date: string; count: number }[];
+  /** The worker's last database check (null: no recent check, e.g. the worker is down). */
+  database: AdminDbHealthDto | null;
 }
 
 export interface AdminUserRowDto {
@@ -320,3 +322,20 @@ export const adminPlanUpdateSchema = z
 export type AdminPlanUpdate = z.infer<typeof adminPlanUpdateSchema>;
 
 export const adminFoundingSchema = z.object({ foundingMember: z.boolean() }).strict();
+
+/** Public service status (shown on the app's error page). */
+export interface ServiceStatusDto {
+  database: "ok" | "down";
+  /** When the outage began, when known (ISO). */
+  since: string | null;
+  checkedAt: string;
+}
+
+/** The worker's last database check, for admins. */
+export interface AdminDbHealthDto {
+  ok: boolean;
+  problem: "quota" | "unreachable" | "auth" | "schema" | "other" | null;
+  message: string | null;
+  since: string;
+  checkedAt: string;
+}
